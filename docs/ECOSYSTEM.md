@@ -13,7 +13,7 @@ following in mind:
   must be verified against `src/routes/xtream/` in that repo — this app's
   Retrofit models (`data/XtreamModels.kt`) mirror those shapes and will drift
   silently if the server changes without a corresponding update here.
-- **`portalcast-ui`** (`F:\Projects\stalker-ui`) — the browser-only web UI (React)
+- **`portalcast-webui`** (`F:\Projects\stalker-ui`) — the browser-only web UI (React)
   for the same backend. Explicitly *not* reused for TV: it was tried on a
   Hisense Android TV via browser and found unintuitive for remote-control
   navigation. Do not port its components here; TV needs purpose-built
