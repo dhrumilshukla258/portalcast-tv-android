@@ -6,14 +6,14 @@ following in mind:
 
 ## Sibling projects
 
-- **`portalcast-server`** (`F:\Projects\stalker-m3u-server`) — the backend.
+- **`portalcast-server`** (`F:\Projects\portalcast-server`) — the backend.
   Node/TypeScript, Sequelize/SQLite. Exposes the Xtream Codes API emulation
   (`player_api.php`, `/live/`, `/movie/`, `/series/`) that this app talks to.
   Any change to request/response shapes for login, categories, streams, or EPG
   must be verified against `src/routes/xtream/` in that repo — this app's
   Retrofit models (`data/XtreamModels.kt`) mirror those shapes and will drift
   silently if the server changes without a corresponding update here.
-- **`portalcast-webui`** (`F:\Projects\stalker-ui`) — the browser-only web UI (React)
+- **`portalcast-webui`** (`F:\Projects\portalcast-webui`) — the browser-only web UI (React)
   for the same backend. Explicitly *not* reused for TV: it was tried on a
   Hisense Android TV via browser and found unintuitive for remote-control
   navigation. Do not port its components here; TV needs purpose-built
