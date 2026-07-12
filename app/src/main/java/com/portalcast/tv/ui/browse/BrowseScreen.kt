@@ -1,4 +1,4 @@
-package com.stalker.tv.ui.browse
+package com.portalcast.tv.ui.browse
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -12,10 +12,10 @@ import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Tab
 import androidx.tv.material3.TabRow
 import androidx.tv.material3.Text
-import com.stalker.tv.data.Category
-import com.stalker.tv.data.LiveStream
-import com.stalker.tv.data.Series
-import com.stalker.tv.data.VodStream
+import com.portalcast.tv.data.Category
+import com.portalcast.tv.data.LiveStream
+import com.portalcast.tv.data.Series
+import com.portalcast.tv.data.VodStream
 
 enum class ContentTab(val label: String) { LIVE("Live TV"), MOVIES("Movies"), SERIES("Series") }
 

@@ -5,7 +5,7 @@ Guidance for Claude Code when working in this repository.
 ## What this is
 
 Native Android TV app (Kotlin, Jetpack Compose for TV, Media3/ExoPlayer) that
-connects to a stalker-m3u-server instance via its Xtream Codes API emulation.
+connects to a portalcast-server instance via its Xtream Codes API emulation.
 
 See [docs/ECOSYSTEM.md](docs/ECOSYSTEM.md) for how this project relates to the
 backend and other planned platform clients — read it before assuming this app
@@ -14,8 +14,8 @@ should share code/UI with the web app or other native clients.
 ## Structure
 
 - `data/XtreamApi.kt` — Retrofit interface for `player_api.php` actions
-- `data/XtreamModels.kt` — response models; must mirror `stalker-m3u-server`'s
-  `src/routes/xtream.ts` field shapes
+- `data/XtreamModels.kt` — response models; must mirror `portalcast-server`'s
+  `src/routes/xtream/` field shapes
 - `data/CredentialStore.kt` — DataStore-backed credential persistence, auto-login
 - `ui/login`, `ui/browse`, `ui/player` — Compose screens
 - `AppViewModel.kt` — screen state machine (Login → Browse → Player) and data loading

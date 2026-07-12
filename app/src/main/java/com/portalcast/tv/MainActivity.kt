@@ -1,4 +1,4 @@
-package com.stalker.tv
+package com.portalcast.tv
 
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -8,9 +8,9 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.collectAsState
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Surface
-import com.stalker.tv.ui.browse.BrowseScreen
-import com.stalker.tv.ui.login.LoginScreen
-import com.stalker.tv.ui.player.PlayerScreen
+import com.portalcast.tv.ui.browse.BrowseScreen
+import com.portalcast.tv.ui.login.LoginScreen
+import com.portalcast.tv.ui.player.PlayerScreen
 
 class MainActivity : ComponentActivity() {
     private val viewModel: AppViewModel by viewModels()

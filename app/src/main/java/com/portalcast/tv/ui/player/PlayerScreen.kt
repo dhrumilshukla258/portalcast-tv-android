@@ -1,4 +1,4 @@
-package com.stalker.tv.ui.player
+package com.portalcast.tv.ui.player
 
 import android.net.Uri
 import androidx.compose.foundation.layout.fillMaxSize

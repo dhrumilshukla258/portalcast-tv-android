@@ -1,6 +1,6 @@
-# StalkerTV (Android TV)
+# PortalcastTV (Android TV)
 
-Native Kotlin/Compose-for-TV app that connects to a stalker-m3u-server instance
+Native Kotlin/Compose-for-TV app that connects to a portalcast-server instance
 via its Xtream Codes API emulation (`player_api.php`).
 
 ## Status

@@ -1,4 +1,4 @@
-package com.stalker.tv.data
+package com.portalcast.tv.data
 
 import android.content.Context
 import androidx.datastore.preferences.core.edit

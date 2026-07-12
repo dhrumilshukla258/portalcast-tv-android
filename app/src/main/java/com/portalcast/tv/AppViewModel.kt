@@ -1,17 +1,17 @@
-package com.stalker.tv
+package com.portalcast.tv
 
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import com.stalker.tv.data.ApiClient
-import com.stalker.tv.data.Credentials
-import com.stalker.tv.data.CredentialStore
-import com.stalker.tv.data.LiveStream
-import com.stalker.tv.data.Series
-import com.stalker.tv.data.VodStream
-import com.stalker.tv.data.XtreamApi
-import com.stalker.tv.ui.browse.CategoryRow
-import com.stalker.tv.ui.browse.ContentTab
+import com.portalcast.tv.data.ApiClient
+import com.portalcast.tv.data.Credentials
+import com.portalcast.tv.data.CredentialStore
+import com.portalcast.tv.data.LiveStream
+import com.portalcast.tv.data.Series
+import com.portalcast.tv.data.VodStream
+import com.portalcast.tv.data.XtreamApi
+import com.portalcast.tv.ui.browse.CategoryRow
+import com.portalcast.tv.ui.browse.ContentTab
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch

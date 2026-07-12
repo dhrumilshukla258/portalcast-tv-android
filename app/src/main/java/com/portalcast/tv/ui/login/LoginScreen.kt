@@ -1,4 +1,4 @@
-package com.stalker.tv.ui.login
+package com.portalcast.tv.ui.login
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.runtime.*
@@ -28,7 +28,7 @@ fun LoginScreen(
             modifier = Modifier.width(420.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Text(text = "StalkerTV", style = MaterialTheme.typography.headlineLarge)
+            Text(text = "PortalcastTV", style = MaterialTheme.typography.headlineLarge)
             Spacer(Modifier.height(24.dp))
 
             TvTextField(value = serverUrl, label = "Server URL", onValueChange = { serverUrl = it })

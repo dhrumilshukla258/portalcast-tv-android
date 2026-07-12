@@ -1,4 +1,4 @@
-package com.stalker.tv.data
+package com.portalcast.tv.data
 
 import com.squareup.moshi.Moshi
 import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory

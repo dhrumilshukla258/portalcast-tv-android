@@ -1,19 +1,19 @@
 # Ecosystem
 
-`stalker-tv-android` is the Android TV client. It does not stand alone — it's one
+`portalcast-tv-android` is the Android TV client. It does not stand alone — it's one
 of several projects that make up the same product. When working here, keep the
 following in mind:
 
 ## Sibling projects
 
-- **`stalker-m3u-server`** (`F:\Projects\stalker-m3u-server`) — the backend.
+- **`portalcast-server`** (`F:\Projects\stalker-m3u-server`) — the backend.
   Node/TypeScript, Sequelize/SQLite. Exposes the Xtream Codes API emulation
   (`player_api.php`, `/live/`, `/movie/`, `/series/`) that this app talks to.
   Any change to request/response shapes for login, categories, streams, or EPG
-  must be verified against `src/routes/xtream.ts` in that repo — this app's
+  must be verified against `src/routes/xtream/` in that repo — this app's
   Retrofit models (`data/XtreamModels.kt`) mirror those shapes and will drift
   silently if the server changes without a corresponding update here.
-- **`stalker-ui`** (`F:\Projects\stalker-ui`) — the browser-only web UI (React)
+- **`portalcast-ui`** (`F:\Projects\stalker-ui`) — the browser-only web UI (React)
   for the same backend. Explicitly *not* reused for TV: it was tried on a
   Hisense Android TV via browser and found unintuitive for remote-control
   navigation. Do not port its components here; TV needs purpose-built
@@ -43,7 +43,7 @@ and Compose Multiplatform's tvOS support is weak anyway.
 - Native per-platform over cross-platform frameworks (KMP, React Native,
   Flutter) — deliberate choice given the app's logic is thin (fetch, list,
   play) and platform-idiomatic UI/performance mattered more than shared code.
-- The backend (`stalker-m3u-server`) stays TypeScript/Node — it's I/O-bound,
+- The backend (`portalcast-server`) stays TypeScript/Node — it's I/O-bound,
   not CPU-bound, so a C++ rewrite was considered and rejected.
 - Repos are split per platform, not a monorepo — different build toolchains
   (Gradle vs Xcode vs BrightScript) and independent app-store release cycles

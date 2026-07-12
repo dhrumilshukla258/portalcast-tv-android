@@ -1,4 +1,4 @@
-package com.stalker.tv.data
+package com.portalcast.tv.data
 
 import retrofit2.http.GET
 import retrofit2.http.Query

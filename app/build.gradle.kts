@@ -4,11 +4,11 @@ plugins {
 }
 
 android {
-    namespace = "com.stalker.tv"
+    namespace = "com.portalcast.tv"
     compileSdk = 34
 
     defaultConfig {
-        applicationId = "com.stalker.tv"
+        applicationId = "com.portalcast.tv"
         minSdk = 21
         targetSdk = 34
         versionCode = 1
