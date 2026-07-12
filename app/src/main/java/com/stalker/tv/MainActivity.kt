@@ -23,7 +23,10 @@ class MainActivity : ComponentActivity() {
                     val screen by viewModel.screen.collectAsState()
                     val isLoading by viewModel.isLoading.collectAsState()
                     val error by viewModel.error.collectAsState()
-                    val rows by viewModel.rows.collectAsState()
+                    val selectedTab by viewModel.selectedTab.collectAsState()
+                    val liveRows by viewModel.liveRows.collectAsState()
+                    val vodRows by viewModel.vodRows.collectAsState()
+                    val seriesRows by viewModel.seriesRows.collectAsState()
 
                     when (val s = screen) {
                         is Screen.Login -> LoginScreen(
@@ -32,9 +35,15 @@ class MainActivity : ComponentActivity() {
                             onSubmit = { url, user, pass -> viewModel.login(url, user, pass) }
                         )
                         is Screen.Browse -> BrowseScreen(
-                            rows = rows,
+                            selectedTab = selectedTab,
+                            onTabSelected = { viewModel.selectTab(it) },
+                            liveRows = liveRows,
+                            vodRows = vodRows,
+                            seriesRows = seriesRows,
                             isLoading = isLoading,
-                            onChannelSelected = { viewModel.playChannel(it) }
+                            onChannelSelected = { viewModel.playChannel(it) },
+                            onMovieSelected = { viewModel.playVod(it) },
+                            onSeriesSelected = { /* episode picker not yet implemented */ }
                         )
                         is Screen.Player -> PlayerScreen(streamUrl = s.url)
                     }

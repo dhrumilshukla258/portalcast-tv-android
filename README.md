@@ -4,8 +4,8 @@ Native Kotlin/Compose-for-TV app that connects to a stalker-m3u-server instance
 via its Xtream Codes API emulation (`player_api.php`).
 
 ## Status
-First working slice: login → live channel categories/rows → ExoPlayer HLS playback.
-Not yet done: VOD/series, EPG grid, favorites, search.
+Login → tabbed browse (Live / Movies / Series categories & rows) → ExoPlayer playback for live channels and movies.
+Not yet done: series episode picker (`get_series_info`), EPG grid, favorites, search.
 
 ## Requirements
 - Android Studio (Koala+) with JDK 17 bundled

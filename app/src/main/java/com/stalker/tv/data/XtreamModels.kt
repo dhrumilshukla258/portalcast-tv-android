@@ -28,3 +28,20 @@ data class LiveStream(
     @Json(name = "stream_icon") val streamIcon: String?,
     @Json(name = "category_id") val categoryId: String?
 )
+
+@JsonClass(generateAdapter = true)
+data class VodStream(
+    @Json(name = "stream_id") val streamId: Int,
+    @Json(name = "name") val name: String,
+    @Json(name = "stream_icon") val streamIcon: String?,
+    @Json(name = "container_extension") val containerExtension: String?,
+    @Json(name = "category_id") val categoryId: String?
+)
+
+@JsonClass(generateAdapter = true)
+data class Series(
+    @Json(name = "series_id") val seriesId: Int,
+    @Json(name = "name") val name: String,
+    @Json(name = "cover") val cover: String?,
+    @Json(name = "category_id") val categoryId: String?
+)
