@@ -1,0 +1,3 @@
+<resources>
+    <style name="Theme.StalkerTV" parent="android:Theme.DeviceDefault.NoActionBar" />
+</resources>
