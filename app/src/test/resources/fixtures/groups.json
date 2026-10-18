@@ -1,0 +1,8 @@
+[
+  { "id": "*", "title": "All" },
+  { "id": "0", "title": "ALL", "number": 0 },
+  { "id": "5", "title": "all" },
+  { "id": "7", "title": "News", "number": 1, "alias": "news", "censored": 0 },
+  { "id": 8, "title": "Sports", "number": "2" },
+  { "id": "vcat_12", "title": "Kids (virtual)" }
+]

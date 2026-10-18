@@ -1,16 +1,22 @@
 package com.portalcast.tv.data.model
 
 import com.portalcast.tv.data.net.LenientInt
+import kotlinx.serialization.EncodeDefault
+import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.Serializable
 
 // ---- requests ---------------------------------------------------------------
 
+@OptIn(ExperimentalSerializationApi::class)
 @Serializable
 data class LoginRequest(
     val email: String,
     val password: String,
-    /** Always "tv": that is what gives the 180-day refresh token (contract §2.4). */
-    val clientType: String = "tv",
+    /**
+     * Always "tv": that is what gives the 180-day refresh token (contract §2.4).
+     * [EncodeDefault] because AppJson has `encodeDefaults = false`, which would drop it.
+     */
+    @EncodeDefault val clientType: String = "tv",
 )
 
 @Serializable

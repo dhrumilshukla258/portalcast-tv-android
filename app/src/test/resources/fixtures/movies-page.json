@@ -1,0 +1,45 @@
+{
+  "success": true,
+  "page": 2,
+  "pageAtaTime": 1,
+  "total_items": 40,
+  "actual_length": 14,
+  "total_loaded": 2,
+  "data": [
+    {
+      "id": "55",
+      "stream_id": 55,
+      "name": "The Film",
+      "screenshot_uri": "/images/55.jpg",
+      "year": "2019",
+      "rating": "7.1",
+      "rating_imdb": "7.4",
+      "added": "2026-10-01 12:00:00",
+      "category_id": "1",
+      "description": "A film about things.",
+      "actors": "A Actor, B Actor",
+      "director": "C Director",
+      "genres_str": "Action, Drama",
+      "country": "US",
+      "duration": "01:32:00",
+      "backdrop_path": "https://image.tmdb.org/t/p/w780/bd.jpg",
+      "trailer_key": "abc123",
+      "cmd": "ffmpeg http://upstream.example/movie/user/pass/55.mkv",
+      "stream_icon": "http://upstream.example/icon.png"
+    },
+    {
+      "id": "56",
+      "stream_id": 56,
+      "name": "Other Film",
+      "screenshot_uri": "/images/56.jpg",
+      "year": 2021,
+      "rating_imdb": "-",
+      "category_id": 1,
+      "description": "No description available",
+      "genres_str": "-",
+      "cmd": "ffmpeg http://upstream.example/movie/user/pass/56.mp4"
+    }
+  ],
+  "errors": false,
+  "isPortal": false
+}

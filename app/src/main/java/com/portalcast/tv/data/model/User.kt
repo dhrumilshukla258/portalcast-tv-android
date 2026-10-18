@@ -5,6 +5,8 @@ import com.portalcast.tv.data.net.LenientBool
 import com.portalcast.tv.data.net.LenientDouble
 import com.portalcast.tv.data.net.LenientInt
 import com.portalcast.tv.data.net.LenientStr
+import kotlinx.serialization.EncodeDefault
+import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.JsonObject
@@ -45,14 +47,19 @@ data class PreferencesResponse(
     val preferences: Preferences? = null,
 )
 
-/** One row of `GET /api/user/progress`; also the body of `PUT /api/user/progress`. */
+/**
+ * One row of `GET /api/user/progress`; also the body of `PUT /api/user/progress`.
+ * `progress`/`completed`/`meta` carry [EncodeDefault] so a PUT always sends all four
+ * contract fields even at their defaults (AppJson has `encodeDefaults = false`).
+ */
+@OptIn(ExperimentalSerializationApi::class)
 @Serializable
 data class ProgressRecord(
     val mediaId: LenientStr,
     /** Seconds. */
-    val progress: LenientDouble = 0.0,
-    val completed: LenientBool = false,
-    val meta: JsonObject = JsonObject(emptyMap()),
+    @EncodeDefault val progress: LenientDouble = 0.0,
+    @EncodeDefault val completed: LenientBool = false,
+    @EncodeDefault val meta: JsonObject = JsonObject(emptyMap()),
     val updatedAt: String? = null,
 ) {
     val parsedMeta: ProgressMeta? get() = runCatching { AppJson.decodeFromJsonElement(ProgressMeta.serializer(), meta) }.getOrNull()

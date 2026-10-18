@@ -2,7 +2,7 @@ package com.portalcast.tv.data.net
 
 import com.portalcast.tv.data.model.RefreshRequest
 import com.portalcast.tv.data.model.RefreshResponse
-import com.portalcast.tv.data.store.SessionStore
+import com.portalcast.tv.data.store.SessionSource
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.encodeToString
 import okhttp3.MediaType.Companion.toMediaType
@@ -22,7 +22,7 @@ import java.io.IOException
  * caller fails just this request.
  */
 class TokenRefresher(
-    private val sessionStore: SessionStore,
+    private val sessionStore: SessionSource,
     private val bareClient: OkHttpClient,
 ) {
     private val lock = Any()

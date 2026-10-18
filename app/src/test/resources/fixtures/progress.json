@@ -1,0 +1,41 @@
+[
+  {
+    "mediaId": "m1",
+    "progress": 600,
+    "completed": false,
+    "updatedAt": "2026-10-18T10:00:00.000Z",
+    "meta": {
+      "id": "m1", "playbackFileId": "m1", "mediaId": "m1", "itemId": "m1", "categoryId": "1",
+      "type": "movie", "title": "Film One", "currentTime": 600, "duration": 6000, "progressPercent": 10,
+      "timestamp": 3000, "name": "Film One", "episodeTitle": "", "screenshot_uri": "/images/m1.jpg",
+      "is_series": 0, "cmd": "", "catalogId": "movie_m1"
+    }
+  },
+  {
+    "mediaId": "e1",
+    "progress": 120,
+    "completed": false,
+    "meta": {
+      "id": "s1", "playbackFileId": "e1", "mediaId": "e1", "itemId": "s1", "seasonId": "sea1", "categoryId": "3",
+      "type": "series", "title": "The Show", "currentTime": 120, "duration": 2400, "progressPercent": 5,
+      "timestamp": 5000, "name": "The Show", "episodeTitle": "Second", "screenshot_uri": "/images/77.jpg",
+      "is_series": 1, "cmd": "", "series_number": 1, "catalogId": "series_s1"
+    }
+  },
+  {
+    "mediaId": "s1",
+    "progress": 120,
+    "completed": false,
+    "meta": {
+      "id": "s1", "playbackFileId": "e1", "mediaId": "e1", "itemId": "s1", "seasonId": "sea1", "categoryId": "3",
+      "type": "series", "title": "The Show", "currentTime": 120, "duration": 2400, "progressPercent": 5,
+      "timestamp": 5000, "name": "The Show", "episodeTitle": "Second", "screenshot_uri": "/images/77.jpg",
+      "is_series": 1, "cmd": "", "series_number": 1, "catalogId": "series_s1"
+    }
+  },
+  { "mediaId": "c9", "progress": 0, "completed": false, "meta": { "type": "tv", "timestamp": 9000 } },
+  { "mediaId": "m2", "progress": 5000, "completed": true, "meta": { "mediaId": "m2", "itemId": "m2", "type": "movie", "timestamp": 8000 } },
+  { "mediaId": "m4file", "progress": 300, "completed": false, "meta": { "id": "m4", "mediaId": "m4file", "itemId": "m4", "type": "movie", "timestamp": 7000 } },
+  { "mediaId": "m4", "progress": 5000, "completed": true, "meta": { "mediaId": "m4", "itemId": "m4", "type": "movie", "timestamp": 7500 } },
+  { "mediaId": "m5", "progress": "44.5", "completed": 0, "meta": {} }
+]

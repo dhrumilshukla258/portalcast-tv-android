@@ -1,0 +1,10 @@
+{
+  "timestamp": "2026-10-18T10:00:00Z",
+  "data": {
+    "101": [
+      { "start_timestamp": "1760781600", "stop_timestamp": "1760785200", "name": "News", "description": "Headlines" },
+      { "start_timestamp": "1760785200", "stop_timestamp": "1760788800", "name": "Weather" }
+    ],
+    "102": []
+  }
+}

@@ -1,0 +1,6 @@
+{
+  "deviceCode": "0b4e3c1a-6f1d-4a4e-9d4b-2f1c6a0d9e77",
+  "userCode": "ABC-DEF",
+  "verificationUrl": "http://192.168.1.10:3000/#/verify?code=ABC-DEF",
+  "expiresIn": 300
+}

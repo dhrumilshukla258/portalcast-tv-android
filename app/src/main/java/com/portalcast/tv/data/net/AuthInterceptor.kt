@@ -1,6 +1,6 @@
 package com.portalcast.tv.data.net
 
-import com.portalcast.tv.data.store.SessionStore
+import com.portalcast.tv.data.store.SessionSource
 import com.portalcast.tv.util.Jwt
 import okhttp3.Interceptor
 import okhttp3.Response
@@ -12,7 +12,7 @@ import okhttp3.Response
  * Reactive refresh on an actual 401 lives in [TokenAuthenticator].
  */
 class AuthInterceptor(
-    private val sessionStore: SessionStore,
+    private val sessionStore: SessionSource,
     private val refresher: TokenRefresher,
 ) : Interceptor {
 

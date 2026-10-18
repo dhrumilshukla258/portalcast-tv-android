@@ -1,0 +1,32 @@
+{
+  "success": true,
+  "page": 1,
+  "pageAtaTime": 1,
+  "total_items": 2,
+  "actual_length": 14,
+  "total_loaded": 2,
+  "data": [
+    {
+      "id": "ep1",
+      "name": "Pilot",
+      "series_number": 1,
+      "episode_num": 1,
+      "time": "42",
+      "description": "It begins.",
+      "screenshot_uri": "/images/ep1.jpg",
+      "is_episode": 1,
+      "cmd": "ffmpeg http://upstream.example/series/user/pass/ep1.mkv"
+    },
+    {
+      "id": "ep2",
+      "name": "Second",
+      "series_number": "1",
+      "episode_num": "2",
+      "time": 44,
+      "is_episode": 1,
+      "cmd": "ffmpeg http://upstream.example/series/user/pass/ep2.mkv"
+    }
+  ],
+  "errors": false,
+  "isPortal": false
+}

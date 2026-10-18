@@ -1,0 +1,6 @@
+{
+  "status": "authorized",
+  "accessToken": "access-paired",
+  "refreshToken": "refresh-paired",
+  "user": { "id": 2, "email": "paired@example.com", "name": "Paired", "role": "user", "avatarUrl": null }
+}

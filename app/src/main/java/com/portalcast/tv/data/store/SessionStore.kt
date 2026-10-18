@@ -32,17 +32,17 @@ data class Session(
  * network layer reads synchronously. [isLoaded] flips true after the first read
  * so the nav host can wait before choosing a start destination.
  */
-class SessionStore(context: Context, scope: CoroutineScope) {
+class SessionStore(context: Context, scope: CoroutineScope) : SessionSource {
     private val store = context.sessionDataStore
 
     private val _serverUrl = MutableStateFlow<String?>(null)
-    val serverUrl: StateFlow<String?> = _serverUrl
+    override val serverUrl: StateFlow<String?> = _serverUrl
 
     private val _session = MutableStateFlow<Session?>(null)
-    val session: StateFlow<Session?> = _session
+    override val session: StateFlow<Session?> = _session
 
     private val _isLoaded = MutableStateFlow(false)
-    val isLoaded: StateFlow<Boolean> = _isLoaded
+    override val isLoaded: StateFlow<Boolean> = _isLoaded
 
     init {
         scope.launch {
@@ -53,12 +53,12 @@ class SessionStore(context: Context, scope: CoroutineScope) {
         }
     }
 
-    suspend fun setServerUrl(url: String) {
+    override suspend fun setServerUrl(url: String) {
         _serverUrl.value = url
         store.edit { it[KEY_SERVER_URL] = url }
     }
 
-    suspend fun saveSession(accessToken: String, refreshToken: String, user: UserDto) {
+    override suspend fun saveSession(accessToken: String, refreshToken: String, user: UserDto) {
         val s = Session(accessToken, refreshToken, System.currentTimeMillis(), user)
         _session.value = s
         store.edit {
@@ -69,7 +69,7 @@ class SessionStore(context: Context, scope: CoroutineScope) {
         }
     }
 
-    suspend fun updateTokens(accessToken: String, refreshToken: String) {
+    override suspend fun updateTokens(accessToken: String, refreshToken: String) {
         val cur = _session.value ?: return
         _session.value = cur.copy(accessToken = accessToken, refreshToken = refreshToken)
         store.edit {
@@ -78,14 +78,14 @@ class SessionStore(context: Context, scope: CoroutineScope) {
         }
     }
 
-    suspend fun updateUser(user: UserDto) {
+    override suspend fun updateUser(user: UserDto) {
         val cur = _session.value ?: return
         _session.value = cur.copy(user = user)
         store.edit { it[KEY_USER] = AppJson.encodeToString(user) }
     }
 
     /** Logout. Keeps the server URL so the next pairing does not re-ask for it. */
-    suspend fun clearSession() {
+    override suspend fun clearSession() {
         _session.value = null
         store.edit {
             it.remove(KEY_ACCESS); it.remove(KEY_REFRESH); it.remove(KEY_REFRESH_ISSUED); it.remove(KEY_USER)
