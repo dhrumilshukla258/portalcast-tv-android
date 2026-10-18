@@ -12,7 +12,14 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import androidx.compose.runtime.produceState
+import com.portalcast.tv.data.model.EpgData
 import com.portalcast.tv.di.AppContainer
+import com.portalcast.tv.playback.PlaybackHolder
+import com.portalcast.tv.playback.PlaybackSession
+import com.portalcast.tv.ui.home.HomeScreen
+import com.portalcast.tv.ui.movies.MovieDetailScreen
+import com.portalcast.tv.ui.series.SeriesDetailScreen
 import com.portalcast.tv.ui.auth.PairingScreen
 import com.portalcast.tv.ui.auth.PasswordLoginScreen
 import com.portalcast.tv.ui.auth.ServerUrlScreen
@@ -86,7 +93,13 @@ fun AppNavHost(container: AppContainer) {
             arguments = listOf(navArgument("tab") { type = NavType.StringType; defaultValue = HomeTab.DISCOVER.route }),
         ) { entry ->
             val tab = HomeTab.fromRoute(entry.arguments?.getString("tab"))
-            PlaceholderScreen("Home · ${tab.title}", "Phase 2a: nav rail + ${tab.title}")
+            HomeScreen(
+                initialTab = tab,
+                onOpenMovie = { item -> nav.navigate(Routes.movieDetail(item.id, item.categoryId)) },
+                onOpenSeries = { item -> nav.navigate(Routes.seriesDetail(item.id, item.categoryId)) },
+                onPlay = { nav.navigate(Routes.PLAYER) { launchSingleTop = true } },
+                onOpenSettings = { nav.navigate(Routes.SETTINGS) { launchSingleTop = true } },
+            )
         }
 
         composable(
@@ -96,7 +109,11 @@ fun AppNavHost(container: AppContainer) {
                 navArgument("category") { type = NavType.StringType; defaultValue = "*" },
             ),
         ) { entry ->
-            PlaceholderScreen("Movie ${entry.arguments?.getString("id")}", "Phase 2a: detail")
+            MovieDetailScreen(
+                id = entry.arguments?.getString("id").orEmpty(),
+                category = entry.arguments?.getString("category") ?: "*",
+                onPlay = { nav.navigate(Routes.PLAYER) { launchSingleTop = true } },
+            )
         }
 
         composable(
@@ -106,13 +123,27 @@ fun AppNavHost(container: AppContainer) {
                 navArgument("category") { type = NavType.StringType; defaultValue = "*" },
             ),
         ) { entry ->
-            PlaceholderScreen("Series ${entry.arguments?.getString("id")}", "Phase 2a: seasons + episodes")
+            SeriesDetailScreen(
+                id = entry.arguments?.getString("id").orEmpty(),
+                category = entry.arguments?.getString("category") ?: "*",
+                onPlay = { nav.navigate(Routes.PLAYER) { launchSingleTop = true } },
+            )
         }
 
         composable(Routes.PLAYER) {
             // Session comes from PlaybackHolder (set by the caller before navigating). Phase 2a may pass
             // nowNext (EPG banner) and refreshLiveChannel (401/403 recovery for live) here.
-            com.portalcast.tv.ui.player.PlayerScreen(onBack = { if (!nav.popBackStack()) nav.resetTo(Routes.home()) })
+            // EPG for the live now/next banner; only fetched (cached, 30 min) for live sessions.
+            val epg by produceState<EpgData?>(initialValue = null) {
+                if (PlaybackHolder.current is PlaybackSession.Live) value = container.liveRepository.epg().getOrNull()
+            }
+            com.portalcast.tv.ui.player.PlayerScreen(
+                onBack = { if (!nav.popBackStack()) nav.resetTo(Routes.home()) },
+                nowNext = { ch -> epg?.nowNext(ch.id) ?: (null to null) },
+                refreshLiveChannel = { ch ->
+                    container.liveRepository.channels(forceRefresh = true).getOrNull()?.firstOrNull { it.id == ch.id }
+                },
+            )
         }
         composable(Routes.SETTINGS) { SettingsScreen(onBack = { nav.popBackStack() }) }
     }
