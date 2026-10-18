@@ -3,8 +3,8 @@ package com.portalcast.tv.ui.nav
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -39,10 +39,15 @@ fun AppNavHost(container: AppContainer) {
         return
     }
 
-    val start = when {
-        session != null -> Routes.home()
-        serverUrl != null -> Routes.PAIR
-        else -> Routes.SERVER
+    // Decided once: changing NavHost's startDestination later rebuilds the graph mid-navigation
+    // (crashed on pairing success). Later session changes are handled by resetTo below.
+    // Must be a declared route pattern (Routes.HOME, not "home/discover"); the tab arg defaults.
+    val start = remember {
+        when {
+            session != null -> Routes.HOME
+            serverUrl != null -> Routes.PAIR
+            else -> Routes.SERVER
+        }
     }
 
     val backStack by nav.currentBackStackEntryAsState()
@@ -116,7 +121,8 @@ fun AppNavHost(container: AppContainer) {
 /** Navigate and drop everything else from the back stack. */
 fun NavHostController.resetTo(route: String) {
     navigate(route) {
-        popUpTo(graph.findStartDestination().id) { inclusive = true }
+        // Pop by graph id: findStartDestination() throws if the start route has no matching node.
+        popUpTo(graph.id) { inclusive = true }
         launchSingleTop = true
     }
 }
