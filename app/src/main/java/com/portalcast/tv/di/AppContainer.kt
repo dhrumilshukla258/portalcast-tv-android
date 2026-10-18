@@ -22,6 +22,10 @@ import com.portalcast.tv.data.repo.UserRepository
 import com.portalcast.tv.data.repo.VodRepository
 import com.portalcast.tv.data.store.LocalPrefs
 import com.portalcast.tv.data.store.SessionStore
+import com.portalcast.tv.playback.DefaultProgressReporter
+import com.portalcast.tv.playback.DefaultStreamResolver
+import com.portalcast.tv.playback.ProgressReporter
+import com.portalcast.tv.playback.StreamResolver
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -93,6 +97,14 @@ class AppContainer(app: Application) {
     val vodRepository: VodRepository = DefaultVodRepository(api)
     val seriesRepository: SeriesRepository = DefaultSeriesRepository(api)
     val discoverRepository: DiscoverRepository = DefaultDiscoverRepository(api, vodRepository, seriesRepository)
+
+    // ---- playback (Phase 1c) ----------------------------------------------------
+
+    /** movie-link resolution + per-session URL cache; live plays `channel.cmd`. */
+    val streamResolver: StreamResolver = DefaultStreamResolver(api, sessionStore)
+
+    /** Contract 6.2 progress rows: 30 s cadence, two rows per episode, never for live. */
+    val progressReporter: ProgressReporter = DefaultProgressReporter(userRepository, sessionStore)
 
     companion object {
         /** Never actually contacted; [DynamicBaseUrlInterceptor] rewrites every request. */

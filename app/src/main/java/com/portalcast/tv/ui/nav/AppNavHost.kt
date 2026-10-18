@@ -82,7 +82,11 @@ fun AppNavHost(container: AppContainer) {
             PlaceholderScreen("Series ${entry.arguments?.getString("id")}", "Phase 2a: seasons + episodes")
         }
 
-        composable(Routes.PLAYER) { PlaceholderScreen("Player", "Phase 1c: ExoPlayer") }
+        composable(Routes.PLAYER) {
+            // Session comes from PlaybackHolder (set by the caller before navigating). Phase 2a may pass
+            // nowNext (EPG banner) and refreshLiveChannel (401/403 recovery for live) here.
+            com.portalcast.tv.ui.player.PlayerScreen(onBack = { if (!nav.popBackStack()) nav.resetTo(Routes.home()) })
+        }
         composable(Routes.SETTINGS) { PlaceholderScreen("Settings", "Phase 1b") }
     }
 }
