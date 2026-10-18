@@ -4,6 +4,11 @@ Run after every phase merge, on a phone over USB (`adb install -r app/build/outp
 and, for focus behaviour, on the Android TV (`adb connect <tv-ip>:5555`).
 Automated checks first: `./gradlew assembleDebug testDebugUnitTest`.
 
+Emulator instead of a TV: AVD `pcTV` (Android TV 34). Drive it with
+`adb shell input dpad keyevent DPAD_CENTER` etc. — plain `input keyevent` is a
+hardware-keyboard event and behaves differently in text fields (it typed a stray
+"q"). For quick text entry, `input tap` the field then `input text`.
+
 ## Phase 0 (foundation)
 - [ ] App launches to the "Server URL" placeholder with no session stored.
 - [ ] `adb logcat | grep -i portalcast` shows no crash on start.
