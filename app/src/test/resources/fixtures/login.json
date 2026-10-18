@@ -1,0 +1,5 @@
+{
+  "accessToken": "access-login",
+  "refreshToken": "refresh-login",
+  "user": { "id": 3, "email": "login@example.com", "name": null, "role": "admin", "avatarUrl": "https://cdn.example/a.png" }
+}

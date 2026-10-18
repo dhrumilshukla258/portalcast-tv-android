@@ -1,6 +1,6 @@
 package com.portalcast.tv.data.net
 
-import com.portalcast.tv.data.store.SessionStore
+import com.portalcast.tv.data.store.SessionSource
 import okhttp3.HttpUrl
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import okhttp3.Interceptor
@@ -10,14 +10,15 @@ import java.io.IOException
 /**
  * Retrofit is built with a placeholder base URL; this interceptor swaps in the
  * user's server origin (scheme, host, port, and any base path such as
- * `https://example.com/portalcast/`) for every request. Throws [ApiError.NoServer]
- * when nothing is configured so the failure is typed, not a DNS error.
+ * `https://example.com/portalcast/`) for every request. Throws
+ * [NoServerConfiguredException] (an IOException, so OkHttp surfaces it intact; it maps
+ * to [ApiError.NoServer]) when nothing is configured, so the failure is typed, not a DNS error.
  */
-class DynamicBaseUrlInterceptor(private val sessionStore: SessionStore) : Interceptor {
+class DynamicBaseUrlInterceptor(private val sessionStore: SessionSource) : Interceptor {
 
     override fun intercept(chain: Interceptor.Chain): Response {
         val request = chain.request()
-        val base = sessionStore.serverUrl.value?.let { normalize(it) } ?: throw ApiError.NoServer()
+        val base = sessionStore.serverUrl.value?.let { normalize(it) } ?: throw NoServerConfiguredException()
         val rebuilt = rebase(request.url, base)
         return chain.proceed(request.newBuilder().url(rebuilt).build())
     }

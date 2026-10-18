@@ -1,0 +1,16 @@
+{
+  "id": 1,
+  "email": "tv@example.com",
+  "name": "Living Room TV",
+  "role": "user",
+  "avatarUrl": null,
+  "preferences": {
+    "preferredContentType": "movie",
+    "favorites": ["1", "2"],
+    "recentChannels": ["5", "1"],
+    "videoFitMode": "contain",
+    "lastSelectedTvGroup": { "other_pk": "9" },
+    "lastSelectedCategory": { "xtream_host_movie": "3" },
+    "volume": 0.5
+  }
+}

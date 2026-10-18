@@ -1,0 +1,31 @@
+{
+  "data": [
+    {
+      "id": "movie_55",
+      "type": "movie",
+      "name": "The Film",
+      "title": "The Film",
+      "screenshot_uri": "https://image.tmdb.org/t/p/w500/poster55.jpg",
+      "backdrop_path": "https://image.tmdb.org/t/p/w780/bd55.jpg",
+      "backdrop_hd_path": "https://image.tmdb.org/t/p/original/bd55.jpg",
+      "year": "2019",
+      "genres_str": "Action, Drama",
+      "country": "US",
+      "category": "9",
+      "actors": "A Actor, B Actor",
+      "director": "C Director"
+    },
+    {
+      "id": "series_77",
+      "type": "series",
+      "name": "The Show",
+      "title": "The Show",
+      "screenshot_uri": "/images/77.jpg",
+      "year": 2020,
+      "genres_str": "Crime",
+      "category": "3"
+    }
+  ],
+  "page": 1,
+  "total_items": 2
+}

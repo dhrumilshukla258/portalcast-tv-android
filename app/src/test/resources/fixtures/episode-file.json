@@ -1,0 +1,19 @@
+{
+  "success": true,
+  "page": 1,
+  "pageAtaTime": 1,
+  "total_items": 1,
+  "actual_length": 14,
+  "total_loaded": 1,
+  "data": [
+    {
+      "id": "file-ep1",
+      "name": "Hindi / Excellent quality (1080)",
+      "series_number": 1,
+      "container_extension": "mkv",
+      "cmd": "ffmpeg http://upstream.example/series/user/pass/ep1.mkv"
+    }
+  ],
+  "errors": false,
+  "isPortal": false
+}

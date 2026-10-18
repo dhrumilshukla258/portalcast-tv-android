@@ -1,0 +1,6 @@
+{
+  "variants": [
+    { "id": "movie_55", "type": "movie", "name": "The Film", "title": "The Film", "category": "9", "variantLabel": "Hindi" },
+    { "id": "movie_550", "type": "movie", "name": "The Film", "title": "The Film", "category": "12", "variantLabel": "Tamil" }
+  ]
+}

@@ -1,0 +1,23 @@
+{
+  "success": true,
+  "page": 1,
+  "pageAtaTime": 1,
+  "total_items": 1,
+  "actual_length": 14,
+  "total_loaded": 1,
+  "data": [
+    {
+      "id": "77",
+      "series_id": 77,
+      "name": "The Show",
+      "screenshot_uri": "/images/77.jpg",
+      "cover": "http://upstream.example/cover.jpg",
+      "description": "A show about things.",
+      "actors": "D Actor",
+      "genres_str": "Crime",
+      "is_series": 1
+    }
+  ],
+  "errors": false,
+  "isPortal": false
+}

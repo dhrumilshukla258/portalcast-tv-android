@@ -56,11 +56,20 @@ sealed class ApiError(message: String, cause: Throwable? = null) : Exception(mes
                     else -> Http(t.code(), msg)
                 }
             }
+            is NoServerConfiguredException -> NoServer()
             is IOException -> Network(t)
             else -> Http(0, t.message ?: t.javaClass.simpleName)
         }
     }
 }
+
+/**
+ * Thrown by [DynamicBaseUrlInterceptor] when no server URL is stored. It must be an
+ * [IOException]: OkHttp passes those through to the caller unchanged, whereas any
+ * other throwable from an interceptor is replaced by an opaque
+ * `IOException("canceled due to ...")`. [ApiError.from] maps it to [ApiError.NoServer].
+ */
+class NoServerConfiguredException : IOException("No server configured")
 
 /** `runCatching` for API calls that normalises every failure into an [ApiError]. */
 suspend inline fun <T> apiCall(path: String? = null, crossinline block: suspend () -> T): Result<T> =

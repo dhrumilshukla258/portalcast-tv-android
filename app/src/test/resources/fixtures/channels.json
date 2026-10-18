@@ -1,0 +1,24 @@
+[
+  {
+    "id": "101",
+    "name": "BBC One",
+    "number": 1,
+    "tv_genre_id": "7",
+    "logo": "http://portal.example/logos/bbc.png",
+    "screenshot_uri": "/misc/logos/bbc.png",
+    "enable_tv_archive": 1,
+    "tv_archive_duration": "7",
+    "isPortal": true,
+    "cmd": "http://192.168.1.10:3000/live.m3u8?t=tok101&id=101&proxy=1"
+  },
+  {
+    "id": "102",
+    "name": "CNN",
+    "number": "2",
+    "tv_genre_id": 8,
+    "screenshot_uri": "/misc/logos/cnn.png",
+    "enable_tv_archive": "0",
+    "isPortal": true,
+    "cmd": "http://192.168.1.10:3000/live.m3u8?t=tok102&id=102&proxy=1"
+  }
+]

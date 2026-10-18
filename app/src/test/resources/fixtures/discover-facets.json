@@ -1,0 +1,6 @@
+{
+  "genres": [ { "value": "Action", "count": 120 }, { "value": "Drama", "count": "98" } ],
+  "countries": [ { "value": "US", "count": 300 } ],
+  "themes": [],
+  "languages": [ { "value": "en", "count": 250 } ]
+}

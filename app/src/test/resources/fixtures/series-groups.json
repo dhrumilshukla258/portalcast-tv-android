@@ -1,0 +1,15 @@
+{
+  "success": true,
+  "page": 1,
+  "pageAtaTime": 1,
+  "total_items": 3,
+  "actual_length": 3,
+  "total_loaded": 3,
+  "data": [
+    { "id": "*", "title": "All" },
+    { "id": "3", "title": "Crime" },
+    { "id": "4", "title": "Comedy" }
+  ],
+  "errors": false,
+  "isPortal": false
+}

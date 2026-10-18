@@ -1,0 +1,14 @@
+{
+  "success": true,
+  "page": 1,
+  "pageAtaTime": 1,
+  "total_items": 2,
+  "actual_length": 2,
+  "total_loaded": 2,
+  "data": [
+    { "id": "1", "title": "Action", "number": 1 },
+    { "id": "2", "title": "Drama", "number": 2 }
+  ],
+  "errors": false,
+  "isPortal": true
+}
