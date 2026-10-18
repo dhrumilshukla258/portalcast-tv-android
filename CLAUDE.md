@@ -26,8 +26,11 @@ Read before changing anything:
   swapped in per request), `AuthInterceptor` (Bearer + proactive refresh),
   `TokenAuthenticator` + `TokenRefresher` (reactive single-flight refresh), `ApiError`
 - `data/model/` — response/request shapes; everything nullable, `LenientStr`/`LenientInt` for ids
-- `data/store/` — `SessionStore` (server URL, tokens, user; DataStore) and `LocalPrefs`
-- `data/repo/` — `Repositories.kt` interfaces, `DefaultRepositories.kt` implementations
+- `data/store/` — `SessionStore` (server URL, tokens, user; DataStore) behind the `SessionSource`
+  interface the network layer depends on, and `LocalPrefs` (device-only UI state)
+- `data/repo/` — `Repositories.kt` interfaces; one `Default<Name>Repository.kt` per interface;
+  `SessionCache` (session-keyed TTL + single-flight cache), `RepoSupport` (category `*`
+  fallbacks, synthetic All group), `ApiPaths` (route constants for cold-cache mapping)
 - `playback/` — `PlaybackSession`, `StreamResolver`, `ProgressReporter`, `PlaybackHolder`
 - `ui/nav/` — `Routes`, `AppNavHost` (session-gated), placeholders until screens land
 - `ui/<feature>/` — auth, home, discover, live, movies, series, player, settings
@@ -43,6 +46,12 @@ Read before changing anything:
 - The User-Agent must never contain Tizen/SMART-TV/SmartTV/Web0S/WebOS.
 - A 302/403 on the four list routes means the server cache is cold, not a bug.
 - Do not use `/api/config`; `provider-key` is the non-admin way to learn the provider.
+- `AppJson` has `encodeDefaults = false`: any request field that must always be sent even
+  at its default needs `@EncodeDefault` (see `LoginRequest.clientType`, `ProgressRecord`).
+- Interceptors may only throw `IOException`s; anything else is swallowed by OkHttp
+  (see `NoServerConfiguredException`).
+- A Discover-resolved movie already has a file id and `cmd`; skip `resolveFile` and go
+  straight to movie-link with `item.id` (same rule as the webui's `startPlayback`).
 
 ## Build
 
@@ -53,7 +62,10 @@ JAVA_HOME=/path/to/jdk17 ./gradlew assembleDebug testDebugUnitTest   # → app/b
 Needs a JDK 17 and an Android SDK with `platforms;android-34`, `build-tools;34.0.0`
 and `platform-tools`; point `local.properties` (gitignored) at it with forward
 slashes (`sdk.dir=C:/path/to/Sdk`). The Gradle wrapper is committed. Unit tests are
-plain JVM (JSON parsing, URL rebasing, refresh logic with MockWebServer).
+plain JVM: `app/src/test` has a MockWebServer stack wired like `AppContainer`
+(`TestStack.kt`) with hand-written fixtures under `src/test/resources/fixtures/`;
+every repository, the refresh flow, the stream resolver and the progress reporter
+have tests. Add a fixture + test whenever you add a route or change a model.
 
 Run on a phone over USB (`adb install -r …`; sideloading ignores the leanback
 requirement) for data/auth/playback checks, and on a real Android TV
