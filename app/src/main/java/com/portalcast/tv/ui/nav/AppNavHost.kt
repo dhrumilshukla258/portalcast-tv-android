@@ -13,6 +13,10 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.portalcast.tv.di.AppContainer
+import com.portalcast.tv.ui.auth.PairingScreen
+import com.portalcast.tv.ui.auth.PasswordLoginScreen
+import com.portalcast.tv.ui.auth.ServerUrlScreen
+import com.portalcast.tv.ui.settings.SettingsScreen
 
 /**
  * Session-gated navigation. Start destination is decided once the session store has
@@ -50,9 +54,27 @@ fun AppNavHost(container: AppContainer) {
     }
 
     NavHost(navController = nav, startDestination = start) {
-        composable(Routes.SERVER) { PlaceholderScreen("Server URL", "Phase 1b: enter server address") }
-        composable(Routes.PAIR) { PlaceholderScreen("Pair this TV", "Phase 1b: QR + code") }
-        composable(Routes.LOGIN) { PlaceholderScreen("Sign in", "Phase 1b: email + password") }
+        composable(Routes.SERVER) {
+            ServerUrlScreen(onConnected = {
+                // Pairing becomes the signed-out root; Back from it leaves the app, not back to the URL form.
+                nav.navigate(Routes.PAIR) {
+                    popUpTo(Routes.SERVER) { inclusive = true }
+                    launchSingleTop = true
+                }
+            })
+        }
+        composable(Routes.PAIR) {
+            PairingScreen(
+                onUsePassword = { nav.navigate(Routes.LOGIN) { launchSingleTop = true } },
+                // Drop the pairing entry: its code belongs to the old server.
+                onChangeServer = { nav.navigate(Routes.SERVER) { popUpTo(Routes.PAIR) { inclusive = true } } },
+            )
+        }
+        composable(Routes.LOGIN) {
+            PasswordLoginScreen(onUsePairing = {
+                if (!nav.popBackStack(Routes.PAIR, inclusive = false)) nav.navigate(Routes.PAIR)
+            })
+        }
 
         composable(
             Routes.HOME,
@@ -87,7 +109,7 @@ fun AppNavHost(container: AppContainer) {
             // nowNext (EPG banner) and refreshLiveChannel (401/403 recovery for live) here.
             com.portalcast.tv.ui.player.PlayerScreen(onBack = { if (!nav.popBackStack()) nav.resetTo(Routes.home()) })
         }
-        composable(Routes.SETTINGS) { PlaceholderScreen("Settings", "Phase 1b") }
+        composable(Routes.SETTINGS) { SettingsScreen(onBack = { nav.popBackStack() }) }
     }
 }
 
