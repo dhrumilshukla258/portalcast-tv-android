@@ -4,42 +4,58 @@ Guidance for Claude Code when working in this repository.
 
 ## What this is
 
-Native Android TV app (Kotlin, Jetpack Compose for TV, Media3/ExoPlayer) that
-connects to a portalcast-server instance via its Xtream Codes API emulation.
+Native Android TV app (Kotlin, Jetpack Compose for TV, Media3/ExoPlayer) that is a
+first-party client of `portalcast-server` over its `/api/v2/*` surface, signed in
+through the server's own user system (device-code pairing or email/password).
+It does **not** use the Xtream Codes emulation any more (removed 2026-10-18).
 
-See [docs/skill-project-ecosystem.md](docs/skill-project-ecosystem.md) for how this project relates to the
-backend and other planned platform clients — read it before assuming this app
-should share code/UI with the web app or other native clients.
+Read before changing anything:
+- [docs/api-contract.md](docs/api-contract.md) — every server call, field for field.
+  `data/model/` must match it; nothing enforces that across repos.
+- [docs/architecture-plan.md](docs/architecture-plan.md) — decisions, package layout,
+  screens, phase/agent split. Scope for v1: Discover, Live TV, Movies, Series.
+- [docs/skill-project-ecosystem.md](docs/skill-project-ecosystem.md) — how this repo
+  relates to the backend and the web app; do not port webui components here.
+- [docs/test-checklist.md](docs/test-checklist.md) — manual checks per phase.
 
-## Structure
+## Structure (`app/src/main/java/com/portalcast/tv`)
 
-- `data/XtreamApi.kt` — Retrofit interface for `player_api.php` actions
-- `data/XtreamModels.kt` — response models; must mirror `portalcast-server`'s
-  `src/routes/xtream/` field shapes
-- `data/CredentialStore.kt` — DataStore-backed credential persistence, auto-login
-- `ui/login`, `ui/browse`, `ui/player` — Compose screens
-- `AppViewModel.kt` — screen state machine (Login → Browse → Player) and data loading
+- `PortalcastApp.kt` — Application; owns `di/AppContainer` (manual DI, no Hilt) and the Coil loader
+- `data/net/` — `ApiService` (Retrofit, one fun per route), `Json` (kotlinx + lenient
+  serializers for mixed-type ids), `DynamicBaseUrlInterceptor` (user's server origin
+  swapped in per request), `AuthInterceptor` (Bearer + proactive refresh),
+  `TokenAuthenticator` + `TokenRefresher` (reactive single-flight refresh), `ApiError`
+- `data/model/` — response/request shapes; everything nullable, `LenientStr`/`LenientInt` for ids
+- `data/store/` — `SessionStore` (server URL, tokens, user; DataStore) and `LocalPrefs`
+- `data/repo/` — `Repositories.kt` interfaces, `DefaultRepositories.kt` implementations
+- `playback/` — `PlaybackSession`, `StreamResolver`, `ProgressReporter`, `PlaybackHolder`
+- `ui/nav/` — `Routes`, `AppNavHost` (session-gated), placeholders until screens land
+- `ui/<feature>/` — auth, home, discover, live, movies, series, player, settings
+- `util/` — `ImageUrl` (the one `/api/images` rule), `Jwt` (exp decode)
 
-## Status / not yet built
+## Rules that are easy to get wrong
 
-- Series episode picker (`get_series_info`)
-- EPG grid
-- Favorites, search
+- Never play `cmd` from a list/detail response or show `stream_icon`/`cover`.
+  Live: play `channel.cmd`. VOD/episode: `/api/v2/movie-link`, prefix the origin.
+- Always pass `category` (use `*`) on `/movies` and `/series`; page size is 14, fixed.
+- Progress rows and `meta` must mirror the webui (two rows per episode save,
+  `catalogId`), or Continue Watching diverges across devices.
+- The User-Agent must never contain Tizen/SMART-TV/SmartTV/Web0S/WebOS.
+- A 302/403 on the four list routes means the server cache is cold, not a bug.
+- Do not use `/api/config`; `provider-key` is the non-admin way to learn the provider.
 
 ## Build
 
 ```bash
-JAVA_HOME=/path/to/jdk17 ./gradlew assembleDebug   # → app/build/outputs/apk/debug/app-debug.apk
+JAVA_HOME=/path/to/jdk17 ./gradlew assembleDebug testDebugUnitTest   # → app/build/outputs/apk/debug/app-debug.apk
 ```
 
-Needs a JDK 17 and an Android SDK with `platforms;android-34`,
-`build-tools;34.0.0` and `platform-tools`; point `local.properties`
-(gitignored) at the SDK with `sdk.dir=C:/path/to/Sdk` (forward slashes —
-the backslash-escaped form gets mangled by the properties loader). The Gradle
-wrapper is committed, so no standalone Gradle install is needed. Android
-Studio is still the easiest way to run on an emulator/device, but a plain
-`./gradlew assembleDebug` is a valid type-check + build verification here, the
-same way `npm run build` is in the other two repos. No test suite exists.
+Needs a JDK 17 and an Android SDK with `platforms;android-34`, `build-tools;34.0.0`
+and `platform-tools`; point `local.properties` (gitignored) at it with forward
+slashes (`sdk.dir=C:/path/to/Sdk`). The Gradle wrapper is committed. Unit tests are
+plain JVM (JSON parsing, URL rebasing, refresh logic with MockWebServer).
 
-Known build warnings: `MainActivity.kt` overrides the deprecated
-`onBackPressed()` (should move to `OnBackPressedDispatcher`).
+Run on a phone over USB (`adb install -r …`; sideloading ignores the leanback
+requirement) for data/auth/playback checks, and on a real Android TV
+(`adb connect <ip>:5555`) for focus behaviour. Kotlin gotcha: `/*` inside a KDoc
+opens a nested comment, so write `/api/auth/` not `/api/auth/*` in comments.

@@ -1,0 +1,101 @@
+package com.portalcast.tv.di
+
+import android.app.Application
+import com.portalcast.tv.BuildConfig
+import com.portalcast.tv.data.net.ApiService
+import com.portalcast.tv.data.net.AppJson
+import com.portalcast.tv.data.net.AuthInterceptor
+import com.portalcast.tv.data.net.DynamicBaseUrlInterceptor
+import com.portalcast.tv.data.net.TokenAuthenticator
+import com.portalcast.tv.data.net.TokenRefresher
+import com.portalcast.tv.data.repo.AuthRepository
+import com.portalcast.tv.data.repo.DefaultAuthRepository
+import com.portalcast.tv.data.repo.DefaultDiscoverRepository
+import com.portalcast.tv.data.repo.DefaultLiveRepository
+import com.portalcast.tv.data.repo.DefaultSeriesRepository
+import com.portalcast.tv.data.repo.DefaultUserRepository
+import com.portalcast.tv.data.repo.DefaultVodRepository
+import com.portalcast.tv.data.repo.DiscoverRepository
+import com.portalcast.tv.data.repo.LiveRepository
+import com.portalcast.tv.data.repo.SeriesRepository
+import com.portalcast.tv.data.repo.UserRepository
+import com.portalcast.tv.data.repo.VodRepository
+import com.portalcast.tv.data.store.LocalPrefs
+import com.portalcast.tv.data.store.SessionStore
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.OkHttpClient
+import okhttp3.logging.HttpLoggingInterceptor
+import retrofit2.Retrofit
+import retrofit2.converter.kotlinx.serialization.asConverterFactory
+import retrofit2.create
+import java.util.concurrent.TimeUnit
+
+/**
+ * Manual dependency graph (plan decision #3). One instance per process, owned by
+ * [com.portalcast.tv.PortalcastApp]. Order matters: stores → refresher → clients → api → repos.
+ */
+class AppContainer(app: Application) {
+
+    val appScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+
+    val sessionStore = SessionStore(app, appScope)
+    val localPrefs = LocalPrefs(app)
+
+    /** No interceptors: used by the refresher and by anything that must never trigger auth. */
+    val bareClient: OkHttpClient = OkHttpClient.Builder()
+        .connectTimeout(15, TimeUnit.SECONDS)
+        .readTimeout(30, TimeUnit.SECONDS)
+        .build()
+
+    val tokenRefresher = TokenRefresher(sessionStore, bareClient)
+
+    /**
+     * JSON client. Redirects are NOT followed so the cold-cache 302 on the list
+     * routes is observable (contract §3). Logging is BASIC only: HEADERS would
+     * print the Bearer token and BODY would print credentials.
+     */
+    val apiClient: OkHttpClient = bareClient.newBuilder()
+        .followRedirects(false)
+        .followSslRedirects(false)
+        .addInterceptor(DynamicBaseUrlInterceptor(sessionStore))
+        .addInterceptor(AuthInterceptor(sessionStore, tokenRefresher))
+        .authenticator(TokenAuthenticator(tokenRefresher))
+        .apply {
+            if (BuildConfig.DEBUG) addInterceptor(HttpLoggingInterceptor().apply { level = HttpLoggingInterceptor.Level.BASIC })
+        }
+        .build()
+
+    /**
+     * Client for media (ExoPlayer) and images (Coil): follows redirects (live `proxy=0`
+     * returns a 302 to the CDN) and sends no Bearer (stream URLs carry their own token).
+     */
+    val mediaClient: OkHttpClient = bareClient.newBuilder()
+        .followRedirects(true)
+        .followSslRedirects(true)
+        .addInterceptor { chain ->
+            chain.proceed(chain.request().newBuilder().header("User-Agent", com.portalcast.tv.data.net.UserAgent.value).build())
+        }
+        .build()
+
+    val api: ApiService = Retrofit.Builder()
+        .baseUrl(PLACEHOLDER_BASE_URL)
+        .client(apiClient)
+        .addConverterFactory(AppJson.asConverterFactory("application/json".toMediaType()))
+        .build()
+        .create()
+
+    val authRepository: AuthRepository = DefaultAuthRepository(api, sessionStore)
+    val userRepository: UserRepository = DefaultUserRepository(api)
+    val liveRepository: LiveRepository = DefaultLiveRepository(api, userRepository)
+    val vodRepository: VodRepository = DefaultVodRepository(api)
+    val seriesRepository: SeriesRepository = DefaultSeriesRepository(api)
+    val discoverRepository: DiscoverRepository = DefaultDiscoverRepository(api, vodRepository, seriesRepository)
+
+    companion object {
+        /** Never actually contacted; [DynamicBaseUrlInterceptor] rewrites every request. */
+        const val PLACEHOLDER_BASE_URL = "http://placeholder.invalid/"
+    }
+}

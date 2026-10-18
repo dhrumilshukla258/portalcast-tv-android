@@ -1,13 +1,17 @@
 ---
 name: app-structure
-description: Use when touching the screen state machine (AppViewModel.kt, sealed Screen class) or the Compose-for-TV screens (ui/login, ui/browse, ui/player) in portalcast-tv-android.
+description: Use when touching navigation (ui/nav), the DI container (di/AppContainer), session gating, the Compose-for-TV screens under ui/, or the playback hand-off (playback/PlaybackHolder) in portalcast-tv-android.
 ---
 
-This repo has no deep reference doc yet — this skill is primary source, grounded directly in the current code.
+Primary source for this subsystem is `CLAUDE.md` plus `docs/architecture-plan.md`; this file is the gotcha list.
 
-1. **The whole app is one `AppViewModel` driving a 3-state `sealed class Screen`** (`Login` / `Browse` / `Player(url)`) — there's no navigation library, no back stack beyond `backToBrowse()` jumping straight to `Screen.Browse`. Don't assume a router exists when adding a new screen; it's a single `when(screen)`-style switch consumed wherever `screen: StateFlow<Screen>` is collected.
-2. **Several features are explicitly not built yet** (per this repo's `CLAUDE.md`): series episode picker (`get_series_info`), EPG grid, favorites, search. Check that list before assuming a missing feature is a bug rather than not-yet-implemented scope.
-3. **`./gradlew assembleDebug` is the build verification here** (the wrapper is committed; needs `JAVA_HOME` → a JDK 17 and `local.properties` → an Android SDK with platform 34, see `CLAUDE.md`). Running the result still needs an emulator/device via Android Studio or `adb install`. There is no test suite, so a green build is the only automated check.
-4. **`playChannel`/`playVod` build the stream URL client-side from stored credentials** (see `xtream-client` skill for the real-password-in-URL issue this involves) rather than asking the server to resolve/tokenize it — different trust model from `portalcast-webui`, which never builds a stream URL itself and always gets a ready-to-use, pre-tokenized one back from the backend (see that repo's `video-playback` skill). Keep that asymmetry in mind before assuming a webui-side playback fix applies here too.
+1. **Navigation is session-gated in `ui/nav/AppNavHost.kt`.** Start destination is chosen after `SessionStore.isLoaded`; a session appearing or vanishing later calls `resetTo(...)` and wipes the back stack. Don't navigate to `home` from a login screen yourself — just persist the session (`AuthRepository.acceptTokens`) and the gate moves you.
+2. **The player gets its input from `PlaybackHolder.start(session, resumeFromMs)`, not route args.** Sessions carry channel lists and tokens; they must not be serialised into the back stack. Call `PlaybackHolder.start` then `nav.navigate(Routes.PLAYER)`.
+3. **Manual DI, one `AppContainer` per process** (`di/AppContainer.kt`, reachable as `context.appContainer`). Construction order matters: stores → `TokenRefresher` → clients → `ApiService` → repositories. Add new repositories at the bottom and keep constructor signatures stable, Phase agents wire against them.
+4. **Three OkHttp clients, pick the right one.** `apiClient` (JSON: dynamic base URL, Bearer, refresh, redirects OFF so cold-cache 302s are visible). `mediaClient` (ExoPlayer + Coil: no Bearer, redirects ON, our User-Agent). `bareClient` (refresh only). Never give ExoPlayer the `apiClient`.
+5. **Screens are Compose-for-TV (`androidx.tv.material3`).** Use its `Card`/`Surface`/`Button`; the only `androidx.compose.material3` import allowed is `OutlinedTextField` (no TV equivalent). Standard `LazyRow`/`LazyVerticalGrid` with `focusRestorer()` per tv-material 1.0 guidance; `tv-foundation`'s `TvLazy*` are deprecated.
+6. **Every screen must be fully d-pad operable** and still work with touch (phone testing). No hover states, no gestures as the only path.
+7. **Back handling** is Compose `BackHandler` inside the screen that needs it (player → pop), never an Activity `onBackPressed` override.
+8. **`/*` inside a KDoc opens a nested comment in Kotlin.** Write `/api/auth/` not `/api/auth/*`.
 
-No full reference doc beyond this file yet — if this subsystem grows past the current 3-screen scope, promote the detail above into a `docs/skill-app-structure.md` and shrink this back to a pointer, matching the other two repos' pattern.
+No `docs/skill-app-structure.md` yet; promote this file when the UI grows past Phase 2.
