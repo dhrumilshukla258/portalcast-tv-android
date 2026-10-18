@@ -28,5 +28,18 @@ should share code/UI with the web app or other native clients.
 
 ## Build
 
-No JDK 17/Gradle available in this dev environment — open in Android Studio to
-sync and run on an Android TV emulator/device.
+```bash
+JAVA_HOME=/path/to/jdk17 ./gradlew assembleDebug   # → app/build/outputs/apk/debug/app-debug.apk
+```
+
+Needs a JDK 17 and an Android SDK with `platforms;android-34`,
+`build-tools;34.0.0` and `platform-tools`; point `local.properties`
+(gitignored) at the SDK with `sdk.dir=C:/path/to/Sdk` (forward slashes —
+the backslash-escaped form gets mangled by the properties loader). The Gradle
+wrapper is committed, so no standalone Gradle install is needed. Android
+Studio is still the easiest way to run on an emulator/device, but a plain
+`./gradlew assembleDebug` is a valid type-check + build verification here, the
+same way `npm run build` is in the other two repos. No test suite exists.
+
+Known build warnings: `MainActivity.kt` overrides the deprecated
+`onBackPressed()` (should move to `OnBackPressedDispatcher`).
