@@ -7,7 +7,7 @@ Guidance for Claude Code when working in this repository.
 Native Android TV app (Kotlin, Jetpack Compose for TV, Media3/ExoPlayer) that
 connects to a portalcast-server instance via its Xtream Codes API emulation.
 
-See [docs/ECOSYSTEM.md](docs/ECOSYSTEM.md) for how this project relates to the
+See [docs/skill-project-ecosystem.md](docs/skill-project-ecosystem.md) for how this project relates to the
 backend and other planned platform clients — read it before assuming this app
 should share code/UI with the web app or other native clients.
 

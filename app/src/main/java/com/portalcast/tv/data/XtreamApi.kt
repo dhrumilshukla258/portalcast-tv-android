@@ -4,8 +4,8 @@ import retrofit2.http.GET
 import retrofit2.http.Query
 
 /**
- * Mirrors the player_api.php action set implemented by stalker-m3u-server's
- * Xtream emulation layer (src/routes/xtream.ts).
+ * Mirrors the player_api.php action set implemented by portalcast-server's
+ * Xtream emulation layer (src/routes/xtream/).
  */
 interface XtreamApi {
 
