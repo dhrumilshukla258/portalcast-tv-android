@@ -29,11 +29,13 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.snapshotFlow
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.focusRestorer
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -66,6 +68,7 @@ import com.portalcast.tv.ui.live.EpgLookup
 import com.portalcast.tv.ui.theme.AppColors
 import com.portalcast.tv.util.TitleKey
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.delay
 
 /**
  * Global search across every category: movies and series (server, `category=*`) and live
@@ -78,6 +81,8 @@ fun SearchScreen(
     onOpenSeries: (MediaItem) -> Unit,
     onPlay: () -> Unit,
     modifier: Modifier = Modifier,
+    /** True when coming back from a detail/player: focus the result that was opened. */
+    restoreFocus: Boolean = false,
 ) {
     val context = LocalContext.current
     val container = context.appContainer
@@ -89,6 +94,22 @@ fun SearchScreen(
         },
     )
     val state by vm.state.collectAsStateWithLifecycle()
+
+    // Back from a result: put focus on the card it was opened from, not on the search field.
+    val restoreRequester = remember { FocusRequester() }
+    val restoreKey = remember { if (restoreFocus) vm.lastFocusedKey else null }
+    LaunchedEffect(restoreKey) {
+        if (restoreKey == null) return@LaunchedEffect
+        repeat(20) {
+            withFrameNanos { }
+            if (runCatching { restoreRequester.requestFocus() }.isSuccess) return@LaunchedEffect
+            delay(50)
+        }
+    }
+    val cardModifier: (String) -> Modifier = { key ->
+        val base = Modifier.onFocusChanged { if (it.isFocused) vm.lastFocusedKey = key }
+        if (key == restoreKey) base.focusRequester(restoreRequester) else base
+    }
 
     LaunchedEffect(state.open) {
         when (val o = state.open ?: return@LaunchedEffect) {
@@ -127,9 +148,9 @@ fun SearchScreen(
             state.error != null -> ErrorPanel(state.error!!, onRetry = { vm.submit() })
             state.isEmptyResult -> EmptyPanel("Nothing found for \"${state.searched}\".")
             else -> when (state.filter) {
-                SearchViewModel.Filter.ALL -> AllResults(state, vm, onPlay)
-                SearchViewModel.Filter.MOVIES -> PosterGrid(state.movies, "No movies found.", { vm.openGroup(it, isSeries = false) }, vm::loadMoreMovies)
-                SearchViewModel.Filter.SERIES -> PosterGrid(state.series, "No series found.", { vm.openGroup(it, isSeries = true) }, vm::loadMoreSeries)
+                SearchViewModel.Filter.ALL -> AllResults(state, vm, onPlay, cardModifier)
+                SearchViewModel.Filter.MOVIES -> PosterGrid(state.movies, "No movies found.", { vm.openGroup(it, isSeries = false) }, vm::loadMoreMovies, { cardModifier("m|$it") })
+                SearchViewModel.Filter.SERIES -> PosterGrid(state.series, "No series found.", { vm.openGroup(it, isSeries = true) }, vm::loadMoreSeries, { cardModifier("s|$it") })
                 SearchViewModel.Filter.LIVE -> ChannelList(state, vm, onPlay)
             }
         }
@@ -177,7 +198,7 @@ private fun RecentSearches(recent: List<String>, onPick: (String) -> Unit) {
 }
 
 @Composable
-private fun AllResults(state: SearchViewModel.State, vm: SearchViewModel, onPlay: () -> Unit) {
+private fun AllResults(state: SearchViewModel.State, vm: SearchViewModel, onPlay: () -> Unit, cardModifier: (String) -> Modifier) {
     val serverUrl = rememberServerUrl()
     val epg = remember(state.epgIndex) { EpgLookup(state.epgIndex) }
     val now = remember(state.searched) { System.currentTimeMillis() }
@@ -188,10 +209,10 @@ private fun AllResults(state: SearchViewModel.State, vm: SearchViewModel, onPlay
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         if (state.movies.groups.isNotEmpty()) item(key = "movies") {
-            GroupRow("Movies", state.movies, { vm.openGroup(it, isSeries = false) }, vm::loadMoreMovies)
+            GroupRow("Movies", state.movies, { vm.openGroup(it, isSeries = false) }, vm::loadMoreMovies) { cardModifier("m|$it") }
         }
         if (state.series.groups.isNotEmpty()) item(key = "series") {
-            GroupRow("Series", state.series, { vm.openGroup(it, isSeries = true) }, vm::loadMoreSeries)
+            GroupRow("Series", state.series, { vm.openGroup(it, isSeries = true) }, vm::loadMoreSeries) { cardModifier("s|$it") }
         }
         if (state.channels.isNotEmpty()) {
             item(key = "live-title") {
@@ -217,6 +238,7 @@ private fun GroupRow(
     section: SearchViewModel.Section,
     onOpen: (SearchViewModel.TitleGroup) -> Unit,
     onLoadMore: () -> Unit,
+    cardModifier: (String) -> Modifier,
 ) {
     val byId = remember(section.groups) { section.groups.associateBy { it.display.id } }
     val items = remember(section.groups) { section.groups.map { it.display } }
@@ -226,6 +248,7 @@ private fun GroupRow(
         onItemClick = { item -> byId[item.id]?.let(onOpen) },
         subtitleFor = { item -> byId[item.id]?.versionsLabel },
         onLoadMore = if (section.hasMore) onLoadMore else null,
+        itemModifier = { _, item -> byId[item.id]?.let { cardModifier(it.key) } ?: Modifier },
     )
 }
 
@@ -235,6 +258,7 @@ private fun PosterGrid(
     emptyText: String,
     onOpen: (SearchViewModel.TitleGroup) -> Unit,
     onNearEnd: () -> Unit,
+    cardModifier: (String) -> Modifier,
 ) {
     if (section.groups.isEmpty()) { EmptyPanel(emptyText); return }
     val gridState = rememberLazyGridState()
@@ -252,7 +276,7 @@ private fun PosterGrid(
         verticalArrangement = Arrangement.spacedBy(24.dp),
     ) {
         itemsIndexed(section.groups, key = { _, g -> g.key }) { _, g ->
-            MediaCard(item = g.display, onClick = { onOpen(g) }, subtitle = g.versionsLabel, width = Dp.Unspecified)
+            MediaCard(item = g.display, onClick = { onOpen(g) }, subtitle = g.versionsLabel, width = Dp.Unspecified, modifier = cardModifier(g.key))
         }
     }
 }

@@ -88,6 +88,9 @@ class SearchViewModel(
             get() = searched != null && !loading && movies.groups.isEmpty() && series.groups.isEmpty() && channels.isEmpty()
     }
 
+    /** Last focused result card key, so Back from a detail/player lands on it again. */
+    var lastFocusedKey: String? = null
+
     private val _state = MutableStateFlow(State())
     val state: StateFlow<State> = _state
 

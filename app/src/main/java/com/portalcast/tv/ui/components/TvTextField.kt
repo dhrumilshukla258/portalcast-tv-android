@@ -132,9 +132,11 @@ fun TvTextField(
                     when (event.key) {
                         Key.DirectionDown -> focusManager.moveFocus(FocusDirection.Down)
                         Key.DirectionUp -> focusManager.moveFocus(FocusDirection.Up)
-                        // An empty field has no cursor to move: let Left/Right leave it.
-                        Key.DirectionLeft -> value.isEmpty() && focusManager.moveFocus(FocusDirection.Left)
-                        Key.DirectionRight -> value.isEmpty() && focusManager.moveFocus(FocusDirection.Right)
+                        // Left/Right only move the text cursor while typing (or there is nothing to
+                        // move through); a merely focused field must not trap the d-pad (a filled
+                        // Search box made the rail unreachable).
+                        Key.DirectionLeft -> (!editing || value.isEmpty()) && focusManager.moveFocus(FocusDirection.Left)
+                        Key.DirectionRight -> (!editing || value.isEmpty()) && focusManager.moveFocus(FocusDirection.Right)
                         else -> false
                     }
                 },
