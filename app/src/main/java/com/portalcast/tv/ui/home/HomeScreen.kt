@@ -41,6 +41,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.foundation.focusGroup
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRestorer
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Brush
@@ -192,7 +193,9 @@ fun HomeScreen(
                     else Brush.horizontalGradient(0f to AppColors.Background, 1f to AppColors.Background.copy(alpha = 0.85f)),
                 )
                 .onFocusChanged { railFocused = it.hasFocus }
-                .focusRestorer { tabRequesters.getValue(current) }
+                // Entering the rail (Left from content) always lands on the CURRENT tab, never on
+                // whichever item is geometrically nearest.
+                .focusProperties { enter = { tabRequesters.getValue(current) } }
                 .padding(horizontal = 12.dp, vertical = 28.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
@@ -210,9 +213,9 @@ fun HomeScreen(
                     selected = t == current,
                     expanded = railFocused,
                     onClick = { select(t) },
-                    modifier = Modifier
-                        .focusRequester(tabRequesters.getValue(t))
-                        .onFocusChanged { if (it.isFocused || it.hasFocus) select(t) },
+                    // Tabs switch on Center only. Switching on focus made Up/Down (or a Left that
+                    // landed on another item) change tabs by itself, which felt like the UI jumping.
+                    modifier = Modifier.focusRequester(tabRequesters.getValue(t)),
                 )
             }
             Spacer(Modifier.weight(1f))

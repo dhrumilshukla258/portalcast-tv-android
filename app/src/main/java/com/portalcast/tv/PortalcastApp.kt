@@ -18,7 +18,7 @@ class PortalcastApp : Application(), ImageLoaderFactory {
     /** Coil uses the media client: no Bearer, redirects followed, our User-Agent. */
     override fun newImageLoader(): ImageLoader = ImageLoader.Builder(this)
         .okHttpClient { container.mediaClient }
-        .crossfade(true)
+        .crossfade(false) // a fade per poster while scrolling cost frames on TV hardware
         .build()
 }
 

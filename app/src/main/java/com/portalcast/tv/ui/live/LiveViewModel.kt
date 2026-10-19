@@ -1,5 +1,7 @@
 package com.portalcast.tv.ui.live
 
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.portalcast.tv.data.model.Channel
@@ -59,10 +61,12 @@ class LiveViewModel(
                 val g = async { live.groups(forceRefresh) }
                 c.await() to g.await()
             }
-            val channels = channelsResult.getOrElse { e ->
+            val unsorted = channelsResult.getOrElse { e ->
                 _state.update { it.copy(loading = false, error = e) }
                 return@launch
             }
+            // Sort once (10k+ channels on real portals), off the main thread; filters keep this order.
+            val channels = withContext(Dispatchers.Default) { unsorted.sortedWith(LiveFilter.byNumber) }
             val groups = LiveFilter.withSyntheticGroups(groupsResult.getOrNull().orEmpty())
             val prefs = users.preferences().getOrNull()
             val providerKey = users.providerKey().getOrNull() ?: DefaultUserRepository.FALLBACK_PROVIDER_KEY

@@ -99,8 +99,16 @@ fun DiscoverScreen(
     }
     BackHandler(enabled = state.grid != null) { vm.clearFilter() }
 
+    // The backdrop follows focus, but only once focus rests (~0.4 s): loading a full-screen
+    // image on every d-pad step made browsing lag on a modest TV. The regular backdrop is
+    // preferred over the HD original for the same reason.
+    var focusedBackdrop by remember { mutableStateOf<String?>(null) }
     val onFocusItem: (MediaItem) -> Unit = { item ->
-        (item.backdropHdPath?.takeIf { it.isNotBlank() } ?: item.backdropPath?.takeIf { it.isNotBlank() })?.let { backdrop = it }
+        (item.backdropPath?.takeIf { it.isNotBlank() } ?: item.backdropHdPath?.takeIf { it.isNotBlank() })?.let { focusedBackdrop = it }
+    }
+    LaunchedEffect(focusedBackdrop) {
+        delay(400)
+        backdrop = focusedBackdrop
     }
 
     Box(modifier.fillMaxSize().background(AppColors.Background)) {

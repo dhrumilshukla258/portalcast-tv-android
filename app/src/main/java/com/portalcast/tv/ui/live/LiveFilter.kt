@@ -31,13 +31,13 @@ object LiveFilter {
             }
             ChannelGroup.FAVORITES_ID -> {
                 val set = favorites.toHashSet()
-                all.filter { it.id in set }.sortedWith(byNumber)
+                all.filter { it.id in set }
             }
-            ChannelGroup.ALL_ID -> all.sortedWith(byNumber)
-            else -> all.filter { it.groupId == groupId }.sortedWith(byNumber)
+            ChannelGroup.ALL_ID -> all
+            else -> all.filter { it.groupId == groupId }
         }
 
-    /** TV order: channel number first (the server sorts by name), unnumbered last by name. Recent keeps recency. */
+    /** Input must already be in TV order ([byNumber]); the ViewModel sorts once at load. TV order: channel number first (the server sorts by name), unnumbered last by name. Recent keeps recency. */
     val byNumber: Comparator<Channel> = compareBy<Channel>({ it.number == null || it.number == 0 }, { it.number ?: 0 }, { it.displayName.lowercase() })
 
     /** The saved group when it still exists, else All. */

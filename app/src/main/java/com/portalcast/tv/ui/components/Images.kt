@@ -29,4 +29,4 @@ val MediaItem.posterPath: String? get() = screenshotUri
 
 /** Wide art for detail backdrops: TMDB backdrop when enriched, else the poster. */
 val MediaItem.backdropArt: String?
-    get() = backdropHdPath?.takeIf { it.isNotBlank() } ?: backdropPath?.takeIf { it.isNotBlank() } ?: screenshotUri
+    get() = backdropPath?.takeIf { it.isNotBlank() } ?: backdropHdPath?.takeIf { it.isNotBlank() } ?: screenshotUri // regular before HD: cheaper to decode on TV hardware
