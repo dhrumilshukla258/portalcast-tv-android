@@ -180,6 +180,8 @@ treat 403 on these four routes as "cold".)
 - `title` is what the admin "who's watching" view shows. Send the real movie
   title, or `"<Series> - <Episode title or Episode N>"`, never the file's
   own quality-string name.
+- `itemId` / `itemType` (`movie` | `episode`): the browsed item, sent for the server's broken-stream
+  tracking (3 failed attempts in 24 h auto-hide a movie; admins review them). Older servers ignore them.
 - `series`: omit for movies. For episodes send `series_number`. (On Stalker
   the server passes it to the portal as the episode selector; on Xtream it is
   only used to look up the container extension.)

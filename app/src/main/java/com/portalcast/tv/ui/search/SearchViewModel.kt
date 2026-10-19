@@ -98,7 +98,7 @@ class SearchViewModel(
 
     init {
         viewModelScope.launch {
-            users.preferences().getOrNull()?.recentSearches?.let { r -> _state.update { it.copy(recent = r) } }
+            users.preferences().getOrNull()?.recentSearches?.let { r -> _state.update { it.copy(recent = cleanRecent(r)) } }
         }
     }
 
@@ -275,7 +275,23 @@ class SearchViewModel(
         }
 
         /** Newest first, case-insensitive de-duplication, capped (matches the webui). */
-        fun pushRecent(recent: List<String>, query: String): List<String> =
-            (listOf(query) + recent.filterNot { it.equals(query, ignoreCase = true) }).take(MAX_RECENT)
+        fun pushRecent(recent: List<String>, query: String): List<String> = cleanRecent(listOf(query) + recent)
+
+        /**
+         * Same rules as the webui's cleanRecentSearches: drop entries under [MIN_CHARS],
+         * case-insensitive duplicates and prefixes of longer entries (fragments the old webui
+         * saved while typing), newest first, capped at [MAX_RECENT].
+         */
+        fun cleanRecent(list: List<String>): List<String> {
+            val out = ArrayList<String>()
+            for (raw in list) {
+                val term = raw.trim()
+                if (term.length < MIN_CHARS) continue
+                if (out.any { it.equals(term, ignoreCase = true) }) continue
+                if (list.any { o -> o.trim().length > term.length && o.trim().startsWith(term, ignoreCase = true) }) continue
+                out.add(term)
+            }
+            return out.take(MAX_RECENT)
+        }
     }
 }

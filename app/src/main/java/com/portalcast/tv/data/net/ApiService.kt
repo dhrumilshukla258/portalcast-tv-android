@@ -139,6 +139,9 @@ interface ApiService {
         @Query("series") series: String? = null,
         @Query("title") title: String? = null,
         @Query("category") category: String? = null,
+        /** Browsed item (movie list id / episode id) and its type, for the server's broken-stream tracking. Ignored by older servers. */
+        @Query("itemId") itemId: String? = null,
+        @Query("itemType") itemType: String? = null,
     ): JsonObject
 
     // ---- series ----------------------------------------------------------------

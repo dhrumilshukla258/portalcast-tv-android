@@ -37,6 +37,8 @@ class DefaultStreamResolver(
             series = null,
             title = session.label,
             category = session.item.labelCategory ?: session.category,
+            itemId = session.item.id,
+            itemType = "movie",
             forceRefresh = forceRefresh,
         )
         is PlaybackSession.Episode -> resolveVod(
@@ -45,6 +47,8 @@ class DefaultStreamResolver(
             series = session.episode.seriesNumber?.toString(),
             title = session.label,
             category = session.series.labelCategory ?: session.episode.labelCategory ?: session.category,
+            itemId = session.episode.id,
+            itemType = "episode",
             forceRefresh = forceRefresh,
         )
     }
@@ -62,6 +66,8 @@ class DefaultStreamResolver(
         series: String?,
         title: String?,
         category: String?,
+        itemId: String?,
+        itemType: String,
         forceRefresh: Boolean,
     ): Result<ResolvedStream> {
         if (!forceRefresh) cache[key]?.let { return Result.success(it) }
@@ -72,6 +78,8 @@ class DefaultStreamResolver(
                 series = series,
                 title = title?.takeIf { it.isNotBlank() },
                 category = category?.takeIf { it.isNotBlank() },
+                itemId = itemId?.takeIf { it.isNotBlank() },
+                itemType = itemType,
             )
             val js = body["js"] as? kotlinx.serialization.json.JsonObject
             val cmd = (js?.get("cmd").primitiveOrNull() ?: body["cmd"].primitiveOrNull())?.trim()

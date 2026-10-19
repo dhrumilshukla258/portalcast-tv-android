@@ -34,4 +34,9 @@ class SearchGroupingTest {
         val r = (1..6).fold(emptyList<String>()) { acc, i -> SearchViewModel.pushRecent(acc, "q$i") }
         assertEquals(listOf("Q3", "q6", "q5", "q4", "q2", "q1"), SearchViewModel.pushRecent(r, "Q3"))
     }
+
+    @Test fun `typing fragments from the old webui are cleaned`() {
+        assertEquals(listOf("Chhel", "weak hero"), SearchViewModel.cleanRecent(listOf("Chhel", "Chhe", "Ch", "C", "weak hero")))
+        assertEquals(listOf("Batman", "Joker"), SearchViewModel.cleanRecent(listOf("Batman", "batman", "Bat", "Joker", "J")))
+    }
 }
