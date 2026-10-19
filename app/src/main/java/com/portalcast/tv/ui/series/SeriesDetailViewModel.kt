@@ -79,7 +79,9 @@ class SeriesDetailViewModel(
         _state.update { it.copy(seasonsLoading = true, seasonsError = null) }
         viewModelScope.launch {
             repo.seasons(seriesId, effectiveCategory).fold(
-                onSuccess = { seasons ->
+                onSuccess = { raw ->
+                    // Portals list seasons newest first; show Season 1 first.
+                    val seasons = EpisodeInfo.sortSeasons(raw)
                     val wanted = _state.value.continueRow?.parsedMeta?.seasonId
                     val pick = seasons.firstOrNull { it.id == wanted }?.id ?: seasons.firstOrNull()?.id
                     _state.update { it.copy(seasonsLoading = false, seasons = seasons) }
@@ -116,9 +118,15 @@ class SeriesDetailViewModel(
             result.fold(
                 onSuccess = { page ->
                     _state.update { st ->
-                        val episodes = st.episodes.append(page) { ep -> ep.id.ifBlank { ep.displayTitle } }
+                        val appended = st.episodes.append(page) { ep -> ep.id.ifBlank { ep.displayTitle } }
+                        // Ascending episode order (portals list newest first); number from the name.
+                        val episodes = appended.copy(items = EpisodeInfo.sortEpisodes(appended.items))
                         st.copy(episodesLoading = false, episodes = episodes).withContinueEpisode()
                     }
+                    // Load the whole season up front (bounded) so sorting is over all of it and
+                    // episode 1 is first; a season is rarely more than a few pages.
+                    val now = _state.value.episodes
+                    if (!now.endReached && now.nextPage <= MAX_EPISODE_PAGES) loadMoreEpisodes()
                 },
                 onFailure = { e -> _state.update { it.copy(episodesLoading = false, episodesError = e) } },
             )
@@ -213,4 +221,8 @@ class SeriesDetailViewModel(
     /** Episodes need a season number for movie-link's `series` param; fill it from the season. */
     private fun MediaItem.withSeason(season: MediaItem?, index: Int): MediaItem =
         if (seriesNumber != null) this else copy(seriesNumber = SeriesProgress.seasonNumber(season, index.coerceAtLeast(0)))
+
+    companion object {
+        const val MAX_EPISODE_PAGES = 10
+    }
 }

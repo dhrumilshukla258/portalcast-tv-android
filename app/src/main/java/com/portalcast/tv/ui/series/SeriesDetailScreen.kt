@@ -180,7 +180,7 @@ fun SeriesDetailScreen(id: String, category: String, onPlay: () -> Unit, modifie
                         itemsIndexed(state.seasons, key = { i, s -> "$i:${s.id}" }) { i, season ->
                             val selected = season.id == state.selectedSeasonId
                             TvButton(
-                                text = season.displayTitle.ifBlank { "Season ${SeriesProgress.seasonNumber(season, i)}" },
+                                text = EpisodeInfo.seasonLabel(season, i),
                                 onClick = { vm.selectSeason(season.id) },
                                 style = if (selected) TvButtonStyle.Primary else TvButtonStyle.Secondary,
                             )
@@ -271,7 +271,7 @@ private fun EpisodeCard(
     modifier: Modifier = Modifier,
 ) {
     val shape = RoundedCornerShape(14.dp)
-    val number = episode.episodeNum ?: (index + 1)
+    val number = EpisodeInfo.number(episode, index)
     Surface(
         onClick = onClick,
         enabled = enabled,
@@ -301,7 +301,7 @@ private fun EpisodeCard(
             }
             Column(Modifier.padding(horizontal = 10.dp, vertical = 8.dp)) {
                 Text(
-                    "$number. ${episode.displayTitle.ifBlank { "Episode $number" }}",
+                    "$number. ${EpisodeInfo.title(episode, index)}",
                     style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.SemiBold,
                     maxLines = 2,
