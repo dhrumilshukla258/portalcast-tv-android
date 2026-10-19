@@ -12,21 +12,37 @@ android {
         applicationId = "com.portalcast.tv"
         minSdk = 21
         targetSdk = 34
-        versionCode = 3
-        versionName = "0.3.0"
+        // CI release builds pass these from the git tag (.github/workflows/release.yml).
+        versionCode = System.getenv("PORTALCAST_VERSION_CODE")?.toIntOrNull() ?: 3
+        versionName = System.getenv("PORTALCAST_VERSION_NAME") ?: "0.3.0"
+    }
+
+    // Release key from the environment (GitHub secrets in CI, or exported locally).
+    // Without it, release builds fall back to the debug key (fine for sideloading on
+    // one machine, but an APK signed with another machine's debug key cannot update it).
+    val releaseKeystore = System.getenv("PORTALCAST_KEYSTORE")?.let { file(it) }?.takeIf { it.exists() }
+    signingConfigs {
+        if (releaseKeystore != null) {
+            create("release") {
+                storeFile = releaseKeystore
+                storePassword = System.getenv("PORTALCAST_KEYSTORE_PASSWORD")
+                keyAlias = System.getenv("PORTALCAST_KEY_ALIAS")
+                keyPassword = System.getenv("PORTALCAST_KEY_PASSWORD")
+            }
+        }
     }
 
     buildTypes {
         release {
             // Debug builds of Compose are several times slower (debuggable, no ART optimisation);
             // on a modest TV the debug APK lagged badly. Test on release builds.
-            // Signed with the debug key for sideloading; set up a real keystore before any store
-            // release. R8 (shrink + optimise + obfuscate) and resource shrinking: smaller APK,
+            // Signed with the release key when PORTALCAST_KEYSTORE is set, else the debug key.
+            // R8 (shrink + optimise + obfuscate) and resource shrinking: smaller APK,
             // faster cold start and execution on modest TV hardware.
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = if (releaseKeystore != null) signingConfigs.getByName("release") else signingConfigs.getByName("debug")
         }
     }
 

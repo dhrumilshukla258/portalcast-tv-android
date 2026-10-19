@@ -7,3 +7,9 @@ captures/
 .externalNativeBuild/
 .cxx/
 .claude/worktrees/
+
+# Signing keys must never be committed
+*.jks
+*.keystore
+!debug.keystore
+keystore.properties
