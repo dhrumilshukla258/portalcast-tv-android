@@ -42,7 +42,7 @@ fun AppNavHost(container: AppContainer) {
     val serverUrl by container.sessionStore.serverUrl.collectAsStateWithLifecycle()
 
     if (!isLoaded) {
-        PlaceholderScreen(title = "Portalcast", subtitle = "Loading…")
+        PlaceholderScreen(title = "PortalCast", subtitle = "Loading…")
         return
     }
 

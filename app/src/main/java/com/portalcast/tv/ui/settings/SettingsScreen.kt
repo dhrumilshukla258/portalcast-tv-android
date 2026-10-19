@@ -121,7 +121,7 @@ fun SettingsScreen(onBack: () -> Unit) {
             )
             Spacer(Modifier.height(24.dp))
             Text(
-                "PortalcastTV ${BuildConfig.VERSION_NAME}",
+                "PortalCast ${BuildConfig.VERSION_NAME}",
                 style = MaterialTheme.typography.bodySmall,
                 color = AppColors.TextMuted,
             )

@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Portalcast lockup (brand/svg/portalcast-logo.svg): symbol + "portalcast" wordmark, light text for dark UI. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android" xmlns:aapt="http://schemas.android.com/aapt" android:width="241dp" android:height="53dp" android:viewportWidth="482" android:viewportHeight="106">
+    <group android:translateX="-14" android:translateY="-8">
+        <group android:translateY="4">
+        <path android:pathData="M29,52 a17,17 0 1,0 34,0 a17,17 0 1,0 -34,0" android:fillColor="#FF0B1226"/>
+        <path android:pathData="M24,52 V88" android:strokeWidth="12" android:strokeLineCap="round"><aapt:attr name="android:strokeColor"><gradient android:type="linear" android:startX="16" android:startY="10" android:endX="88" android:endY="92"><item android:offset="0" android:color="#FF22D3EE"/><item android:offset="0.5" android:color="#FF3B82F6"/><item android:offset="1" android:color="#FF7C5CFF"/></gradient></aapt:attr></path>
+        <path android:pathData="M66.67,44.48 A22,22 0 1,1 53.52,31.33" android:strokeWidth="12" android:strokeLineCap="round"><aapt:attr name="android:strokeColor"><gradient android:type="linear" android:startX="16" android:startY="10" android:endX="88" android:endY="92"><item android:offset="0" android:color="#FF22D3EE"/><item android:offset="0.5" android:color="#FF3B82F6"/><item android:offset="1" android:color="#FF7C5CFF"/></gradient></aapt:attr></path>
+        <path android:pathData="M62.43,21.1 A35,35 0 0,1 76.9,35.57" android:strokeWidth="6.5" android:strokeLineCap="round"><aapt:attr name="android:strokeColor"><gradient android:type="linear" android:startX="16" android:startY="10" android:endX="88" android:endY="92"><item android:offset="0" android:color="#FF22D3EE"/><item android:offset="0.5" android:color="#FF3B82F6"/><item android:offset="1" android:color="#FF7C5CFF"/></gradient></aapt:attr></path>
+        <path android:pathData="M71.05,13.42 A46,46 0 0,1 84.58,26.95" android:strokeWidth="6.5" android:strokeLineCap="round" android:strokeAlpha="0.55"><aapt:attr name="android:strokeColor"><gradient android:type="linear" android:startX="16" android:startY="10" android:endX="88" android:endY="92"><item android:offset="0" android:color="#FF22D3EE"/><item android:offset="0.5" android:color="#FF3B82F6"/><item android:offset="1" android:color="#FF7C5CFF"/></gradient></aapt:attr></path>
+        <path android:pathData="M41.5,44 L55.5,52 L41.5,60 Z" android:fillColor="#FFFFFFFF" android:strokeColor="#FFFFFFFF" android:strokeWidth="4" android:strokeLineJoin="round"/>
+        </group>
+        <group android:translateX="118" android:translateY="22" android:scaleX="1.1" android:scaleY="1.1">
+            <path android:pathData="M0,24 V76 M0,40 a16,16 0 1,0 32,0 a16,16 0 1,0 -32,0 M45,40 a16,16 0 1,0 32,0 a16,16 0 1,0 -32,0 M90,56 V24 M90,38 A14,14 0 0,1 104,24 M121,8 V46 A10,10 0 0,0 131,56 H133 M113,24 H131 M146,40 a16,16 0 1,0 32,0 a16,16 0 1,0 -32,0 M178,24 V56 M191,4 V56 M232.26,29.72 A16,16 0 1,0 232.26,50.28 M245,40 a16,16 0 1,0 32,0 a16,16 0 1,0 -32,0 M277,24 V56 M308.66,28 A10,8 0 1,0 300,40 A10,8 0 1,1 291.34,52 M323,8 V46 A10,10 0 0,0 333,56 H335 M315,24 H333" android:strokeColor="#FFEAF2FF" android:strokeWidth="7" android:strokeLineCap="round" android:strokeLineJoin="round"/>
+        </group>
+    </group>
+</vector>

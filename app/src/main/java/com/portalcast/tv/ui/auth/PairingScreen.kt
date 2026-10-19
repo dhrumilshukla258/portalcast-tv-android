@@ -40,6 +40,7 @@ import com.portalcast.tv.ui.components.ErrorText
 import com.portalcast.tv.ui.components.QrCodeImage
 import com.portalcast.tv.ui.components.TvButton
 import com.portalcast.tv.ui.components.TvButtonStyle
+import com.portalcast.tv.ui.components.PortalcastLogo
 import com.portalcast.tv.ui.theme.AppColors
 
 /**
@@ -76,7 +77,7 @@ fun PairingScreen(onUsePassword: () -> Unit, onChangeServer: () -> Unit) {
                     .padding(horizontal = 32.dp, vertical = 40.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
-                Text("PORTALCAST", style = MaterialTheme.typography.labelLarge, color = AppColors.Primary)
+                PortalcastLogo()
                 Spacer(Modifier.height(8.dp))
                 Text("Pair this TV", style = MaterialTheme.typography.headlineLarge, color = AppColors.Text)
                 Spacer(Modifier.height(8.dp))

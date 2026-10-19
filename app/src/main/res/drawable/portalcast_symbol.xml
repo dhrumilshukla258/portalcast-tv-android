@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- PortalCast symbol alone (brand/svg/portalcast-symbol.svg), transparent background. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android" xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="37dp" android:height="44dp" android:viewportWidth="74" android:viewportHeight="88">
+    <group android:translateX="-16" android:translateY="-8">
+        <path android:pathData="M29,52 a17,17 0 1,0 34,0 a17,17 0 1,0 -34,0" android:fillColor="#FF0B1226"/>
+        <path android:pathData="M24,52 V88" android:strokeWidth="12" android:strokeLineCap="round"><aapt:attr name="android:strokeColor"><gradient android:type="linear" android:startX="16" android:startY="10" android:endX="88" android:endY="92"><item android:offset="0" android:color="#FF22D3EE"/><item android:offset="0.5" android:color="#FF3B82F6"/><item android:offset="1" android:color="#FF7C5CFF"/></gradient></aapt:attr></path>
+        <path android:pathData="M66.67,44.48 A22,22 0 1,1 53.52,31.33" android:strokeWidth="12" android:strokeLineCap="round"><aapt:attr name="android:strokeColor"><gradient android:type="linear" android:startX="16" android:startY="10" android:endX="88" android:endY="92"><item android:offset="0" android:color="#FF22D3EE"/><item android:offset="0.5" android:color="#FF3B82F6"/><item android:offset="1" android:color="#FF7C5CFF"/></gradient></aapt:attr></path>
+        <path android:pathData="M62.43,21.1 A35,35 0 0,1 76.9,35.57" android:strokeWidth="6.5" android:strokeLineCap="round"><aapt:attr name="android:strokeColor"><gradient android:type="linear" android:startX="16" android:startY="10" android:endX="88" android:endY="92"><item android:offset="0" android:color="#FF22D3EE"/><item android:offset="0.5" android:color="#FF3B82F6"/><item android:offset="1" android:color="#FF7C5CFF"/></gradient></aapt:attr></path>
+        <path android:pathData="M71.05,13.42 A46,46 0 0,1 84.58,26.95" android:strokeWidth="6.5" android:strokeLineCap="round" android:strokeAlpha="0.55"><aapt:attr name="android:strokeColor"><gradient android:type="linear" android:startX="16" android:startY="10" android:endX="88" android:endY="92"><item android:offset="0" android:color="#FF22D3EE"/><item android:offset="0.5" android:color="#FF3B82F6"/><item android:offset="1" android:color="#FF7C5CFF"/></gradient></aapt:attr></path>
+        <path android:pathData="M41.5,44 L55.5,52 L41.5,60 Z" android:fillColor="#FFFFFFFF" android:strokeColor="#FFFFFFFF" android:strokeWidth="4" android:strokeLineJoin="round"/>
+            </group>
+</vector>

@@ -59,6 +59,8 @@ import androidx.tv.material3.Surface
 import androidx.tv.material3.Text
 import com.portalcast.tv.appContainer
 import com.portalcast.tv.data.model.MediaItem
+import com.portalcast.tv.ui.components.PortalcastLogo
+import com.portalcast.tv.ui.components.PortalcastSymbol
 import com.portalcast.tv.ui.SelectedItemHolder
 import com.portalcast.tv.ui.discover.DiscoverScreen
 import com.portalcast.tv.ui.search.SearchScreen
@@ -208,13 +210,12 @@ fun HomeScreen(
                 .padding(horizontal = 12.dp, vertical = 28.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            Text(
-                if (railFocused) "Portalcast" else "P",
-                style = MaterialTheme.typography.titleLarge,
-                color = AppColors.Primary,
-                maxLines = 1,
-                modifier = Modifier.padding(start = 14.dp, bottom = 20.dp),
-            )
+            // Brand mark: the symbol when the rail is collapsed, symbol + wordmark when expanded.
+            // Fixed height so the tabs below don't shift when the rail opens.
+            Box(Modifier.height(36.dp).padding(start = 10.dp), contentAlignment = Alignment.CenterStart) {
+                if (railFocused) PortalcastLogo(height = 30.dp) else PortalcastSymbol(height = 32.dp)
+            }
+            Spacer(Modifier.height(16.dp))
             for (t in HomeTab.entries) {
                 RailItem(
                     icon = t.icon,

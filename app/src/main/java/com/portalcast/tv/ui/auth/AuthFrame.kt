@@ -19,6 +19,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
+import com.portalcast.tv.ui.components.PortalcastLogo
 import com.portalcast.tv.ui.theme.AppColors
 
 /**
@@ -41,7 +42,7 @@ fun AuthFrame(
                 .padding(horizontal = 32.dp, vertical = 40.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            Text("PORTALCAST", style = MaterialTheme.typography.labelLarge, color = AppColors.Primary)
+            PortalcastLogo()
             Spacer(Modifier.height(8.dp))
             Text(title, style = MaterialTheme.typography.headlineLarge, color = AppColors.Text, textAlign = TextAlign.Center)
             if (subtitle != null) {
