@@ -1,5 +1,6 @@
 package com.portalcast.tv.data.repo
 
+import com.portalcast.tv.data.model.RefreshRequest
 import com.portalcast.tv.data.model.DeviceCodeResponse
 import com.portalcast.tv.data.model.DevicePollRequest
 import com.portalcast.tv.data.model.DevicePollResponse
@@ -97,5 +98,9 @@ class DefaultAuthRepository(
         return result
     }
 
-    override suspend fun logout() = sessionStore.clearSession()
+    override suspend fun logout() {
+        // Revoke the session on the server too; sign-out never waits on or fails because of it.
+        sessionStore.session.value?.let { s -> runCatching { api.logout(RefreshRequest(s.refreshToken)).close() } }
+        sessionStore.clearSession()
+    }
 }

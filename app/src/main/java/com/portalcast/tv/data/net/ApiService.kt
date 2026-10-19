@@ -88,6 +88,10 @@ interface ApiService {
     @POST("api/auth/refresh")
     suspend fun refresh(@Body body: RefreshRequest): RefreshResponse
 
+    /** Revokes this refresh token's session on the server (older servers 404; ignored). */
+    @POST("api/auth/logout")
+    suspend fun logout(@Body body: RefreshRequest): okhttp3.ResponseBody
+
     /** No body. Not rate limited. */
     @POST("api/auth/device/code")
     suspend fun deviceCode(): DeviceCodeResponse
