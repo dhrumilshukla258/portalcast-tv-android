@@ -24,6 +24,7 @@ import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -60,6 +61,7 @@ import com.portalcast.tv.appContainer
 import com.portalcast.tv.data.model.MediaItem
 import com.portalcast.tv.ui.SelectedItemHolder
 import com.portalcast.tv.ui.discover.DiscoverScreen
+import com.portalcast.tv.ui.search.SearchScreen
 import com.portalcast.tv.ui.live.LiveScreen
 import com.portalcast.tv.ui.movies.MoviesScreen
 import com.portalcast.tv.ui.nav.HomeTab
@@ -171,6 +173,7 @@ fun HomeScreen(
                 .focusGroup(),
         ) {
             when (current) {
+                HomeTab.SEARCH -> SearchScreen(onOpenMovie = openMovie, onOpenSeries = openSeries, onPlay = onPlay)
                 HomeTab.DISCOVER -> DiscoverScreen(onOpenMovie = openMovie, onOpenSeries = openSeries)
                 HomeTab.LIVE -> LiveScreen(onPlay = onPlay, restoreFocus = restorePending)
                 HomeTab.MOVIES -> MoviesScreen(onOpenMovie = openMovie, restoreFocus = restorePending)
@@ -233,6 +236,7 @@ fun HomeScreen(
 
 private val HomeTab.icon: ImageVector
     get() = when (this) {
+        HomeTab.SEARCH -> Icons.Filled.Search
         HomeTab.DISCOVER -> Icons.Filled.Home
         HomeTab.LIVE -> Icons.Filled.PlayArrow
         HomeTab.MOVIES -> Icons.Filled.Star

@@ -48,7 +48,6 @@ import com.portalcast.tv.ui.components.LoadingPanel
 import com.portalcast.tv.ui.components.MediaCard
 import com.portalcast.tv.ui.components.SideListItem
 import com.portalcast.tv.ui.components.TvButton
-import com.portalcast.tv.ui.components.TvTextField
 import com.portalcast.tv.ui.components.panelMessage
 import com.portalcast.tv.ui.theme.AppColors
 
@@ -122,20 +121,7 @@ fun CatalogScreen(
                         color = AppColors.TextMuted,
                     )
                 }
-                TvTextField(
-                    value = state.query,
-                    onValueChange = vm::setQuery,
-                    label = "Search",
-                    hint = "Title…",
-                    imeAction = ImeAction.Done,
-                    onImeAction = vm::submitSearch,
-                    // Down from Search goes to the grid explicitly: the default beam search found
-                    // nothing when no card sat directly below the field, trapping focus there.
-                    modifier = Modifier.width(280.dp).focusProperties {
-                        down = if (gridShown) gridRequester else FocusRequester.Default
-                    },
-                )
-                Spacer(Modifier.width(16.dp))
+                // No per-category search: search is global (Search tab in the rail).
                 TvButton(text = "Sort: ${state.sort.label}", onClick = vm::toggleSort)
             }
 
