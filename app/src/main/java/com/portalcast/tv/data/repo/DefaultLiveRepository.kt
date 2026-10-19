@@ -52,7 +52,15 @@ class DefaultLiveRepository(
             // session and we fall back to the whole guide (~50 MB raw on big portals).
             withContext(Dispatchers.IO) {
                 val body = if (windowUnsupported) api.epg() else try {
-                    api.epgWindow(WINDOW_HOURS)
+                    val window = api.epgWindow(WINDOW_HOURS)
+                    // Servers from before /epg/window answer unknown paths with the webui's
+                    // index.html (200, text/html), not 404: parsing that gave "no guide" forever.
+                    if (window.contentType()?.subtype?.contains("json", ignoreCase = true) == true) window
+                    else {
+                        window.close()
+                        windowUnsupported = true
+                        api.epg()
+                    }
                 } catch (e: retrofit2.HttpException) {
                     if (e.code() != 404) throw e
                     windowUnsupported = true

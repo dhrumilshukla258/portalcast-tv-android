@@ -141,6 +141,23 @@ class LiveRepositoryTest {
     }
 
     @Test
+    fun `epg falls back to the full guide when an older server answers the window with the webui page`() = runBlocking {
+        // Servers before /epg/window serve index.html (200, text/html) for unknown paths.
+        val stack = TestStack(server)
+        stack.clock.set(1760783400L * 1000)
+        stack.routes.get("/api/v2/epg/window") {
+            MockResponse().setResponseCode(200).addHeader("Content-Type", "text/html; charset=UTF-8").setBody("<!doctype html><html></html>")
+        }
+        stack.routes.get("/api/v2/epg", "epg")
+        val epg = stack.live.epg().getOrThrow()!!
+        assertEquals("News", epg.nowNext("101", nowMs = 1760783400L * 1000).first?.name)
+        stack.clock.addAndGet(DefaultLiveRepository.EPG_TTL_MS)
+        stack.live.epg().getOrThrow()
+        assertEquals("the window is probed once per session", 1, stack.routes.count("GET", "/api/v2/epg/window"))
+        assertEquals(2, stack.routes.count("GET", "/api/v2/epg"))
+    }
+
+    @Test
     fun `toggleFavorite sends the whole list each time`() = runBlocking {
         val stack = TestStack(server)
         stack.routes.get("/api/user/profile", "profile")
