@@ -21,8 +21,11 @@ android {
             // Debug builds of Compose are several times slower (debuggable, no ART optimisation);
             // on a modest TV the debug APK lagged badly. Test on release builds.
             // Signed with the debug key for sideloading; set up a real keystore before any store
-            // release. R8 shrinking stays off until it has been verified on a device.
-            isMinifyEnabled = false
+            // release. R8 (shrink + optimise + obfuscate) and resource shrinking: smaller APK,
+            // faster cold start and execution on modest TV hardware.
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
             signingConfig = signingConfigs.getByName("debug")
         }
     }
