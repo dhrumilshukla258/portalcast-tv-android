@@ -40,6 +40,12 @@ object LiveFilter {
     /** Input must already be in TV order ([byNumber]); the ViewModel sorts once at load. TV order: channel number first (the server sorts by name), unnumbered last by name. Recent keeps recency. */
     val byNumber: Comparator<Channel> = compareBy<Channel>({ it.number == null || it.number == 0 }, { it.number ?: 0 }, { it.displayName.lowercase() })
 
+    /**
+     * The list the screen works from: TV order ([byNumber]) with duplicate ids dropped (the
+     * first copy in TV order wins), so the channel id is a safe stable key for the lazy list. Run once, off the main thread.
+     */
+    fun prepare(channels: List<Channel>): List<Channel> = channels.sortedWith(byNumber).distinctBy { it.id }
+
     /** The saved group when it still exists, else All. */
     fun restoreGroup(saved: String?, groups: List<ChannelGroup>): String =
         saved?.takeIf { s -> s.isNotBlank() && groups.any { it.id == s } } ?: ChannelGroup.ALL_ID

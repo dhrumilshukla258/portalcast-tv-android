@@ -7,6 +7,7 @@ import androidx.lifecycle.viewModelScope
 import com.portalcast.tv.data.model.Channel
 import com.portalcast.tv.data.model.ChannelGroup
 import com.portalcast.tv.data.model.EpgData
+import com.portalcast.tv.data.model.EpgProgramme
 import com.portalcast.tv.data.repo.DefaultUserRepository
 import com.portalcast.tv.data.repo.LiveRepository
 import com.portalcast.tv.data.repo.UserRepository
@@ -39,6 +40,8 @@ class LiveViewModel(
         val recents: List<String> = emptyList(),
         val visible: List<Channel> = emptyList(),
         val epg: EpgData? = null,
+        /** [epg] by channel id, each list sorted by start ([LiveEpg.index]); rows look up O(1). */
+        val epgIndex: Map<String, List<EpgProgramme>> = emptyMap(),
         /** Transient notice (favourite toggle failed). */
         val notice: String? = null,
     ) {
@@ -65,8 +68,8 @@ class LiveViewModel(
                 _state.update { it.copy(loading = false, error = e) }
                 return@launch
             }
-            // Sort once (10k+ channels on real portals), off the main thread; filters keep this order.
-            val channels = withContext(Dispatchers.Default) { unsorted.sortedWith(LiveFilter.byNumber) }
+            // Sort + dedupe once (10k+ channels on real portals), off the main thread; filters keep this order.
+            val channels = withContext(Dispatchers.Default) { LiveFilter.prepare(unsorted) }
             val groups = LiveFilter.withSyntheticGroups(groupsResult.getOrNull().orEmpty())
             val prefs = users.preferences().getOrNull()
             val providerKey = users.providerKey().getOrNull() ?: DefaultUserRepository.FALLBACK_PROVIDER_KEY
@@ -77,6 +80,8 @@ class LiveViewModel(
             } else {
                 LiveFilter.restoreGroup(prefs?.lastSelectedTvGroup?.get(providerKey), groups)
             }
+            // First open: start the list at the last played channel (synced pref, as the webui does).
+            if (lastFocusedChannelId == null) lastFocusedChannelId = prefs?.lastSelectedTvChannel?.get(providerKey)
             _state.update {
                 it.copy(
                     loading = false,
@@ -95,7 +100,12 @@ class LiveViewModel(
     /** Re-read the EPG (30-minute cadence from the screen). A cold server keeps the old data. */
     fun refreshEpg(forceRefresh: Boolean) {
         viewModelScope.launch {
-            live.epg(forceRefresh).onSuccess { epg -> if (epg != null) _state.update { it.copy(epg = epg) } }
+            live.epg(forceRefresh).onSuccess { epg ->
+                if (epg != null) {
+                    val index = withContext(Dispatchers.Default) { LiveEpg.index(epg) }
+                    _state.update { it.copy(epg = epg, epgIndex = index) }
+                }
+            }
         }
     }
 

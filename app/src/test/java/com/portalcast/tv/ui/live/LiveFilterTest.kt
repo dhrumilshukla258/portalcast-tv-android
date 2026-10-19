@@ -46,6 +46,16 @@ class LiveFilterTest {
     }
 
     @Test
+    fun prepareSortsByNumberAndDropsDuplicateIds() {
+        val x = Channel(id = "9", name = "Zed", number = 2)
+        val y = Channel(id = "8", name = "Alpha", number = 1)
+        val dupe = Channel(id = "9", name = "Zed copy", number = 5)
+        val unnumbered = Channel(id = "7", name = "Beta")
+        assertEquals(listOf("8", "9", "7"), LiveFilter.prepare(listOf(unnumbered, x, dupe, y)).map { it.id })
+        assertEquals("Zed", LiveFilter.prepare(listOf(dupe, x)).first().name)
+    }
+
+    @Test
     fun restoreGroupFallsBackToAll() {
         val groups = LiveFilter.withSyntheticGroups(listOf(ChannelGroup(id = "news", title = "News")))
         assertEquals("news", LiveFilter.restoreGroup("news", groups))
