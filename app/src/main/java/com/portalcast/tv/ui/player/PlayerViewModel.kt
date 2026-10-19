@@ -309,7 +309,7 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
         val pos = player.currentPosition.coerceAtLeast(0L)
         val dur = player.duration.takeIf { it != C.TIME_UNSET && it > 0 } ?: 0L
         val buffered = player.bufferedPosition.coerceAtLeast(0L)
-        val nearEnd = s is PlaybackSession.Episode && s.nextEpisode != null && dur > 0 && dur - pos <= NEXT_EPISODE_WINDOW_MS
+        val nearEnd = s is PlaybackSession.Episode && s.nextEpisode != null && dur > 0 && dur - pos <= nextEpisodeWindowMs(dur)
         _state.update { it.copy(positionMs = pos, durationMs = dur, bufferedMs = buffered, showNextEpisode = nearEnd) }
         if (s.isLive) return
         if (player.isPlaying) reporter.onProgress(s, pos, dur)
@@ -427,7 +427,12 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
         const val SEEK_STEP_FAST_MS = 30_000L
         const val OVERLAY_HIDE_MS = 4_000L
         const val CHANNEL_SWITCH_DEBOUNCE_MS = 2_000L
-        const val NEXT_EPISODE_WINDOW_MS = 5 * 60_000L
+        /**
+         * How long before the end the "Next episode" button shows: the last 5% of the episode,
+         * kept between 30 s and 90 s (22-min sitcom ~66 s, 45-min drama 90 s). Was a flat 5 min,
+         * a quarter of a sitcom. Playback still moves on by itself only when the episode ends.
+         */
+        fun nextEpisodeWindowMs(durationMs: Long): Long = (durationMs / 20).coerceIn(30_000L, 90_000L)
         @Suppress("unused") const val MAX_LOAD_RETRIES = PortalcastLoadErrorPolicy.MAX_RETRIES
     }
 }

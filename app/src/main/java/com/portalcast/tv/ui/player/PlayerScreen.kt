@@ -98,7 +98,9 @@ fun PlayerScreen(
     // first composition (before attach) silently failed, so the first remote key was spent just
     // moving focus into the player (the first channel-down press did nothing).
     var rootHasFocus by remember { mutableStateOf(false) }
-    LaunchedEffect(hasError, state.showNextEpisode) {
+    // Focus never jumps to the "Next episode" button by itself: with it focused, the OK press
+    // meant to pause started the next episode minutes early. Down selects it instead.
+    LaunchedEffect(hasError) {
         // Up to ~5 s: during the navigation transition the previous screen can still hold focus,
         // and on a real portal (slow first load) 0.7 s was not enough, so channel up/down was dead.
         repeat(50) {
@@ -106,12 +108,11 @@ fun PlayerScreen(
             val ok = runCatching {
                 when {
                     hasError -> retryFocus.requestFocus()
-                    state.showNextEpisode -> nextFocus.requestFocus()
                     else -> rootFocus.requestFocus()
                 }
             }.isSuccess
             delay(100)
-            if (ok && (hasError || state.showNextEpisode || rootHasFocus)) return@LaunchedEffect
+            if (ok && (hasError || rootHasFocus)) return@LaunchedEffect
         }
     }
 
@@ -134,7 +135,14 @@ fun PlayerScreen(
                     Key.DirectionLeft, Key.MediaRewind -> { if (live) vm.showOverlay() else vm.seekBy(-step); true }
                     Key.DirectionRight, Key.MediaFastForward -> { if (live) vm.showOverlay() else vm.seekBy(step); true }
                     Key.DirectionUp -> { if (live) vm.channelStep(-LIVE_DOWN_KEY_DELTA) else vm.showOverlay(); true }
-                    Key.DirectionDown -> { if (live) vm.channelStep(LIVE_DOWN_KEY_DELTA) else vm.showOverlay(); true }
+                    Key.DirectionDown -> {
+                        when {
+                            live -> vm.channelStep(LIVE_DOWN_KEY_DELTA)
+                            state.showNextEpisode -> runCatching { nextFocus.requestFocus() }
+                            else -> vm.showOverlay()
+                        }
+                        true
+                    }
                     Key.ChannelUp -> { if (live) vm.channelStep(1); true }
                     Key.ChannelDown -> { if (live) vm.channelStep(-1); true }
                     Key.Info, Key.Menu -> { vm.toggleOverlay(); true }
@@ -187,6 +195,7 @@ fun PlayerScreen(
                         loading = state.nextEpisodeLoading,
                         focusRequester = nextFocus,
                         onClick = vm::playNextEpisode,
+                        onLeave = { runCatching { rootFocus.requestFocus() } },
                     )
                 }
             }
@@ -322,13 +331,34 @@ private fun BoxScope.LiveBanner(channel: Channel, pending: Boolean, programmes: 
 }
 
 @Composable
-private fun BoxScope.NextEpisodeButton(title: String, loading: Boolean, focusRequester: FocusRequester, onClick: () -> Unit) {
+private fun BoxScope.NextEpisodeButton(
+    title: String,
+    loading: Boolean,
+    focusRequester: FocusRequester,
+    onClick: () -> Unit,
+    onLeave: () -> Unit,
+) {
+    var focused by remember { mutableStateOf(false) }
     Button(
         onClick = onClick,
         enabled = !loading,
-        modifier = Modifier.align(Alignment.BottomEnd).padding(48.dp).focusRequester(focusRequester),
+        modifier = Modifier
+            .align(Alignment.BottomEnd)
+            .padding(48.dp)
+            // Up returns to the video (Back already leaves the player as usual).
+            .onKeyEvent { e ->
+                if (e.type == KeyEventType.KeyDown && e.key == Key.DirectionUp) { onLeave(); true } else false
+            }
+            .onFocusChanged { focused = it.isFocused }
+            .focusRequester(focusRequester),
     ) {
-        Text(if (loading) "Loading…" else "Next episode: $title")
+        Text(
+            when {
+                loading -> "Loading…"
+                focused -> "Play next: $title"
+                else -> "▼  Next episode: $title"
+            },
+        )
     }
 }
 
