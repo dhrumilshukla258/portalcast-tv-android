@@ -70,6 +70,8 @@ data class MediaItem(
     @SerialName("trailer_key") val trailerKey: String? = null,
     /** Discover variants only. */
     val variantLabel: String? = null,
+    /** Measured video quality from the server (servers from 2026-10-19), when someone has played it. */
+    val video: VideoInfo? = null,
     val isPortal: Boolean? = null,
 ) {
     val displayTitle: String get() = title?.takeIf { it.isNotBlank() } ?: name ?: ""
@@ -89,3 +91,28 @@ data class MediaItem(
     /** What to send as movie-link `category` for the admin label: `genres_str || tv_genre_id || category_id`. */
     val labelCategory: String? get() = genresStr?.takeIf { it.isNotBlank() } ?: tvGenreId?.takeIf { it.isNotBlank() } ?: categoryId?.takeIf { it.isNotBlank() }
 }
+
+/**
+ * What a player actually decoded for this title (server `video`): the real resolution
+ * beats quality words in the portal name ("HDCam" on a clean 1080p file).
+ */
+@Serializable
+data class VideoInfo(
+    val width: Int? = null,
+    val height: Int? = null,
+    val fps: Double? = null,
+    val codec: String? = null,
+    /** "2160p" / "1080p" / "720p" / "576p" / "480p" / "SD". */
+    val label: String? = null,
+)
+
+/** Body of POST /api/v2/media-info. */
+@Serializable
+data class MediaInfoReport(
+    val itemType: String,
+    val itemId: String,
+    val width: Int,
+    val height: Int,
+    val fps: Double? = null,
+    val codec: String? = null,
+)

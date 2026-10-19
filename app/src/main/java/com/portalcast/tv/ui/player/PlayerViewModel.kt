@@ -10,6 +10,7 @@ import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
 import com.portalcast.tv.appContainer
 import com.portalcast.tv.data.model.Channel
+import com.portalcast.tv.data.model.MediaInfoReport
 import com.portalcast.tv.data.net.ApiError
 import com.portalcast.tv.data.net.UserAgent
 import com.portalcast.tv.playback.DefaultProgressReporter
@@ -50,6 +51,8 @@ data class PlayerUiState(
     val nextEpisodeLoading: Boolean = false,
     /** A 401/403 is being handled by re-resolving the stream. */
     val reauthorizing: Boolean = false,
+    /** What the decoder is actually playing, e.g. "1080p · 23.976 fps · H.264"; null until known. */
+    val videoStats: String? = null,
 ) {
     val isLive: Boolean get() = session is PlaybackSession.Live
     val nextEpisodeTitle: String? get() = (session as? PlaybackSession.Episode)?.let { s ->
@@ -132,6 +135,37 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
         }
 
         override fun onPlayerError(error: PlaybackException) = handleError(error)
+
+        override fun onTracksChanged(tracks: androidx.media3.common.Tracks) = onVideoFormat()
+        override fun onVideoSizeChanged(videoSize: androidx.media3.common.VideoSize) = onVideoFormat()
+    }
+
+    // ---- measured video quality ------------------------------------------------------
+    private var reportedKey: String? = null
+
+    /** Shows what is decoded and reports it once per title so catalog badges are truthful. */
+    @androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
+    private fun onVideoFormat() {
+        val fmt = player.videoFormat ?: return
+        val w = fmt.width.takeIf { it > 0 } ?: player.videoSize.width.takeIf { it > 0 } ?: return
+        val h = fmt.height.takeIf { it > 0 } ?: player.videoSize.height.takeIf { it > 0 } ?: return
+        val fps = fmt.frameRate.takeIf { it > 0f }?.let { Math.round(it * 1000.0) / 1000.0 }
+        val codec = VideoStats.codecName(fmt.sampleMimeType, fmt.codecs)
+        _state.update { it.copy(videoStats = VideoStats.describe(w, h, fps, codec)) }
+
+        val s = session ?: return
+        val (type, id) = when (s) {
+            is PlaybackSession.Movie -> "movie" to (s.item.catalogId?.removePrefix("movie_") ?: s.item.streamId?.takeIf { it.isNotBlank() } ?: s.item.rawId)
+            is PlaybackSession.Episode -> "episode" to s.episode.id
+            is PlaybackSession.Live -> return
+        }
+        if (id.isBlank()) return
+        val key = "$type:$id:${w}x$h:$fps"
+        if (key == reportedKey) return
+        reportedKey = key
+        container.appScope.launch {
+            runCatching { container.api.reportMediaInfo(MediaInfoReport(type, id, w, h, fps, codec)).close() }
+        }
     }
 
     init {
@@ -167,6 +201,7 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
 
     private fun load(target: PlaybackSession, resumeFromMs: Long?, forceRefresh: Boolean) {
         loadJob?.cancel()
+        _state.update { it.copy(videoStats = null) }
         loadJob = viewModelScope.launch {
             val resume = resumeFromMs ?: if (target.isLive) null else reporter.resumePositionMs(target)
             val resolved = resolver.resolve(target, forceRefresh)

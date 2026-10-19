@@ -28,7 +28,7 @@ object VariantLabels {
     private val QUALITY_TOKENS = listOf(
         """Dual\s*Audio""", "Dubbed", "Dubb?", "Multi", "TriAudio", "4K", "UHD", "FHD", "HD", "SD", "SDR", "HDR",
         "HDRip", "HDTV", "HDCAM", "BluRay", "Blu-?Ray", "BRRip", "WEBRip", "WEB-?DL", "DVDRip", "DVD-?Rip",
-        "CAM", "HDTS", "TS", "PDVD", "480p", "720p", "1080p", "2160p", "CC",
+        "CAM", "HDTS", "TS", "PDVD", "480p", "576p", "720p", "1080p", "1440p", "2160p", "CC",
     ).sortedByDescending { it.length }
 
     private val TRAILING_QUALITY = Regex("""(?:^|\s)(${QUALITY_TOKENS.joinToString("|")})\s*$""", RegexOption.IGNORE_CASE)

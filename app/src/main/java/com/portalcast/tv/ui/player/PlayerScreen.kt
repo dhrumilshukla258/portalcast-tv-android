@@ -202,6 +202,8 @@ fun PlayerScreen(
         }
 
         if (!hasError) StatusPills(state)
+        // Real decoded quality (also reported to the server so catalog badges are truthful).
+        if (!hasError && state.overlayVisible) state.videoStats?.let { VideoStatsChip(it) }
     }
 }
 
@@ -390,4 +392,18 @@ internal fun formatTime(ms: Long): String {
     val m = (totalSec % 3600) / 60
     val s = totalSec % 60
     return if (h > 0) "%d:%02d:%02d".format(h, m, s) else "%d:%02d".format(m, s)
+}
+
+@Composable
+private fun BoxScope.VideoStatsChip(text: String) {
+    Text(
+        text,
+        style = MaterialTheme.typography.labelLarge,
+        color = AppColors.Text,
+        modifier = Modifier
+            .align(Alignment.TopEnd)
+            .padding(top = 32.dp, end = 48.dp)
+            .background(Color.Black.copy(alpha = 0.6f), androidx.compose.foundation.shape.RoundedCornerShape(8.dp))
+            .padding(horizontal = 12.dp, vertical = 6.dp),
+    )
 }

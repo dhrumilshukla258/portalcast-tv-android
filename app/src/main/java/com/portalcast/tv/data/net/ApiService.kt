@@ -45,6 +45,10 @@ interface ApiService {
 
     // ---- auth (no Bearer; the interceptor skips /api/auth/) ----------------
 
+    /** Report the decoded video quality of a title (servers from 2026-10-19; older ones 404). */
+    @POST("api/v2/media-info")
+    suspend fun reportMediaInfo(@Body body: com.portalcast.tv.data.model.MediaInfoReport): okhttp3.ResponseBody
+
     @POST("api/auth/login")
     suspend fun login(@Body body: LoginRequest): AuthResponse
 
