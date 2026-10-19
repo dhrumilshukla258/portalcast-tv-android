@@ -94,9 +94,9 @@ class AppContainer(app: Application) {
     val authRepository: AuthRepository = DefaultAuthRepository(api, sessionStore)
     val userRepository: UserRepository = DefaultUserRepository(api, sessionStore)
     val liveRepository: LiveRepository = DefaultLiveRepository(api, userRepository, sessionStore)
-    val vodRepository: VodRepository = DefaultVodRepository(api)
-    val seriesRepository: SeriesRepository = DefaultSeriesRepository(api)
-    val discoverRepository: DiscoverRepository = DefaultDiscoverRepository(api, vodRepository, seriesRepository)
+    val vodRepository: VodRepository = DefaultVodRepository(api, sessionStore)
+    val seriesRepository: SeriesRepository = DefaultSeriesRepository(api, sessionStore)
+    val discoverRepository: DiscoverRepository = DefaultDiscoverRepository(api, vodRepository, seriesRepository, sessionStore)
 
     // ---- playback (Phase 1c) ----------------------------------------------------
 

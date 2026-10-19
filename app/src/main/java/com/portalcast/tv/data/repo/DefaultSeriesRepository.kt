@@ -1,5 +1,6 @@
 package com.portalcast.tv.data.repo
 
+import com.portalcast.tv.data.store.SessionSource
 import com.portalcast.tv.data.model.ChannelGroup
 import com.portalcast.tv.data.model.MediaItem
 import com.portalcast.tv.data.model.Paged
@@ -8,12 +9,30 @@ import com.portalcast.tv.data.net.ApiService
 import com.portalcast.tv.data.net.apiCall
 
 /** Series categories, paged lists, seasons, episodes and episode files (contract §3.3). */
-class DefaultSeriesRepository(private val api: ApiService) : SeriesRepository {
+class DefaultSeriesRepository(
+    private val api: ApiService,
+    session: SessionSource? = null,
+) : SeriesRepository {
 
-    override suspend fun groups(): Result<List<ChannelGroup>> =
+    // Lists, seasons and episode pages are cached for 15 min per session (see
+    // KeyedSessionCache); episode-file resolution never is (fresh stream links).
+    private val groupsCache = SessionCache<List<ChannelGroup>>(session, ttlMs = KeyedSessionCache.DEFAULT_TTL_MS)
+    private val pages = KeyedSessionCache<String, Paged<MediaItem>>(session)
+    private val seasonsCache = KeyedSessionCache<String, List<MediaItem>>(session, maxEntries = 40)
+
+    fun clearCaches() { groupsCache.clear(); pages.clear(); seasonsCache.clear() }
+
+
+    override suspend fun groups(): Result<List<ChannelGroup>> = groupsCache.get {
         apiCall(ApiPaths.SERIES_GROUPS) { withAllGroup(api.seriesGroups().data) }
+    }
 
     override suspend fun series(category: String, page: Int, search: String?, sort: String?): Result<Paged<MediaItem>> =
+        pages.get("list|${categoryOrAll(category)}|${page.coerceAtLeast(1)}|${search.orEmpty().trim()}|${sort.orEmpty()}") {
+            seriesUncached(category, page, search, sort)
+        }
+
+    private suspend fun seriesUncached(category: String, page: Int, search: String?, sort: String?): Result<Paged<MediaItem>> =
         apiCall(ApiPaths.SERIES) {
             api.series(
                 category = categoryOrAll(category),
@@ -25,12 +44,18 @@ class DefaultSeriesRepository(private val api: ApiService) : SeriesRepository {
 
     /** `data` is the season list (`data[0]` is a season, never the series). */
     override suspend fun seasons(seriesId: String, category: String?): Result<List<MediaItem>> =
+        seasonsCache.get(seriesId) { seasonsUncached(seriesId, category) }
+
+    private suspend fun seasonsUncached(seriesId: String, category: String?): Result<List<MediaItem>> =
         apiCall(ApiPaths.SERIES) {
             val (page, _) = lookupWithAllFallback(categoryOrAll(category)) { c -> api.series(category = c, movieId = seriesId) }
             page.data
         }
 
     override suspend fun episodes(seriesId: String, seasonId: String, page: Int, category: String?): Result<Paged<MediaItem>> =
+        pages.get("ep|$seriesId|$seasonId|${page.coerceAtLeast(1)}") { episodesUncached(seriesId, seasonId, page, category) }
+
+    private suspend fun episodesUncached(seriesId: String, seasonId: String, page: Int, category: String?): Result<Paged<MediaItem>> =
         apiCall(ApiPaths.SERIES) {
             api.series(category = categoryOrAll(category), page = page.coerceAtLeast(1), movieId = seriesId, seasonId = seasonId)
         }

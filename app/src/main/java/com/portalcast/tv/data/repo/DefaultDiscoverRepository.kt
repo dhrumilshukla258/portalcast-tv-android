@@ -1,5 +1,6 @@
 package com.portalcast.tv.data.repo
 
+import com.portalcast.tv.data.store.SessionSource
 import com.portalcast.tv.data.model.DiscoverBrowseResponse
 import com.portalcast.tv.data.model.DiscoverFacets
 import com.portalcast.tv.data.model.DiscoverQuery
@@ -17,12 +18,28 @@ class DefaultDiscoverRepository(
     private val api: ApiService,
     @Suppress("unused") private val vod: VodRepository,
     @Suppress("unused") private val series: SeriesRepository,
+    session: SessionSource? = null,
 ) : DiscoverRepository {
 
+    // Discover data only changes when the server re-enriches: cache it for 15 min per
+    // session so switching tabs or coming back from a title is instant. Recommendations
+    // are per user but just as stable over that window.
+    private val facetsCache = KeyedSessionCache<String, DiscoverFacets>(session, maxEntries = 4)
+    private val browseCache = KeyedSessionCache<String, DiscoverBrowseResponse>(session)
+    private val recsCache = KeyedSessionCache<String, RecommendationsResponse>(session, maxEntries = 4)
+    private val variantsCache = KeyedSessionCache<String, List<MediaItem>>(session, maxEntries = 60)
+
+    fun clearCaches() { facetsCache.clear(); browseCache.clear(); recsCache.clear(); variantsCache.clear() }
+
     override suspend fun facets(type: String?): Result<DiscoverFacets> =
-        apiCall(ApiPaths.DISCOVER_FACETS) { api.discoverFacets(type) }
+        facetsCache.get(type.orEmpty()) { apiCall(ApiPaths.DISCOVER_FACETS) { api.discoverFacets(type) } }
 
     override suspend fun browse(query: DiscoverQuery, page: Int): Result<DiscoverBrowseResponse> =
+        browseCache.get("${query.type}|${query.genreParam}|${query.country}|${query.language}|${query.theme}|${page.coerceAtLeast(1)}") {
+            browseUncached(query, page)
+        }
+
+    private suspend fun browseUncached(query: DiscoverQuery, page: Int): Result<DiscoverBrowseResponse> =
         apiCall(ApiPaths.DISCOVER_BROWSE) {
             api.discoverBrowse(
                 type = query.type,
@@ -35,10 +52,10 @@ class DefaultDiscoverRepository(
         }
 
     override suspend fun recommendations(type: String?): Result<RecommendationsResponse> =
-        apiCall(ApiPaths.DISCOVER_RECOMMENDATIONS) { api.discoverRecommendations(type) }
+        recsCache.get(type.orEmpty()) { apiCall(ApiPaths.DISCOVER_RECOMMENDATIONS) { api.discoverRecommendations(type) } }
 
     override suspend fun variants(prefixedId: String): Result<List<MediaItem>> =
-        apiCall(ApiPaths.DISCOVER_VARIANTS) { api.discoverVariants(prefixedId).variants }
+        variantsCache.get(prefixedId) { apiCall(ApiPaths.DISCOVER_VARIANTS) { api.discoverVariants(prefixedId).variants } }
 
     /**
      * Mirrors the webui's `openDiscoverItem`: strip the `movie_`/`series_` prefix, look the
