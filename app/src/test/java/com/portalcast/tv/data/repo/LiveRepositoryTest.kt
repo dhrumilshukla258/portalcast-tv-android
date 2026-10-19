@@ -129,6 +129,18 @@ class LiveRepositoryTest {
     }
 
     @Test
+    fun `epg prefers the server window and only falls back to the full guide on 404`() = runBlocking {
+        val stack = TestStack(server)
+        stack.clock.set(1760783400L * 1000)
+        stack.routes.get("/api/v2/epg/window", "epg")
+        stack.routes.get("/api/v2/epg") { json("[]") }
+        val epg = stack.live.epg().getOrThrow()!!
+        assertEquals("News", epg.nowNext("101", nowMs = 1760783400L * 1000).first?.name)
+        assertEquals(1, stack.routes.count("GET", "/api/v2/epg/window"))
+        assertEquals("full guide not fetched when the window exists", 0, stack.routes.count("GET", "/api/v2/epg"))
+    }
+
+    @Test
     fun `toggleFavorite sends the whole list each time`() = runBlocking {
         val stack = TestStack(server)
         stack.routes.get("/api/user/profile", "profile")

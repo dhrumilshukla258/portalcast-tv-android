@@ -16,6 +16,7 @@ internal object ApiPaths {
     const val GROUPS = "/api/v2/groups"
     const val CHANNELS = "/api/v2/channels"
     const val EPG = "/api/v2/epg"
+    const val EPG_WINDOW = "/api/v2/epg/window"
     const val MOVIE_GROUPS = "/api/v2/movie-groups"
     const val MOVIES = "/api/v2/movies"
     const val SERIES_GROUPS = "/api/v2/series-groups"

@@ -26,6 +26,7 @@ class DefaultLiveRepository(
     private val groupsCache = SessionCache<List<ChannelGroup>>(session, clock = clock)
     private val channelsCache = SessionCache<List<Channel>>(session, clock = clock)
     private val epgCache = SessionCache<EpgData>(session, ttlMs = EPG_TTL_MS, clock = clock)
+    @Volatile private var windowUnsupported = false
 
     /** Drop everything cached (e.g. on a `config_changed` socket event). */
     fun clearCaches() {
@@ -46,8 +47,19 @@ class DefaultLiveRepository(
     override suspend fun epg(forceRefresh: Boolean): Result<EpgData?> {
         if (!forceRefresh) epgCache.peek()?.let { return Result.success(it) }
         return apiCall(ApiPaths.EPG) {
-            // Parse off the main thread while streaming: the body can be ~50 MB (see EpgStream).
-            withContext(Dispatchers.IO) { api.epg().use { body -> EpgStream.parse(body.source(), nowSec = clock() / 1000) } }
+            // Parse off the main thread while streaming (EpgStream keeps only now..+6h either way).
+            // Prefer the server's precomputed window; servers without it answer 404 once per
+            // session and we fall back to the whole guide (~50 MB raw on big portals).
+            withContext(Dispatchers.IO) {
+                val body = if (windowUnsupported) api.epg() else try {
+                    api.epgWindow(WINDOW_HOURS)
+                } catch (e: retrofit2.HttpException) {
+                    if (e.code() != 404) throw e
+                    windowUnsupported = true
+                    api.epg()
+                }
+                body.use { EpgStream.parse(it.source(), nowSec = clock() / 1000) }
+            }
         }.onSuccess { if (it != null) epgCache.put(it) }
     }
 
@@ -79,6 +91,7 @@ class DefaultLiveRepository(
     }
 
     companion object {
+        const val WINDOW_HOURS = 6
         const val EPG_TTL_MS = 30 * 60 * 1000L
         const val MAX_RECENT = 20
         const val LAST_PLAYED_TV_CHANNEL_KEY = "lastPlayedTvChannelId"

@@ -189,9 +189,15 @@ treat 403 on these four routes as "cold".)
 
 ### 3.5 EPG
 
-- `GET /api/v2/epg` → `{ timestamp, data: { [channelId]: [{ start_timestamp: "unix sec string", stop_timestamp, name, description? }] } }`
-  or `[]` when the server cache is cold or older than 12 h. No per-channel
-  route. Fetch once per session, refresh every 30 min while on the Live tab.
+- Preferred (servers from 2026-10-19): `GET /api/v2/epg/window?hours=6[&ids=1,2]` →
+  `{ timestamp, windowStart, windowEnd, data: { [channelId]: EPG_List[] } }` with only programmes
+  overlapping the current hour + `hours` (1–24). Precomputed hourly on the server (~1.6 MB gzipped
+  on a 10k-channel portal vs ~6.8 MB for the whole guide); weak ETag, `If-None-Match` → 304.
+  Channels with nothing in the window are omitted; `data` is `{}` when there is no guide yet.
+- Fallback (older servers answer 404): `GET /api/v2/epg` → `{ timestamp, data: { [channelId]: [...] } }`
+  or `[]` when the cache is cold/stale (> 12 h). Whole guide (~50 MB raw on big portals).
+- Both: timestamps are unix **seconds** as strings. The app stream-parses either body
+  (`EpgStream`, keeps up to 4 programmes per channel in now..+6h) and refreshes every 30 min on Live.
 
 ### 3.6 Other
 

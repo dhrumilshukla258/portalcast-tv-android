@@ -106,6 +106,15 @@ interface ApiService {
     @GET("api/v2/epg")
     suspend fun epg(): ResponseBody
 
+    /**
+     * Only programmes overlapping the current hour + [hours] (server precomputes it once per
+     * hour: ~1.6 MB gzipped vs ~6.8 MB for the whole guide on a 10k-channel portal). Same body
+     * shape as [epg] plus windowStart/windowEnd. 404 on servers older than 2026-10-19.
+     */
+    @Streaming
+    @GET("api/v2/epg/window")
+    suspend fun epgWindow(@Query("hours") hours: Int = 6): ResponseBody
+
     // ---- movies ----------------------------------------------------------------
 
     @GET("api/v2/movie-groups")
