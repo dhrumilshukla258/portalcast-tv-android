@@ -1,8 +1,17 @@
-@file:OptIn(ExperimentalComposeUiApi::class, ExperimentalTvMaterial3Api::class)
+@file:OptIn(ExperimentalComposeUiApi::class, ExperimentalTvMaterial3Api::class, ExperimentalFoundationApi::class)
 
 package com.portalcast.tv.ui.discover
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.layout.size
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Search
+import androidx.tv.material3.Border
+import androidx.tv.material3.Button
+import androidx.tv.material3.ButtonDefaults
+import androidx.tv.material3.Icon
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -10,34 +19,36 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.itemsIndexed
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.relocation.bringIntoViewResponder
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.focusRestorer
-import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -46,23 +57,31 @@ import androidx.lifecycle.viewmodel.viewModelFactory
 import androidx.tv.material3.ExperimentalTvMaterial3Api
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
-import coil.compose.AsyncImage
 import com.portalcast.tv.appContainer
 import com.portalcast.tv.data.model.MediaItem
 import com.portalcast.tv.ui.components.ErrorText
 import com.portalcast.tv.ui.components.TvButton
 import com.portalcast.tv.ui.components.TvButtonStyle
 import com.portalcast.tv.ui.theme.AppColors
-import com.portalcast.tv.util.ImageUrl
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.distinctUntilChanged
 
 /** How close to a row's / the grid's end (in items) the next page is requested. */
 private const val PAGE_AHEAD = 8
 
+/** Share of the screen height the hero (top bar + title/meta/overview) takes; rows scroll below it. */
+private const val HERO_FRACTION = 0.45f
+
+/** Row title height; fixed so every row has the same geometry under the hero. */
+private val RowTitleHeight = 34.dp
+
 /**
- * The Discover tab's content pane, hosted by HomeScreen (Phase 2a) inside its nav rail.
- * Phase 2b replaces this body; keep the signature stable.
+ * The Discover tab's content pane, hosted by HomeScreen inside its nav rail.
+ *
+ * Layout: a fixed hero in the top [HERO_FRACTION] of the screen (the focused item's
+ * backdrop, title, meta line and overview), the rows in a LazyColumn below it. The
+ * focused row always scrolls to sit directly under the hero ([PivotRowToTop]).
+ * Focus changes only write [HeroFocus]; nothing but the hero reads it.
  *
  * Items handed to the callbacks are regular list items ready for the detail screens:
  * Discover items must already be resolved through `DiscoverRepository.openItem`
@@ -74,6 +93,8 @@ fun DiscoverScreen(
     onOpenMovie: (MediaItem) -> Unit,
     onOpenSeries: (MediaItem) -> Unit,
     modifier: Modifier = Modifier,
+    /** Opens the app's global Search tab (Discover does not search itself). */
+    onOpenSearch: () -> Unit = {},
 ) {
     val container = LocalContext.current.appContainer
     val vm: DiscoverViewModel = viewModel(
@@ -81,8 +102,8 @@ fun DiscoverScreen(
     )
     val state by vm.state.collectAsStateWithLifecycle()
     val serverUrl by container.sessionStore.serverUrl.collectAsStateWithLifecycle()
-    var backdrop by remember { mutableStateOf<String?>(null) }
     var showFilters by remember { mutableStateOf(false) }
+    val hero = remember { HeroFocus() }
 
     LaunchedEffect(Unit) { vm.onScreenShown() }
 
@@ -99,34 +120,47 @@ fun DiscoverScreen(
     }
     BackHandler(enabled = state.grid != null) { vm.clearFilter() }
 
-    // The backdrop follows focus, but only once focus rests (~0.4 s): loading a full-screen
-    // image on every d-pad step made browsing lag on a modest TV. The regular backdrop is
-    // preferred over the HD original for the same reason.
-    var focusedBackdrop by remember { mutableStateOf<String?>(null) }
-    val onFocusItem: (MediaItem) -> Unit = { item ->
-        (item.backdropPath?.takeIf { it.isNotBlank() } ?: item.backdropHdPath?.takeIf { it.isNotBlank() })?.let { focusedBackdrop = it }
+    // Until a card is focused the hero shows the first item of the first row.
+    val firstItem = remember(state.rows, state.continueWatching) {
+        state.visibleRows.firstOrNull { it.items.isNotEmpty() }?.items?.firstOrNull()
+            ?: state.continueWatching.firstOrNull()?.target
     }
-    LaunchedEffect(focusedBackdrop) {
-        delay(400)
-        backdrop = focusedBackdrop
-    }
+    LaunchedEffect(firstItem) { hero.fallback = firstItem }
+    // A type switch reloads every row: drop the stale focused item.
+    LaunchedEffect(state.type) { hero.item = null }
 
     Box(modifier.fillMaxSize().background(AppColors.Background)) {
-        Backdrop(ImageUrl.resolve(serverUrl, backdrop))
+        HeroBackdrop(
+            focus = hero,
+            serverUrl = serverUrl,
+            modifier = Modifier.align(Alignment.TopEnd).fillMaxWidth(0.72f).fillMaxHeight(0.68f),
+        )
 
         Column(Modifier.fillMaxSize()) {
-            TopBar(
-                type = state.type,
-                filtered = state.grid != null,
-                onType = vm::setType,
-                onFilters = { showFilters = true },
-                onClear = vm::clearFilter,
-            )
             val grid = state.grid
             if (grid != null) {
-                FilterGridContent(grid, serverUrl, onOpen = vm::open, onFocusItem = onFocusItem, onNearEnd = vm::onGridNearEnd)
+                TopBar(
+                    type = state.type,
+                    filtered = true,
+                    onType = vm::setType,
+                    onFilters = { showFilters = true },
+                    onClear = vm::clearFilter,
+                    onSearch = onOpenSearch,
+                )
+                FilterGridContent(grid, serverUrl, hero, onOpen = vm::open, onNearEnd = vm::onGridNearEnd)
             } else {
-                RowsContent(state, serverUrl, vm, onFocusItem)
+                Column(Modifier.fillMaxWidth().fillMaxHeight(HERO_FRACTION)) {
+                    TopBar(
+                        type = state.type,
+                        filtered = false,
+                        onType = vm::setType,
+                        onFilters = { showFilters = true },
+                        onClear = vm::clearFilter,
+                        onSearch = onOpenSearch,
+                    )
+                    HeroInfo(hero, Modifier.fillMaxWidth().weight(1f))
+                }
+                RowsContent(state, serverUrl, vm, hero, Modifier.fillMaxWidth().weight(1f))
             }
         }
 
@@ -154,7 +188,7 @@ fun DiscoverScreen(
     }
 
     state.variants?.let { variants ->
-        VariantPickerDialog(variants, onChoose = vm::chooseVariant, onDismiss = vm::dismissVariants)
+        VariantPickerDialog(variants, serverUrl, onChoose = vm::chooseVariant, onDismiss = vm::dismissVariants)
     }
     if (showFilters) {
         FiltersDialog(
@@ -168,39 +202,22 @@ fun DiscoverScreen(
 }
 
 @Composable
-private fun Backdrop(url: String?) {
-    if (url == null) return
-    Box(Modifier.fillMaxSize()) {
-        AsyncImage(
-            model = url,
-            contentDescription = null,
-            contentScale = ContentScale.Crop,
-            modifier = Modifier.fillMaxSize(),
-            alpha = 0.28f,
-        )
-        Box(
-            Modifier.fillMaxSize().background(
-                Brush.verticalGradient(listOf(AppColors.Background.copy(alpha = 0.4f), AppColors.Background)),
-            ),
-        )
-    }
-}
-
-@Composable
 private fun TopBar(
     type: String?,
     filtered: Boolean,
     onType: (String?) -> Unit,
     onFilters: () -> Unit,
     onClear: () -> Unit,
+    onSearch: () -> Unit,
 ) {
     Row(
-        Modifier.fillMaxWidth().padding(start = 48.dp, end = 48.dp, top = 24.dp, bottom = 8.dp),
+        Modifier.fillMaxWidth().padding(start = 48.dp, end = 48.dp, top = 20.dp, bottom = 4.dp),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text("Discover", style = MaterialTheme.typography.headlineMedium, color = AppColors.Text)
+        Text("Discover", style = MaterialTheme.typography.headlineSmall, color = AppColors.Text)
         Spacer(Modifier.width(24.dp))
+        SearchButton(onClick = onSearch)
         listOf<Pair<String?, String>>(null to "All", "movie" to "Movies", "series" to "Series").forEach { (value, label) ->
             TvButton(
                 text = label,
@@ -214,17 +231,47 @@ private fun TopBar(
     }
 }
 
+/** Glass "Search" button (icon + label): opens the global Search tab. Focus treatment matches [TvButton]. */
+@Composable
+private fun SearchButton(onClick: () -> Unit) {
+    val shape = RoundedCornerShape(8.dp)
+    val ring = Border(BorderStroke(2.dp, AppColors.Focus), inset = 2.dp, shape = shape)
+    Button(
+        onClick = onClick,
+        shape = ButtonDefaults.shape(shape = shape),
+        scale = ButtonDefaults.scale(focusedScale = 1.05f, pressedScale = 1.05f),
+        colors = ButtonDefaults.colors(
+            containerColor = AppColors.GlassFill,
+            contentColor = AppColors.Text,
+            focusedContainerColor = AppColors.Primary,
+            focusedContentColor = AppColors.OnPrimary,
+            pressedContainerColor = AppColors.Primary,
+            pressedContentColor = AppColors.OnPrimary,
+        ),
+        border = ButtonDefaults.border(
+            border = Border(BorderStroke(1.dp, AppColors.GlassBorder), shape = shape),
+            focusedBorder = ring,
+            pressedBorder = ring,
+        ),
+    ) {
+        Icon(Icons.Filled.Search, contentDescription = null, modifier = Modifier.size(18.dp))
+        Spacer(Modifier.width(8.dp))
+        Text("Search", style = MaterialTheme.typography.labelLarge)
+    }
+}
+
 @Composable
 private fun RowsContent(
     state: DiscoverUiState,
     serverUrl: String?,
     vm: DiscoverViewModel,
-    onFocusItem: (MediaItem) -> Unit,
+    hero: HeroFocus,
+    modifier: Modifier,
 ) {
     val rows = state.visibleRows
     val cw = state.continueWatching
     if (rows.isEmpty() && cw.isEmpty()) {
-        Box(Modifier.fillMaxSize().padding(48.dp), contentAlignment = Alignment.Center) {
+        Box(modifier.fillMaxSize().padding(48.dp), contentAlignment = Alignment.Center) {
             when {
                 state.loading -> Text("Loading…", color = AppColors.TextMuted, style = MaterialTheme.typography.bodyLarge)
                 state.error != null -> Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(16.dp)) {
@@ -236,14 +283,30 @@ private fun RowsContent(
         }
         return
     }
+    val listState = rememberLazyListState()
+    val pivot = remember(listState) { PivotRowToTop { listState.layoutInfo.viewportSize.height } }
+    val cardPad = with(LocalDensity.current) { remember { PadRectHorizontally(40.dp.toPx()) } }
+    // Stable per-screen lambdas: cards get the same instances every recomposition.
+    val onFocusItem: (MediaItem) -> Unit = remember(hero) { { item -> hero.item = item } }
+    val onOpen: (MediaItem) -> Unit = remember(vm) { vm::open }
+    val onRowNearEnd: (String) -> Unit = remember(vm) { vm::onRowNearEnd }
     LazyColumn(
-        Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(bottom = 48.dp),
-        verticalArrangement = Arrangement.spacedBy(20.dp),
+        modifier.fillMaxSize(),
+        state = listState,
+        // Bottom room so the last rows can still scroll up under the hero.
+        contentPadding = PaddingValues(bottom = 160.dp),
+        verticalArrangement = Arrangement.spacedBy(6.dp),
     ) {
         if (cw.isNotEmpty()) {
             item(key = "cw") {
-                ContinueWatchingRow(cw, serverUrl, onOpen = vm::openContinueWatching)
+                ContinueWatchingRow(
+                    cw,
+                    serverUrl,
+                    onOpen = vm::openContinueWatching,
+                    onFocusItem = onFocusItem,
+                    cardPad = cardPad,
+                    modifier = Modifier.bringIntoViewResponder(pivot),
+                )
             }
         }
         if (state.error != null) {
@@ -258,9 +321,11 @@ private fun RowsContent(
             MediaRow(
                 row = row,
                 serverUrl = serverUrl,
-                onOpen = vm::open,
+                onOpen = onOpen,
                 onFocusItem = onFocusItem,
-                onNearEnd = { vm.onRowNearEnd(row.key) },
+                onRowNearEnd = onRowNearEnd,
+                cardPad = cardPad,
+                modifier = Modifier.bringIntoViewResponder(pivot),
             )
         }
     }
@@ -268,30 +333,37 @@ private fun RowsContent(
 
 @Composable
 private fun RowTitle(text: String) {
-    Text(
-        text,
-        style = MaterialTheme.typography.titleLarge,
-        color = AppColors.Text,
-        modifier = Modifier.padding(start = 48.dp, bottom = 10.dp),
-    )
+    Box(Modifier.height(RowTitleHeight).padding(start = 48.dp), contentAlignment = Alignment.BottomStart) {
+        Text(text, style = MaterialTheme.typography.titleMedium, color = AppColors.Text, maxLines = 1)
+    }
 }
 
 @Composable
-private fun ContinueWatchingRow(entries: List<ContinueEntry>, serverUrl: String?, onOpen: (ContinueEntry) -> Unit) {
-    Column {
+private fun ContinueWatchingRow(
+    entries: List<ContinueEntry>,
+    serverUrl: String?,
+    onOpen: (ContinueEntry) -> Unit,
+    onFocusItem: (MediaItem) -> Unit,
+    cardPad: PadRectHorizontally,
+    modifier: Modifier,
+) {
+    Column(modifier) {
         RowTitle("Continue Watching")
         LazyRow(
             modifier = Modifier.focusRestorer(),
-            contentPadding = PaddingValues(horizontal = 48.dp, vertical = 8.dp),
+            contentPadding = PaddingValues(horizontal = 48.dp, vertical = 12.dp),
             horizontalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             items(entries, key = { it.key }) { e ->
                 PosterCard(
                     title = e.title,
                     subtitle = e.subtitle,
-                    imageUrl = ImageUrl.resolve(serverUrl, e.imagePath),
+                    imagePath = e.imagePath,
+                    serverUrl = serverUrl,
                     progressPercent = e.progressPercent,
                     onClick = { onOpen(e) },
+                    onFocused = { onFocusItem(e.target) },
+                    modifier = Modifier.bringIntoViewResponder(cardPad),
                 )
             }
         }
@@ -304,18 +376,21 @@ private fun MediaRow(
     serverUrl: String?,
     onOpen: (MediaItem) -> Unit,
     onFocusItem: (MediaItem) -> Unit,
-    onNearEnd: () -> Unit,
+    onRowNearEnd: (String) -> Unit,
+    cardPad: PadRectHorizontally,
+    modifier: Modifier,
 ) {
     val listState = rememberLazyListState()
+    val nearEnd by rememberUpdatedState(onRowNearEnd)
     LaunchedEffect(listState, row.key) {
         snapshotFlow {
             val info = listState.layoutInfo
             (info.visibleItemsInfo.lastOrNull()?.index ?: -1) to info.totalItemsCount
         }.distinctUntilChanged().collect { (last, total) ->
-            if (total > 0 && last >= total - PAGE_AHEAD) onNearEnd()
+            if (total > 0 && last >= total - PAGE_AHEAD) nearEnd(row.key)
         }
     }
-    Column {
+    Column(modifier) {
         RowTitle(row.title)
         if (!row.loaded) {
             PlaceholderRow()
@@ -324,19 +399,18 @@ private fun MediaRow(
         LazyRow(
             state = listState,
             modifier = Modifier.focusRestorer(),
-            contentPadding = PaddingValues(horizontal = 48.dp, vertical = 8.dp),
+            contentPadding = PaddingValues(horizontal = 48.dp, vertical = 12.dp),
             horizontalArrangement = Arrangement.spacedBy(16.dp),
         ) {
-            itemsIndexed(row.items, key = { _, it -> it.id }) { index, item ->
+            items(row.items, key = { it.id }) { item ->
                 PosterCard(
                     title = item.displayTitle,
-                    subtitle = item.displayYear,
-                    imageUrl = ImageUrl.resolve(serverUrl, item.screenshotUri),
+                    subtitle = null,
+                    imagePath = item.screenshotUri,
+                    serverUrl = serverUrl,
                     onClick = { onOpen(item) },
-                    onFocused = {
-                        onFocusItem(item)
-                        if (index >= row.items.size - PAGE_AHEAD) onNearEnd()
-                    },
+                    onFocused = { onFocusItem(item) },
+                    modifier = Modifier.bringIntoViewResponder(cardPad),
                 )
             }
         }
@@ -346,16 +420,15 @@ private fun MediaRow(
 @Composable
 private fun PlaceholderRow() {
     Row(
-        Modifier.padding(horizontal = 48.dp, vertical = 8.dp),
+        Modifier.padding(horizontal = 48.dp, vertical = 12.dp),
         horizontalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         repeat(7) {
             Box(
                 Modifier
                     .width(PosterWidth)
-                    .padding(bottom = 48.dp)
-                    .background(AppColors.Surface, RoundedCornerShape(10.dp))
-                    .then(Modifier.posterAspect()),
+                    .posterAspect()
+                    .background(AppColors.Surface, RoundedCornerShape(10.dp)),
             )
         }
     }
@@ -365,8 +438,8 @@ private fun PlaceholderRow() {
 private fun FilterGridContent(
     grid: FilterGrid,
     serverUrl: String?,
+    hero: HeroFocus,
     onOpen: (MediaItem) -> Unit,
-    onFocusItem: (MediaItem) -> Unit,
     onNearEnd: () -> Unit,
 ) {
     val label = listOfNotNull(
@@ -387,29 +460,31 @@ private fun FilterGridContent(
             grid.items.isEmpty() -> Text("Nothing matches these filters.", color = AppColors.TextMuted, modifier = Modifier.padding(48.dp))
             else -> {
                 val gridState = rememberLazyGridState()
+                val nearEnd by rememberUpdatedState(onNearEnd)
                 LaunchedEffect(gridState) {
                     snapshotFlow {
                         val info = gridState.layoutInfo
                         (info.visibleItemsInfo.lastOrNull()?.index ?: -1) to info.totalItemsCount
                     }.distinctUntilChanged().collect { (last, total) ->
-                        if (total > 0 && last >= total - PAGE_AHEAD) onNearEnd()
+                        if (total > 0 && last >= total - PAGE_AHEAD) nearEnd()
                     }
                 }
                 LazyVerticalGrid(
                     columns = GridCells.Adaptive(PosterWidth + 16.dp),
                     state = gridState,
                     modifier = Modifier.fillMaxSize().focusRestorer(),
-                    contentPadding = PaddingValues(horizontal = 48.dp, vertical = 8.dp),
+                    contentPadding = PaddingValues(horizontal = 48.dp, vertical = 12.dp),
                     horizontalArrangement = Arrangement.spacedBy(16.dp),
                     verticalArrangement = Arrangement.spacedBy(16.dp),
                 ) {
-                    itemsIndexed(grid.items, key = { _, it -> it.id }) { _, item ->
+                    items(grid.items, key = { it.id }) { item ->
                         PosterCard(
                             title = item.displayTitle,
                             subtitle = item.displayYear,
-                            imageUrl = ImageUrl.resolve(serverUrl, item.screenshotUri),
+                            imagePath = item.screenshotUri,
+                            serverUrl = serverUrl,
                             onClick = { onOpen(item) },
-                            onFocused = { onFocusItem(item) },
+                            onFocused = { hero.item = item },
                         )
                     }
                 }
