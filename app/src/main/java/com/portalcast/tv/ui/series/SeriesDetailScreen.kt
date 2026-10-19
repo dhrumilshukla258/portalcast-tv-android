@@ -14,7 +14,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
-import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -172,8 +172,10 @@ fun SeriesDetailScreen(id: String, category: String, onPlay: () -> Unit, modifie
                 else -> {
                     LazyRow(
                         modifier = Modifier.focusRestorer(),
-                        contentPadding = PaddingValues(vertical = 6.dp, horizontal = 4.dp),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        // Room for the focused button's zoom; with 4-6 dp the scaled button's text
+                        // ran past the row's clip edge on the TV.
+                        contentPadding = PaddingValues(vertical = 12.dp, horizontal = 16.dp),
+                        horizontalArrangement = Arrangement.spacedBy(14.dp),
                     ) {
                         itemsIndexed(state.seasons, key = { i, s -> "$i:${s.id}" }) { i, season ->
                             val selected = season.id == state.selectedSeasonId
@@ -223,35 +225,44 @@ private fun EpisodeList(
         snapshotFlow { (listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: -1) to listState.layoutInfo.totalItemsCount }
             .collect { (last, _) -> onVisible(last) }
     }
-    LazyColumn(
-        state = listState,
-        modifier = modifier.fillMaxWidth().focusRestorer(),
-        contentPadding = PaddingValues(top = 6.dp, bottom = 40.dp, start = 4.dp, end = 4.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp),
-    ) {
-        itemsIndexed(episodes.items, key = { i, ep -> "$i:${ep.id}" }) { i, ep ->
-            EpisodeRow(
-                episode = ep,
-                index = i,
-                progress = state.fractions[ep.id],
-                onClick = { onPlay(ep) },
-                enabled = !state.starting,
-                modifier = episodeModifier(ep).onFocusChanged { if (it.hasFocus) onFocused(ep) },
-            )
-        }
-        if (error != null) {
-            item {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(error.panelMessage(), color = AppColors.Error, modifier = Modifier.weight(1f))
-                    TvButton(text = "Retry", onClick = onRetry)
+    // Netflix-style: one horizontal row sized so ~5 episodes fit across the screen (the old
+    // full-width cards showed only two). Padding leaves room for the focused card's zoom.
+    BoxWithConstraints(modifier.fillMaxWidth()) {
+        val sidePad = 16.dp
+        val gap = 18.dp
+        val cardWidth = (maxWidth - sidePad * 2 - gap * (EPISODES_PER_SCREEN - 1)) / EPISODES_PER_SCREEN
+        LazyRow(
+            state = listState,
+            modifier = Modifier.fillMaxWidth().focusRestorer(),
+            contentPadding = PaddingValues(horizontal = sidePad, vertical = 14.dp),
+            horizontalArrangement = Arrangement.spacedBy(gap),
+        ) {
+            itemsIndexed(episodes.items, key = { i, ep -> "$i:${ep.id}" }) { i, ep ->
+                EpisodeCard(
+                    episode = ep,
+                    index = i,
+                    progress = state.fractions[ep.id],
+                    onClick = { onPlay(ep) },
+                    enabled = !state.starting,
+                    modifier = episodeModifier(ep).width(cardWidth).onFocusChanged { if (it.hasFocus) onFocused(ep) },
+                )
+            }
+            if (error != null) {
+                item {
+                    Column(Modifier.width(cardWidth), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text(error.panelMessage(), color = AppColors.Error, style = MaterialTheme.typography.bodySmall)
+                        TvButton(text = "Retry", onClick = onRetry)
+                    }
                 }
             }
         }
     }
 }
 
+private const val EPISODES_PER_SCREEN = 5
+
 @Composable
-private fun EpisodeRow(
+private fun EpisodeCard(
     episode: MediaItem,
     index: Int,
     progress: Float?,
@@ -259,39 +270,41 @@ private fun EpisodeRow(
     enabled: Boolean,
     modifier: Modifier = Modifier,
 ) {
-    val shape = RoundedCornerShape(10.dp)
+    val shape = RoundedCornerShape(14.dp)
+    val number = episode.episodeNum ?: (index + 1)
     Surface(
         onClick = onClick,
         enabled = enabled,
-        modifier = modifier.fillMaxWidth(),
+        modifier = modifier,
         shape = ClickableSurfaceDefaults.shape(shape = shape),
-        scale = ClickableSurfaceDefaults.scale(focusedScale = 1.02f),
-        border = ClickableSurfaceDefaults.border(focusedBorder = Border(BorderStroke(3.dp, AppColors.Focus), shape = shape)),
+        scale = ClickableSurfaceDefaults.scale(focusedScale = 1.05f),
+        border = ClickableSurfaceDefaults.border(
+            border = Border(BorderStroke(1.dp, AppColors.GlassBorder), shape = shape),
+            focusedBorder = Border(BorderStroke(3.dp, AppColors.Focus), shape = shape),
+        ),
         colors = ClickableSurfaceDefaults.colors(
-            containerColor = AppColors.Surface.copy(alpha = 0.7f),
+            containerColor = AppColors.GlassFill,
             contentColor = AppColors.Text,
-            focusedContainerColor = AppColors.SurfaceVariant,
+            focusedContainerColor = AppColors.GlassFillFocused,
             focusedContentColor = AppColors.Text,
-            pressedContainerColor = AppColors.SurfaceVariant,
-            disabledContainerColor = AppColors.Surface.copy(alpha = 0.5f),
+            pressedContainerColor = AppColors.GlassFillFocused,
+            disabledContainerColor = AppColors.GlassFill,
             disabledContentColor = AppColors.TextMuted,
         ),
     ) {
-        Row(Modifier.padding(10.dp), verticalAlignment = Alignment.CenterVertically) {
-            Box(Modifier.width(176.dp).aspectRatio(WideAspect).clip(RoundedCornerShape(8.dp))) {
-                ArtImage(url = rememberImageUrl(episode.posterPath), fallbackText = episode.displayTitle, modifier = Modifier.fillMaxSize())
+        Column {
+            Box(Modifier.fillMaxWidth().aspectRatio(WideAspect).clip(RoundedCornerShape(topStart = 14.dp, topEnd = 14.dp))) {
+                ArtImage(url = rememberImageUrl(episode.posterPath), fallbackText = "$number", modifier = Modifier.fillMaxSize())
                 if (progress != null && progress > 0f) {
                     ProgressLine(progress, Modifier.align(Alignment.BottomCenter).fillMaxWidth().padding(6.dp))
                 }
             }
-            Spacer(Modifier.width(16.dp))
-            Column(Modifier.weight(1f)) {
-                val number = episode.episodeNum ?: (index + 1)
+            Column(Modifier.padding(horizontal = 10.dp, vertical = 8.dp)) {
                 Text(
-                    listOfNotNull("$number.", episode.displayTitle.ifBlank { "Episode $number" }).joinToString(" "),
+                    "$number. ${episode.displayTitle.ifBlank { "Episode $number" }}",
                     style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.SemiBold,
-                    maxLines = 1,
+                    maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
                 )
                 val sub = listOfNotNull(
@@ -299,18 +312,17 @@ private fun EpisodeRow(
                     if (progress != null && progress >= 0.9f) "Watched" else null,
                 ).joinToString("  ·  ")
                 if (sub.isNotBlank()) {
-                    Text(sub, style = MaterialTheme.typography.bodySmall, color = AppColors.TextMuted, modifier = Modifier.padding(top = 2.dp))
+                    Text(sub, style = MaterialTheme.typography.bodySmall, color = AppColors.TextMuted, maxLines = 1, modifier = Modifier.padding(top = 2.dp))
                 }
-                episode.overview?.let {
-                    Text(
-                        it,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = AppColors.TextMuted,
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.padding(top = 4.dp),
-                    )
-                }
+                Text(
+                    episode.overview.orEmpty(),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = AppColors.TextMuted,
+                    maxLines = 2,
+                    minLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.padding(top = 4.dp),
+                )
             }
         }
     }
