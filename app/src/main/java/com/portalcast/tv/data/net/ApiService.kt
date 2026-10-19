@@ -55,9 +55,12 @@ interface ApiService {
         @Query("lang") lang: String? = null,
     ): com.portalcast.tv.data.model.SubtitleSearchResponse
 
-    /** WebVTT text of one subtitle file (stored by the server after the first download). */
+    /**
+     * WebVTT text of one subtitle (stored by the server after the first download). New servers
+     * read [id] ("os:<n>" | "subdl:<path>"); older ones only [fileId] (OpenSubtitles).
+     */
     @GET("api/v2/subtitles/download")
-    suspend fun downloadSubtitle(@Query("fileId") fileId: Long): okhttp3.ResponseBody
+    suspend fun downloadSubtitle(@Query("id") id: String, @Query("fileId") fileId: Long? = null): okhttp3.ResponseBody
 
     /** Report the decoded video quality of a title (servers from 2026-10-19; older ones 404). */
     @POST("api/v2/media-info")

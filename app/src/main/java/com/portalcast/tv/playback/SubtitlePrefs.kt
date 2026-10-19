@@ -13,9 +13,9 @@ class SubtitlePrefs(context: Context) {
     fun delayMs(key: String): Long = prefs.getLong("delay:$key", 0L)
     fun setDelayMs(key: String, ms: Long) = prefs.edit().apply { if (ms == 0L) remove("delay:$key") else putLong("delay:$key", ms) }.apply()
 
-    /** OpenSubtitles file id chosen for this title, or null. */
-    fun fileId(key: String): Long? = prefs.getLong("file:$key", -1L).takeIf { it >= 0 }
-    fun setFileId(key: String, fileId: Long?) = prefs.edit().apply { if (fileId == null) remove("file:$key") else putLong("file:$key", fileId) }.apply()
+    /** Online subtitle chosen for this title ("os:<n>" | "subdl:<path>"), or null. */
+    fun subtitleId(key: String): String? = prefs.getString("sub:$key", null)
+    fun setSubtitleId(key: String, id: String?) = prefs.edit().apply { if (id == null) remove("sub:$key") else putString("sub:$key", id) }.apply()
 
     var language: String
         get() = prefs.getString("language", "en") ?: "en"

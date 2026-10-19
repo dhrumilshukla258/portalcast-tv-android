@@ -117,11 +117,15 @@ data class MediaInfoReport(
     val codec: String? = null,
 )
 
-/** One OpenSubtitles result from GET /api/v2/subtitles/search. */
+/** One online subtitle result from GET /api/v2/subtitles/search (OpenSubtitles or SubDL). */
 @Serializable
 data class SubtitleResult(
     val id: LenientStr? = null,
     val fileId: Long = 0,
+    /** "os:<fileId>" | "subdl:<path>" (servers from 2026-10-19); null on older servers. */
+    val downloadId: String? = null,
+    /** "opensubtitles" | "subdl". */
+    val source: String? = null,
     val language: String? = null,
     val releaseName: String? = null,
     val downloadCount: Int = 0,
@@ -129,3 +133,6 @@ data class SubtitleResult(
 
 @Serializable
 data class SubtitleSearchResponse(val success: Boolean = false, val results: List<SubtitleResult> = emptyList())
+
+/** What to request for this result: the new id, else the OpenSubtitles file id (older servers). */
+val SubtitleResult.downloadKey: String get() = downloadId?.takeIf { it.isNotBlank() } ?: "os:$fileId"

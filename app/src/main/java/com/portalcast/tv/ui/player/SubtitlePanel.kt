@@ -28,6 +28,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
+import com.portalcast.tv.data.model.downloadKey
 import com.portalcast.tv.playback.SubtitlePrefs
 import com.portalcast.tv.ui.components.TvButton
 import com.portalcast.tv.ui.components.TvButtonStyle
@@ -48,7 +49,8 @@ data class SubtitlePanelState(
     /** null = not searched yet. */
     val results: List<com.portalcast.tv.data.model.SubtitleResult>? = null,
     val message: String? = null,
-    val loadingFile: Long? = null,
+    /** downloadKey of the result being loaded. */
+    val loadingFile: String? = null,
 )
 
 /** "+0.50 s" / "−1.25 s" / "In sync". */
@@ -105,12 +107,13 @@ fun BoxScope.SubtitlePanel(
             panel.message?.let { msg ->
                 item { Text(msg, style = MaterialTheme.typography.bodyMedium, color = AppColors.TextMuted) }
             }
-            items(panel.results.orEmpty(), key = { "os:" + it.fileId }) { r ->
+            items(panel.results.orEmpty(), key = { it.downloadKey }) { r ->
                 val label = buildString {
-                    if (panel.loadingFile == r.fileId) append("Loading… ")
+                    if (panel.loadingFile == r.downloadKey) append("Loading… ")
                     append(r.releaseName ?: "Subtitle")
                     append("  ·  ").append((r.language ?: "").uppercase(Locale.US))
                     if (r.downloadCount > 0) append("  ·  ").append(r.downloadCount).append("↓")
+                    append("  ·  ").append(if (r.source == "subdl") "SubDL" else "OpenSubtitles")
                 }
                 TvButton(text = label, onClick = { vm.pickOnlineSubtitle(r) }, style = TvButtonStyle.Secondary,
                     enabled = panel.loadingFile == null, modifier = Modifier.fillMaxWidth())

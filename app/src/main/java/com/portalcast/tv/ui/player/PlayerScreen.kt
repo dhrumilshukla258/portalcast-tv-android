@@ -187,6 +187,7 @@ fun PlayerScreen(
                         channel = state.pendingChannel ?: session.channel,
                         pending = state.pendingChannel != null,
                         programmes = nowNext?.invoke(state.pendingChannel ?: session.channel),
+                        videoStats = state.videoStats.takeIf { state.pendingChannel == null },
                     )
                 }
             }
@@ -207,8 +208,7 @@ fun PlayerScreen(
         if (!hasError) StatusPills(state)
         state.subtitleText?.let { SubtitleLine(it) }
         state.subtitlePanel?.let { SubtitlePanel(it, state.subtitleDelayMs, state.externalSubtitles, vm) }
-        // Real decoded quality (also reported to the server so catalog badges are truthful).
-        if (!hasError && state.overlayVisible) state.videoStats?.let { VideoStatsChip(it) }
+
     }
 }
 
@@ -276,6 +276,8 @@ private fun BoxScope.VodOverlay(state: PlayerUiState) {
     ) {
         Text(title, style = MaterialTheme.typography.headlineMedium, color = AppColors.Text, fontWeight = FontWeight.SemiBold)
         if (subtitle.isNotBlank()) Text(subtitle, style = MaterialTheme.typography.bodyLarge, color = AppColors.TextMuted)
+        // What the decoder is actually playing (shown with the overlay on play/pause).
+        state.videoStats?.let { Text(it, style = MaterialTheme.typography.labelLarge, color = AppColors.TextMuted) }
         Spacer(Modifier.height(16.dp))
         ProgressBar(
             fraction = if (state.durationMs > 0) state.positionMs.toFloat() / state.durationMs else 0f,
@@ -301,7 +303,7 @@ private fun ProgressBar(fraction: Float, buffered: Float) {
 }
 
 @Composable
-private fun BoxScope.LiveBanner(channel: Channel, pending: Boolean, programmes: Pair<EpgProgramme?, EpgProgramme?>?) {
+private fun BoxScope.LiveBanner(channel: Channel, pending: Boolean, programmes: Pair<EpgProgramme?, EpgProgramme?>?, videoStats: String? = null) {
     val now = System.currentTimeMillis()
     Column(
         Modifier
@@ -319,6 +321,7 @@ private fun BoxScope.LiveBanner(channel: Channel, pending: Boolean, programmes: 
             }
             Text(channel.displayName, style = MaterialTheme.typography.headlineSmall, color = AppColors.Text, fontWeight = FontWeight.SemiBold)
         }
+        videoStats?.let { Text(it, style = MaterialTheme.typography.labelLarge, color = AppColors.TextMuted) }
         if (pending) {
             Text("Switching…", style = MaterialTheme.typography.bodyMedium, color = AppColors.Secondary)
         }
@@ -397,18 +400,4 @@ internal fun formatTime(ms: Long): String {
     val m = (totalSec % 3600) / 60
     val s = totalSec % 60
     return if (h > 0) "%d:%02d:%02d".format(h, m, s) else "%d:%02d".format(m, s)
-}
-
-@Composable
-private fun BoxScope.VideoStatsChip(text: String) {
-    Text(
-        text,
-        style = MaterialTheme.typography.labelLarge,
-        color = AppColors.Text,
-        modifier = Modifier
-            .align(Alignment.TopEnd)
-            .padding(top = 32.dp, end = 48.dp)
-            .background(Color.Black.copy(alpha = 0.6f), androidx.compose.foundation.shape.RoundedCornerShape(8.dp))
-            .padding(horizontal = 12.dp, vertical = 6.dp),
-    )
 }

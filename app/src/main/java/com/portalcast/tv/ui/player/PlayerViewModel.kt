@@ -11,6 +11,7 @@ import androidx.media3.exoplayer.ExoPlayer
 import com.portalcast.tv.appContainer
 import com.portalcast.tv.data.model.Channel
 import com.portalcast.tv.data.model.MediaInfoReport
+import com.portalcast.tv.data.model.downloadKey
 import com.portalcast.tv.playback.SubtitleCue
 import com.portalcast.tv.playback.SubtitleCues
 import com.portalcast.tv.playback.SubtitlePrefs
@@ -174,8 +175,8 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
         val delay = key?.let { subtitlePrefs.delayMs(it) } ?: 0L
         _state.update { it.copy(subtitleText = null, subtitleDelayMs = delay, externalSubtitles = false, subtitlePanel = null) }
         // Bring back the online subtitle chosen last time for this title.
-        val fileId = key?.let { subtitlePrefs.fileId(it) } ?: return
-        viewModelScope.launch { loadOnlineSubtitle(fileId, label = null, remember = false) }
+        val subId = key?.let { subtitlePrefs.subtitleId(it) } ?: return
+        viewModelScope.launch { loadOnlineSubtitle(subId, label = null, remember = false) }
     }
 
     fun openSubtitlePanel() {
@@ -234,7 +235,7 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
     private fun clearOnline() {
         subtitleJob?.cancel()
         cues = emptyList()
-        subtitleKey?.let { subtitlePrefs.setFileId(it, null) }
+        subtitleKey?.let { subtitlePrefs.setSubtitleId(it, null) }
         _state.update { it.copy(subtitleText = null, externalSubtitles = false) }
     }
 
@@ -275,12 +276,13 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
     private data class SearchQuery(val title: String, val year: String?, val season: Int?, val episode: Int?)
 
     fun pickOnlineSubtitle(r: com.portalcast.tv.data.model.SubtitleResult) {
-        viewModelScope.launch { loadOnlineSubtitle(r.fileId, label = r.releaseName, remember = true) }
+        viewModelScope.launch { loadOnlineSubtitle(r.downloadKey, label = r.releaseName, remember = true) }
     }
 
-    private suspend fun loadOnlineSubtitle(fileId: Long, label: String?, remember: Boolean) {
-        _state.update { st -> st.subtitlePanel?.let { st.copy(subtitlePanel = it.copy(loadingFile = fileId)) } ?: st }
-        val text = runCatching { container.api.downloadSubtitle(fileId).use { it.string() } }
+    private suspend fun loadOnlineSubtitle(subId: String, label: String?, remember: Boolean) {
+        _state.update { st -> st.subtitlePanel?.let { st.copy(subtitlePanel = it.copy(loadingFile = subId)) } ?: st }
+        val osFileId = subId.removePrefix("os:").takeIf { subId.startsWith("os:") }?.toLongOrNull()
+        val text = runCatching { container.api.downloadSubtitle(subId, osFileId).use { it.string() } }
         val parsed = text.getOrNull()?.let { SubtitleCues.parse(it) }.orEmpty()
         if (parsed.isEmpty()) {
             _state.update { st -> st.subtitlePanel?.let { st.copy(subtitlePanel = it.copy(loadingFile = null, message = "Couldn't load that subtitle. Try another.")) } ?: st }
@@ -290,7 +292,7 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
         player.trackSelectionParameters = player.trackSelectionParameters.buildUpon()
             .setTrackTypeDisabled(C.TRACK_TYPE_TEXT, true).build()
         cues = parsed
-        if (remember) subtitleKey?.let { subtitlePrefs.setFileId(it, fileId) }
+        if (remember) subtitleKey?.let { subtitlePrefs.setSubtitleId(it, subId) }
         _state.update { st ->
             st.copy(externalSubtitles = true,
                 subtitlePanel = st.subtitlePanel?.copy(loadingFile = null, activeLabel = "Online · ${label ?: "subtitle"}"))
