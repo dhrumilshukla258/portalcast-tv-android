@@ -174,7 +174,7 @@ fun HomeScreen(
         ) {
             when (current) {
                 HomeTab.SEARCH -> SearchScreen(onOpenMovie = openMovie, onOpenSeries = openSeries, onPlay = onPlay)
-                HomeTab.DISCOVER -> DiscoverScreen(onOpenMovie = openMovie, onOpenSeries = openSeries)
+                HomeTab.DISCOVER -> DiscoverScreen(onOpenMovie = openMovie, onOpenSeries = openSeries, onOpenSearch = { select(HomeTab.SEARCH) })
                 HomeTab.LIVE -> LiveScreen(onPlay = onPlay, restoreFocus = restorePending)
                 HomeTab.MOVIES -> MoviesScreen(onOpenMovie = openMovie, restoreFocus = restorePending)
                 HomeTab.SERIES -> SeriesScreen(onOpenSeries = openSeries, restoreFocus = restorePending)
