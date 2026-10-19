@@ -39,6 +39,7 @@ import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.foundation.focusGroup
 import androidx.compose.ui.focus.focusRequester
@@ -178,6 +179,12 @@ fun HomeScreen(
                 .padding(start = RailCompact)
                 .onFocusChanged { contentFocused = it.hasFocus }
                 .focusRequester(contentRequester)
+                // Focus may leave the content only to the Left (into the rail). Without this,
+                // Down on the last row (or Up on the first) found no target inside and jumped
+                // to the geometrically nearest rail item, usually Settings at the bottom.
+                .focusProperties {
+                    exit = { dir -> if (dir == FocusDirection.Left) FocusRequester.Default else FocusRequester.Cancel }
+                }
                 .focusGroup(),
         ) {
             when (current) {
