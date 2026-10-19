@@ -52,6 +52,14 @@ Read before changing anything:
   (see `NoServerConfiguredException`).
 - A Discover-resolved movie already has a file id and `cmd`; skip `resolveFile` and go
   straight to movie-link with `item.id` (same rule as the webui's `startPlayback`).
+- Compose key handlers: `onKeyEvent`/`onPreviewKeyEvent` must come BEFORE `focusable()` in
+  the chain (after it they are children of the focus target and never fire; this left
+  every player key dead once). Request initial focus after a frame and retry.
+- Text fields use `ui/components/TvTextField`: read-only while merely focused, editable
+  on Center. Compose opens the keyboard on focus, and the open keyboard captures the
+  d-pad, which trapped focus in Search and typed stray letters.
+- Rows/grids that replace a focused element (Retry → content) must not leave focus
+  nowhere; Home recovers it, new screens hosted elsewhere need the same care.
 
 ## Build
 

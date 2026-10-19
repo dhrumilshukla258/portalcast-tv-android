@@ -14,6 +14,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusDirection
@@ -27,6 +28,7 @@ import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
@@ -35,6 +37,8 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.tv.material3.MaterialTheme
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import androidx.tv.material3.Text
 import com.portalcast.tv.ui.theme.AppColors
 
@@ -65,6 +69,12 @@ fun TvTextField(
 ) {
     val focusManager = LocalFocusManager.current
     var openedAtMs by remember { mutableLongStateOf(0L) }
+    // TV pattern: focusing the field must NOT open the keyboard (Compose opens it on focus, and the
+    // open keyboard then captures the d-pad, so crossing a Search field trapped the remote and
+    // typed letters). The field is read-only while merely focused; Center makes it editable.
+    var editing by remember { mutableStateOf(false) }
+    val keyboard = LocalSoftwareKeyboardController.current
+    val scope = rememberCoroutineScope()
     var focused by remember { mutableStateOf(false) }
     val shape = RoundedCornerShape(8.dp)
     Column(modifier) {
@@ -86,30 +96,48 @@ fun TvTextField(
             modifier = Modifier
                 .fillMaxWidth()
                 .then(if (focusRequester != null) Modifier.focusRequester(focusRequester) else Modifier)
-                .onFocusChanged { focused = it.isFocused }
+                .onFocusChanged {
+                    focused = it.isFocused
+                    if (!it.isFocused) editing = false
+                }
                 .border(2.dp, if (focused) AppColors.Focus else Color.Transparent, shape)
                 .onPreviewKeyEvent { event ->
-                    if ((event.key == Key.DirectionCenter || event.key == Key.Enter || event.key == Key.NumPadEnter) &&
-                        event.type == KeyEventType.KeyDown
-                    ) {
-                        openedAtMs = SystemClock.uptimeMillis()
+                    val isSelect = event.key == Key.DirectionCenter || event.key == Key.Enter || event.key == Key.NumPadEnter
+                    if (isSelect && !editing) {
+                        // Consume both halves; start editing after the key-up so the keyboard can't
+                        // receive it as a press on its own focused key.
+                        if (event.type == KeyEventType.KeyUp) {
+                            editing = true
+                            openedAtMs = SystemClock.uptimeMillis()
+                            scope.launch {
+                                delay(IME_OPEN_DELAY_MS)
+                                keyboard?.show()
+                                delay(IME_OPEN_DELAY_MS * 2)
+                                keyboard?.show() // a show() racing the input session start can be dropped
+                            }
+                        }
+                        return@onPreviewKeyEvent true
                     }
                     if (event.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
                     when (event.key) {
                         Key.DirectionDown -> focusManager.moveFocus(FocusDirection.Down)
                         Key.DirectionUp -> focusManager.moveFocus(FocusDirection.Up)
+                        // An empty field has no cursor to move: let Left/Right leave it.
+                        Key.DirectionLeft -> value.isEmpty() && focusManager.moveFocus(FocusDirection.Left)
+                        Key.DirectionRight -> value.isEmpty() && focusManager.moveFocus(FocusDirection.Right)
                         else -> false
                     }
                 },
             enabled = enabled,
+            readOnly = !editing,
             singleLine = true,
             textStyle = TextStyle(color = AppColors.Text, fontSize = 20.sp),
             placeholder = hint?.let { { Text(it, color = AppColors.TextMuted.copy(alpha = 0.7f), fontSize = 18.sp) } },
             keyboardOptions = KeyboardOptions(keyboardType = keyboardType, imeAction = imeAction, autoCorrect = false),
             keyboardActions = KeyboardActions(
-                onDone = { onImeAction() },
-                onGo = { onImeAction() },
-                onNext = { onImeAction() },
+                onDone = { editing = false; keyboard?.hide(); onImeAction() },
+                onGo = { editing = false; keyboard?.hide(); onImeAction() },
+                onNext = { editing = false; onImeAction() },
             ),
             visualTransformation = if (password) PasswordVisualTransformation() else VisualTransformation.None,
             shape = shape,
@@ -118,6 +146,7 @@ fun TvTextField(
 }
 
 internal const val STRAY_KEY_WINDOW_MS = 500L
+private const val IME_OPEN_DELAY_MS = 120L
 
 /**
  * True when [next] is [current] plus one appended character and it arrived within

@@ -28,6 +28,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.focusRestorer
 import androidx.compose.ui.focus.onFocusChanged
@@ -77,6 +81,8 @@ fun CatalogScreen(
     }
 
     val restoreRequester = remember { FocusRequester() }
+    val gridRequester = remember { FocusRequester() }
+    var gridShown by remember { mutableStateOf(false) }
     LaunchedEffect(restoreFocus) {
         if (restoreFocus && vm.lastFocusedId != null) {
             withFrameNanos { }
@@ -123,7 +129,11 @@ fun CatalogScreen(
                     hint = "Title…",
                     imeAction = ImeAction.Done,
                     onImeAction = vm::submitSearch,
-                    modifier = Modifier.width(280.dp),
+                    // Down from Search goes to the grid explicitly: the default beam search found
+                    // nothing when no card sat directly below the field, trapping focus there.
+                    modifier = Modifier.width(280.dp).focusProperties {
+                        down = if (gridShown) gridRequester else FocusRequester.Default
+                    },
                 )
                 Spacer(Modifier.width(16.dp))
                 TvButton(text = "Sort: ${state.sort.label}", onClick = vm::toggleSort)
@@ -144,10 +154,11 @@ fun CatalogScreen(
                             snapshotFlow { (gridState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: -1) to gridState.layoutInfo.totalItemsCount }
                                 .collect { (last, _) -> vm.onVisible(last) }
                         }
+                        DisposableEffect(Unit) { gridShown = true; onDispose { gridShown = false } }
                         LazyVerticalGrid(
                             columns = GridCells.Fixed(5),
                             state = gridState,
-                            modifier = Modifier.fillMaxSize().focusRestorer(),
+                            modifier = Modifier.fillMaxSize().focusRequester(gridRequester).focusRestorer(),
                             contentPadding = PaddingValues(start = 16.dp, end = 32.dp, top = 16.dp, bottom = 32.dp),
                             horizontalArrangement = Arrangement.spacedBy(20.dp),
                             verticalArrangement = Arrangement.spacedBy(24.dp),
