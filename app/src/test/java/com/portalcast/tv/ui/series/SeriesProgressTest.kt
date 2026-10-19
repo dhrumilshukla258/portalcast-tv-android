@@ -70,4 +70,11 @@ class SeriesProgressTest {
         assertEquals("Someone", merged.director)
         assertEquals("/p.jpg", merged.screenshotUri)
     }
+
+    @Test
+    fun `resume label uses the picked season, not the Stalker episode selector`() {
+        // Stalker: S3E2 arrives with series_number = 2 (the episode selector for movie-link).
+        val ep = MediaItem(id = "e2", name = "Episode 2. Gold Medal", seriesNumber = 2, isEpisode = true)
+        assertEquals("Resume S3E2 · 01:00", SeriesProgress.resumeLabel(null, ep, 60_000, seasonNumber = 3, episodeNumber = 2))
+    }
 }

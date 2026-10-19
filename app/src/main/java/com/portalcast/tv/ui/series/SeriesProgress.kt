@@ -45,9 +45,15 @@ object SeriesProgress {
     }
 
     /** "Resume S1E3 · 12:34", "Resume <episode title> · 12:34" or "Resume · 12:34". */
-    fun resumeLabel(meta: ProgressMeta?, episode: MediaItem?, resumeMs: Long?): String {
-        val season = episode?.seriesNumber ?: meta?.series_number
-        val code = Formatting.episodeCode(season, episode?.episodeNum)
+    fun resumeLabel(
+        meta: ProgressMeta?,
+        episode: MediaItem?,
+        resumeMs: Long?,
+        seasonNumber: Int? = null,
+        episodeNumber: Int? = null,
+    ): String {
+        val season = seasonNumber ?: episode?.seriesNumber ?: meta?.series_number
+        val code = Formatting.episodeCode(season, episodeNumber ?: episode?.episodeNum)
         val what = code ?: meta?.episodeTitle?.trim()?.takeIf { it.isNotEmpty() && it != meta.title }
         val time = resumeMs?.takeIf { it > 0 }?.let { Formatting.clock(it) }
         return listOfNotNull(listOfNotNull("Resume", what).joinToString(" "), time).joinToString(" · ")

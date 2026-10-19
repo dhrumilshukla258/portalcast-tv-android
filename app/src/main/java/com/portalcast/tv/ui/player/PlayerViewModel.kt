@@ -1,5 +1,6 @@
 package com.portalcast.tv.ui.player
 
+import com.portalcast.tv.ui.series.EpisodeInfo
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
@@ -51,8 +52,10 @@ data class PlayerUiState(
     val reauthorizing: Boolean = false,
 ) {
     val isLive: Boolean get() = session is PlaybackSession.Live
-    val nextEpisodeTitle: String? get() = (session as? PlaybackSession.Episode)?.nextEpisode?.let { ep ->
-        ep.displayTitle.ifBlank { ep.episodeNum?.let { "Episode $it" } ?: "Next episode" }
+    val nextEpisodeTitle: String? get() = (session as? PlaybackSession.Episode)?.let { s ->
+        val ep = s.nextEpisode ?: return@let null
+        val index = s.siblings.indexOfFirst { it.id == ep.id }.coerceAtLeast(0)
+        "E${EpisodeInfo.number(ep, index)} · ${EpisodeInfo.title(ep, index)}"
     }
 }
 

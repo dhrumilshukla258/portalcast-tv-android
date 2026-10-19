@@ -152,7 +152,16 @@ fun SeriesDetailScreen(id: String, category: String, onPlay: () -> Unit, modifie
                     if (continueRow != null) {
                         Spacer(Modifier.height(14.dp))
                         TvButton(
-                            text = SeriesProgress.resumeLabel(continueRow.parsedMeta, state.continueEpisode, resumeMs),
+                            text = run {
+                                // Season from the season list (not episode.seriesNumber: on Stalker
+                                // that is the portal's episode selector), episode number parsed.
+                                val meta = continueRow.parsedMeta
+                                val seasonIdx = state.seasons.indexOfFirst { it.id == meta?.seasonId }
+                                val seasonNo = state.seasons.getOrNull(seasonIdx)?.let { EpisodeInfo.seasonNumber(it, seasonIdx) }
+                                val ep = state.continueEpisode
+                                val epNo = ep?.takeIf { EpisodeInfo.hasOwnNumber(it) }?.let { EpisodeInfo.number(it, 0) }
+                                SeriesProgress.resumeLabel(meta, ep, resumeMs, seasonNo, epNo)
+                            },
                             onClick = { vm.resumeContinue(onPlay) },
                             style = TvButtonStyle.Primary,
                             enabled = !state.starting,

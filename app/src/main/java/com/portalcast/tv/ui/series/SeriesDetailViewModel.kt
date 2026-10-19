@@ -164,7 +164,10 @@ class SeriesDetailViewModel(
                     val siblings = s.episodes.items.map { it.withSeason(season, idx) }
                     val fileId = file.id.ifBlank { episode.id }
                     PlaybackHolder.start(
-                        PlaybackSession.Episode(s.series, seasonId, episode.withSeason(season, idx), fileId, siblings, effectiveCategory),
+                        PlaybackSession.Episode(
+                            s.series, seasonId, episode.withSeason(season, idx), fileId, siblings, effectiveCategory,
+                            seasonNumber = season?.let { EpisodeInfo.seasonNumber(it, idx) },
+                        ),
                         null,
                     )
                     _state.update { it.copy(starting = false) }
@@ -206,7 +209,8 @@ class SeriesDetailViewModel(
             val siblings = if (match != null) episodes else listOf(episode)
             val resumeMs = ProgressRows.resumableMs(row) ?: meta?.currentTime?.let { (it * 1000).toLong() }
             lastFocusedEpisodeId = match?.id
-            PlaybackHolder.start(PlaybackSession.Episode(s.series, seasonId, episode, fileId, siblings, effectiveCategory), resumeMs)
+            val seasonNo = season?.let { EpisodeInfo.seasonNumber(it, idx.coerceAtLeast(0)) }
+            PlaybackHolder.start(PlaybackSession.Episode(s.series, seasonId, episode, fileId, siblings, effectiveCategory, seasonNo), resumeMs)
             _state.update { it.copy(starting = false) }
             onReady()
         }

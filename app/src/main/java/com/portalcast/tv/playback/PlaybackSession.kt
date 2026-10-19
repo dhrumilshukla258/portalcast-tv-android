@@ -23,6 +23,12 @@ sealed class PlaybackSession {
         val fileId: String,
         val siblings: List<MediaItem>,
         val category: String?,
+        /**
+         * Season number for DISPLAY only ("Season 3"), from the season the user picked.
+         * Never use episode.seriesNumber for this: on Stalker portals that field is the
+         * episode selector movie-link sends to the portal (so S3E2 has series_number 2).
+         */
+        val seasonNumber: Int? = null,
     ) : PlaybackSession() {
         val nextEpisode: MediaItem? get() = siblings.getOrNull(siblings.indexOfFirst { it.id == episode.id } + 1)
         val previousEpisode: MediaItem? get() = siblings.getOrNull(siblings.indexOfFirst { it.id == episode.id } - 1)

@@ -55,6 +55,7 @@ import com.portalcast.tv.data.model.Channel
 import com.portalcast.tv.data.model.EpgProgramme
 import com.portalcast.tv.playback.PlaybackHolder
 import com.portalcast.tv.playback.PlaybackSession
+import com.portalcast.tv.ui.series.EpisodeInfo
 import com.portalcast.tv.ui.theme.AppColors
 
 /**
@@ -239,8 +240,14 @@ private fun BoxScope.VodOverlay(state: PlayerUiState) {
     val (title, subtitle) = when (session) {
         is PlaybackSession.Movie -> session.item.displayTitle to listOfNotNull(session.item.displayYear, session.item.displayGenres).joinToString(" · ")
         is PlaybackSession.Episode -> session.series.displayTitle to buildString {
-            session.episode.seriesNumber?.let { append("Season $it · ") }
-            append(session.episode.displayTitle.ifBlank { "Episode ${session.episode.episodeNum ?: ""}".trim() })
+            // Season from the picked season (session.seasonNumber); episode number and title
+            // parsed the same way as the episode row (EpisodeInfo), not episode.seriesNumber,
+            // which is the portal's episode selector on Stalker.
+            val ep = session.episode
+            val index = session.siblings.indexOfFirst { it.id == ep.id }.coerceAtLeast(0)
+            session.seasonNumber?.let { append("Season $it · ") }
+            if (EpisodeInfo.hasOwnNumber(ep) || session.siblings.isNotEmpty()) append("E${EpisodeInfo.number(ep, index)} · ")
+            append(EpisodeInfo.title(ep, index))
         }
         is PlaybackSession.Live -> session.channel.displayName to ""
     }
