@@ -179,11 +179,12 @@ fun HomeScreen(
                 .padding(start = RailCompact)
                 .onFocusChanged { contentFocused = it.hasFocus }
                 .focusRequester(contentRequester)
-                // Focus may leave the content only to the Left (into the rail). Without this,
-                // Down on the last row (or Up on the first) found no target inside and jumped
-                // to the geometrically nearest rail item, usually Settings at the bottom.
+                // Focus may leave the content only to the Left, and then always onto the CURRENT
+                // tab. Without this, Down on the last row (or Up on the first) found no target
+                // inside and jumped to the geometrically nearest rail item, usually Settings, and
+                // Left from low on the screen landed on Settings too.
                 .focusProperties {
-                    exit = { dir -> if (dir == FocusDirection.Left) FocusRequester.Default else FocusRequester.Cancel }
+                    exit = { dir -> if (dir == FocusDirection.Left) tabRequesters.getValue(current) else FocusRequester.Cancel }
                 }
                 .focusGroup(),
         ) {

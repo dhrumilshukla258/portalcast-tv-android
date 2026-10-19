@@ -26,7 +26,7 @@ object LiveFilter {
         when (groupId) {
             ChannelGroup.RECENT_ID -> {
                 val byId = HashMap<String, Channel>(all.size)
-                for (c in all) byId.putIfAbsent(c.id, c)
+                for (c in all) if (c.id !in byId) byId[c.id] = c
                 recents.distinct().mapNotNull { byId[it] }
             }
             ChannelGroup.FAVORITES_ID -> {

@@ -22,7 +22,7 @@ object SeriesProgress {
             if (row.mediaId != seriesId) out[row.mediaId] = f
             val meta = row.parsedMeta
             if (meta?.type == "series" && meta.mediaId == seriesId) {
-                listOfNotNull(meta.id, meta.itemId).filter { it.isNotBlank() }.forEach { out.putIfAbsent(it, f) }
+                listOfNotNull(meta.id, meta.itemId).filter { it.isNotBlank() }.forEach { if (it !in out) out[it] = f }
             }
         }
         return out
