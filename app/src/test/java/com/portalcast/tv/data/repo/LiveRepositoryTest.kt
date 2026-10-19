@@ -111,6 +111,8 @@ class LiveRepositoryTest {
         assertNull(stack.live.epg().getOrThrow())
         assertEquals("cold answers are retried", 2, stack.routes.count("GET", "/api/v2/epg"))
 
+        // The guide is windowed to now..now+6h while streaming (EpgStream): pin "now" to the fixture.
+        stack.clock.set(1760783400L * 1000)
         stack.routes.get("/api/v2/epg", "epg")
         val epg = stack.live.epg().getOrThrow()!!
         val (now, next) = epg.nowNext("101", nowMs = 1760783400L * 1000)

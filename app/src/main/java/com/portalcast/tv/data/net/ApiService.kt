@@ -30,6 +30,8 @@ import retrofit2.http.POST
 import retrofit2.http.PUT
 import retrofit2.http.Path
 import retrofit2.http.Query
+import retrofit2.http.Streaming
+import okhttp3.ResponseBody
 
 /**
  * Every server route the app calls, one function per route, paths relative to the
@@ -95,9 +97,14 @@ interface ApiService {
     @GET("api/v2/channels")
     suspend fun channels(): List<Channel>
 
-    /** `{timestamp,data}` or `[]`; parse with `EpgData.parse`. */
+    /**
+     * The whole guide, often tens of MB: never parse it as a tree. Read it with
+     * [EpgStream.parse] (keeps only what the UI shows). `@Streaming` stops OkHttp/Retrofit
+     * from buffering the body in memory.
+     */
+    @Streaming
     @GET("api/v2/epg")
-    suspend fun epg(): JsonElement
+    suspend fun epg(): ResponseBody
 
     // ---- movies ----------------------------------------------------------------
 

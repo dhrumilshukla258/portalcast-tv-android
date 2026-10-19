@@ -3,6 +3,9 @@ package com.portalcast.tv.data.repo
 import com.portalcast.tv.data.model.Channel
 import com.portalcast.tv.data.model.ChannelGroup
 import com.portalcast.tv.data.model.EpgData
+import com.portalcast.tv.data.net.EpgStream
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import com.portalcast.tv.data.model.Preferences
 import com.portalcast.tv.data.net.ApiService
 import com.portalcast.tv.data.net.apiCall
@@ -17,7 +20,7 @@ class DefaultLiveRepository(
     private val api: ApiService,
     private val users: UserRepository,
     private val session: SessionSource? = null,
-    clock: () -> Long = System::currentTimeMillis,
+    private val clock: () -> Long = System::currentTimeMillis,
 ) : LiveRepository {
 
     private val groupsCache = SessionCache<List<ChannelGroup>>(session, clock = clock)
@@ -42,7 +45,10 @@ class DefaultLiveRepository(
     /** A cold server (`[]`) yields `null` and is not cached, so the next call asks again. */
     override suspend fun epg(forceRefresh: Boolean): Result<EpgData?> {
         if (!forceRefresh) epgCache.peek()?.let { return Result.success(it) }
-        return apiCall(ApiPaths.EPG) { EpgData.parse(api.epg()) }.onSuccess { if (it != null) epgCache.put(it) }
+        return apiCall(ApiPaths.EPG) {
+            // Parse off the main thread while streaming: the body can be ~50 MB (see EpgStream).
+            withContext(Dispatchers.IO) { api.epg().use { body -> EpgStream.parse(body.source(), nowSec = clock() / 1000) } }
+        }.onSuccess { if (it != null) epgCache.put(it) }
     }
 
     override suspend fun favorites(): Result<List<String>> = users.preferences().map { it.favorites.orEmpty() }

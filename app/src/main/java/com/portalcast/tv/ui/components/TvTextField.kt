@@ -2,6 +2,9 @@ package com.portalcast.tv.ui.components
 
 import android.os.SystemClock
 import androidx.compose.foundation.border
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.foundation.interaction.PressInteraction
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -75,6 +78,22 @@ fun TvTextField(
     var editing by remember { mutableStateOf(false) }
     val keyboard = LocalSoftwareKeyboardController.current
     val scope = rememberCoroutineScope()
+    fun startEditing() {
+        editing = true
+        openedAtMs = SystemClock.uptimeMillis()
+        scope.launch {
+            delay(IME_OPEN_DELAY_MS)
+            keyboard?.show()
+            delay(IME_OPEN_DELAY_MS * 2)
+            keyboard?.show() // a show() racing the input session start can be dropped
+        }
+    }
+    // Touch (phone testing, touch-capable TVs): a tap must start editing too, or a read-only
+    // field could never be typed into.
+    val interactionSource = remember { MutableInteractionSource() }
+    LaunchedEffect(interactionSource) {
+        interactionSource.interactions.collect { if (it is PressInteraction.Release && !editing) startEditing() }
+    }
     var focused by remember { mutableStateOf(false) }
     val shape = RoundedCornerShape(8.dp)
     Column(modifier) {
@@ -106,16 +125,7 @@ fun TvTextField(
                     if (isSelect && !editing) {
                         // Consume both halves; start editing after the key-up so the keyboard can't
                         // receive it as a press on its own focused key.
-                        if (event.type == KeyEventType.KeyUp) {
-                            editing = true
-                            openedAtMs = SystemClock.uptimeMillis()
-                            scope.launch {
-                                delay(IME_OPEN_DELAY_MS)
-                                keyboard?.show()
-                                delay(IME_OPEN_DELAY_MS * 2)
-                                keyboard?.show() // a show() racing the input session start can be dropped
-                            }
-                        }
+                        if (event.type == KeyEventType.KeyUp) startEditing()
                         return@onPreviewKeyEvent true
                     }
                     if (event.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
@@ -130,6 +140,7 @@ fun TvTextField(
                 },
             enabled = enabled,
             readOnly = !editing,
+            interactionSource = interactionSource,
             singleLine = true,
             textStyle = TextStyle(color = AppColors.Text, fontSize = 20.sp),
             placeholder = hint?.let { { Text(it, color = AppColors.TextMuted.copy(alpha = 0.7f), fontSize = 18.sp) } },
