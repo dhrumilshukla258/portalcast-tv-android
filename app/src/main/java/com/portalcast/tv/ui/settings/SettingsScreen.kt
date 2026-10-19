@@ -90,8 +90,8 @@ fun SettingsScreen(onBack: () -> Unit) {
                 headlineContent = { Text("Direct live streams") },
                 supportingContent = {
                     Text(
-                        if (directLive) "Live TV plays straight from the provider's CDN (server sends a redirect)."
-                        else "Live TV is relayed through the Portalcast server (default; works everywhere).",
+                        if (directLive) "Live TV plays straight from the provider's CDN, if the server allows it (ALLOW_DIRECT_STREAMS); otherwise it is relayed."
+                        else "Live TV is relayed through the PortalCast server (default; works everywhere, provider address stays hidden).",
                     )
                 },
                 trailingContent = { Switch(checked = directLive, onCheckedChange = null) },
