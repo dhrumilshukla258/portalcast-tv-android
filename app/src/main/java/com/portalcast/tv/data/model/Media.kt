@@ -136,3 +136,22 @@ data class SubtitleSearchResponse(val success: Boolean = false, val results: Lis
 
 /** What to request for this result: the new id, else the OpenSubtitles file id (older servers). */
 val SubtitleResult.downloadKey: String get() = downloadId?.takeIf { it.isNotBlank() } ?: "os:$fileId"
+
+/** GET /api/user/opensubtitles. Older servers send only linked/username (rest default false). */
+@Serializable
+data class SubtitleAccountStatus(
+    val linked: Boolean = false,
+    val username: String? = null,
+    val hasOwnApiKey: Boolean = false,
+    val serverHasApiKey: Boolean = false,
+    val subdl: SubdlKeyStatus = SubdlKeyStatus(),
+)
+
+@Serializable
+data class SubdlKeyStatus(val hasOwnApiKey: Boolean = false, val serverHasApiKey: Boolean = false)
+
+@Serializable
+data class OpenSubtitlesLinkRequest(val username: String? = null, val password: String? = null, val apiKey: String? = null)
+
+@Serializable
+data class SubdlKeyRequest(val apiKey: String)

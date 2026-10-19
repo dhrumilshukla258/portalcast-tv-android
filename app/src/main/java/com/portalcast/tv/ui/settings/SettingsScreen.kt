@@ -1,5 +1,8 @@
 package com.portalcast.tv.ui.settings
 
+import com.portalcast.tv.ui.components.TvTextField
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
@@ -47,11 +50,12 @@ import com.portalcast.tv.ui.theme.AppColors
 fun SettingsScreen(onBack: () -> Unit) {
     val container = LocalContext.current.appContainer
     val vm: SettingsViewModel = viewModel(
-        factory = viewModelFactory { initializer { SettingsViewModel(container.authRepository, container.localPrefs) } },
+        factory = viewModelFactory { initializer { SettingsViewModel(container.authRepository, container.localPrefs, container.api) } },
     )
     val serverUrl by vm.serverUrl.collectAsStateWithLifecycle()
     val user by vm.user.collectAsStateWithLifecycle()
     val directLive by vm.directLiveStreams.collectAsStateWithLifecycle()
+    val subs by vm.subtitleAccounts.collectAsStateWithLifecycle()
     val firstItem = remember { FocusRequester() }
 
     LaunchedEffect(Unit) { runCatching { firstItem.requestFocus() } }
@@ -106,6 +110,9 @@ fun SettingsScreen(onBack: () -> Unit) {
             )
             Spacer(Modifier.height(28.dp))
 
+            SubtitleAccountsSection(subs, vm)
+            Spacer(Modifier.height(28.dp))
+
             TvButton(
                 text = "Sign out",
                 onClick = vm::signOut,
@@ -150,5 +157,66 @@ private fun InfoRow(title: String, subtitle: String? = null) {
             Spacer(Modifier.height(2.dp))
             Text(subtitle, style = MaterialTheme.typography.bodyMedium, color = AppColors.TextMuted)
         }
+    }
+}
+
+/**
+ * The user's own subtitle accounts. Downloads then use their own quota, and work even when
+ * the server has no key. Keys/passwords are sent once and stored encrypted by the server;
+ * they are never shown again.
+ */
+@Composable
+private fun SubtitleAccountsSection(s: SubtitleAccountsUi, vm: SettingsViewModel) {
+    SectionLabel("Subtitle accounts")
+    if (s.unsupported) {
+        InfoRow(title = "Not available", subtitle = "Update the PortalCast server to add your own subtitle accounts.")
+        return
+    }
+    val st = s.status
+    val osLine = when {
+        st == null -> "Loading…"
+        st.linked -> "OpenSubtitles: signed in as ${st.username}"
+        else -> "OpenSubtitles: not signed in"
+    }
+    val osKey = when {
+        st == null -> null
+        st.hasOwnApiKey -> "Using your own API key"
+        st.serverHasApiKey -> "Using the server's API key"
+        else -> "No API key yet: add one (free at opensubtitles.com/consumers)"
+    }
+    InfoRow(title = osLine, subtitle = osKey)
+    Spacer(Modifier.height(8.dp))
+    TvTextField(value = s.osUsername, onValueChange = vm::setOsUsername, label = "OpenSubtitles username", modifier = Modifier.fillMaxWidth())
+    Spacer(Modifier.height(8.dp))
+    TvTextField(value = s.osPassword, onValueChange = vm::setOsPassword, label = "Password", password = true, modifier = Modifier.fillMaxWidth())
+    Spacer(Modifier.height(8.dp))
+    TvTextField(value = s.osApiKey, onValueChange = vm::setOsApiKey, label = "API key (optional)", hint = "Only if the server has none", modifier = Modifier.fillMaxWidth())
+    Spacer(Modifier.height(8.dp))
+    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        TvButton(text = if (s.busy) "Saving…" else "Save OpenSubtitles", onClick = vm::saveOpenSubtitles, enabled = !s.busy, style = TvButtonStyle.Primary)
+        if (st?.linked == true || st?.hasOwnApiKey == true) TvButton(text = "Remove", onClick = vm::removeOpenSubtitles, enabled = !s.busy)
+    }
+
+    Spacer(Modifier.height(16.dp))
+    val subdl = st?.subdl
+    InfoRow(
+        title = when {
+            subdl == null -> "SubDL"
+            subdl.hasOwnApiKey -> "SubDL: using your own API key"
+            subdl.serverHasApiKey -> "SubDL: using the server's API key"
+            else -> "SubDL: no API key"
+        },
+        subtitle = "Second subtitle source. Free key at subdl.com.",
+    )
+    Spacer(Modifier.height(8.dp))
+    TvTextField(value = s.subdlKey, onValueChange = vm::setSubdlKey, label = "SubDL API key", modifier = Modifier.fillMaxWidth())
+    Spacer(Modifier.height(8.dp))
+    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        TvButton(text = if (s.busy) "Saving…" else "Save SubDL key", onClick = vm::saveSubdl, enabled = !s.busy, style = TvButtonStyle.Primary)
+        if (subdl?.hasOwnApiKey == true) TvButton(text = "Remove", onClick = vm::removeSubdl, enabled = !s.busy)
+    }
+    s.message?.let {
+        Spacer(Modifier.height(8.dp))
+        Text(it, style = MaterialTheme.typography.bodyMedium, color = AppColors.TextMuted)
     }
 }

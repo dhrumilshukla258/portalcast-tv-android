@@ -62,6 +62,22 @@ interface ApiService {
     @GET("api/v2/subtitles/download")
     suspend fun downloadSubtitle(@Query("id") id: String, @Query("fileId") fileId: Long? = null): okhttp3.ResponseBody
 
+    // ---- the user's own subtitle accounts (Settings) ----
+    @GET("api/user/opensubtitles")
+    suspend fun subtitleAccounts(): com.portalcast.tv.data.model.SubtitleAccountStatus
+
+    @PUT("api/user/opensubtitles")
+    suspend fun linkOpenSubtitles(@Body body: com.portalcast.tv.data.model.OpenSubtitlesLinkRequest): okhttp3.ResponseBody
+
+    @DELETE("api/user/opensubtitles")
+    suspend fun unlinkOpenSubtitles(): okhttp3.ResponseBody
+
+    @PUT("api/user/subdl")
+    suspend fun setSubdlKey(@Body body: com.portalcast.tv.data.model.SubdlKeyRequest): okhttp3.ResponseBody
+
+    @DELETE("api/user/subdl")
+    suspend fun removeSubdlKey(): okhttp3.ResponseBody
+
     /** Report the decoded video quality of a title (servers from 2026-10-19; older ones 404). */
     @POST("api/v2/media-info")
     suspend fun reportMediaInfo(@Body body: com.portalcast.tv.data.model.MediaInfoReport): okhttp3.ResponseBody
