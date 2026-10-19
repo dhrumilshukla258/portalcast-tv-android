@@ -140,7 +140,9 @@ fun PlayerScreen(
             }
             .onFocusChanged { rootHasFocus = it.isFocused }
             .focusRequester(rootFocus)
-            .focusable(),
+            // While the error panel is up the root must not hold focus: arrow keys never move
+            // focus from a parent into its children, so Retry/Back were unreachable.
+            .focusable(enabled = !hasError),
     ) {
         AndroidView(
             modifier = Modifier.fillMaxSize(),
