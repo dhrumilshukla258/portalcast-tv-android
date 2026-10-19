@@ -80,3 +80,7 @@ Run on a phone over USB (`adb install -r …`; sideloading ignores the leanback
 requirement) for data/auth/playback checks, and on a real Android TV
 (`adb connect <ip>:5555`) for focus behaviour. Kotlin gotcha: `/*` inside a KDoc
 opens a nested comment, so write `/api/auth/` not `/api/auth/*` in comments.
+
+## Brand
+
+Logo, icons, banner and colors come from the shared kit in `../portalcast-webui/brand/` (see its README). The product name is written "PortalCast"; never "PortalcastTV". The Android vectors in `res/drawable/` (`ic_launcher_foreground`, `portalcast_logo`, `portalcast_symbol`) are translations of that kit; update them when the kit changes.
