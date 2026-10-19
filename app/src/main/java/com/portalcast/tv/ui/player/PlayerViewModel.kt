@@ -340,6 +340,13 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
 
     private fun handleError(error: PlaybackException) {
         val s = session ?: return
+        // Live HLS fell behind the server's playlist window (slow device, long pause/buffering):
+        // the documented recovery is to jump back to the live edge and carry on, not an error.
+        if (error.errorCode == PlaybackException.ERROR_CODE_BEHIND_LIVE_WINDOW) {
+            player.seekToDefaultPosition()
+            player.prepare()
+            return
+        }
         val code = PlayerFactory.httpStatusOf(error)
         if ((code == 401 || code == 403) && !reResolved) {
             reResolved = true

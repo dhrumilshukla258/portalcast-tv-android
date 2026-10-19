@@ -96,7 +96,9 @@ fun PlayerScreen(
     // moving focus into the player (the first channel-down press did nothing).
     var rootHasFocus by remember { mutableStateOf(false) }
     LaunchedEffect(hasError, state.showNextEpisode) {
-        repeat(10) {
+        // Up to ~5 s: during the navigation transition the previous screen can still hold focus,
+        // and on a real portal (slow first load) 0.7 s was not enough, so channel up/down was dead.
+        repeat(50) {
             withFrameNanos { }
             val ok = runCatching {
                 when {
@@ -105,8 +107,8 @@ fun PlayerScreen(
                     else -> rootFocus.requestFocus()
                 }
             }.isSuccess
+            delay(100)
             if (ok && (hasError || state.showNextEpisode || rootHasFocus)) return@LaunchedEffect
-            delay(50)
         }
     }
 

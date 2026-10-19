@@ -71,7 +71,8 @@ class PlayerFactory(
  *   and reaches `Player.Listener.onPlayerError`; the screen re-resolves the stream
  *   once (new token) and re-prepares. Retrying blindly would hammer `/player/` with
  *   a dead token.
- * - 429 and 404/502/503/500: exponential back-off 1 s, 2 s, 4 s, capped at 5 s, at
+ * - 500: same back-off but only [SERVER_ERROR_RETRIES] attempts (portal link failure).
+ * - 429 and 404/502/503: exponential back-off 1 s, 2 s, 4 s, capped at 5 s, at
  *   most [MAX_RETRIES] attempts, so a shared rate-limit bucket or a player that fell
  *   behind the live edge recovers without a tight loop.
  * - anything else: ExoPlayer's default behaviour.
@@ -84,7 +85,10 @@ class PortalcastLoadErrorPolicy(private val listener: LoadErrorListener) : Defau
             ?: return super.getRetryDelayMsFor(loadErrorInfo)
         val delay = when (code) {
             401, 403 -> C.TIME_UNSET
-            429, 404, 500, 502, 503 -> backoffMs(loadErrorInfo.errorCount)
+            // 500 is the server saying it could not get a link from the portal ("Failed to
+            // generate URL"); retrying 10 times meant ~45 s of "Loading…" before any message.
+            500 -> if (loadErrorInfo.errorCount > SERVER_ERROR_RETRIES) C.TIME_UNSET else backoffMs(loadErrorInfo.errorCount)
+            429, 404, 502, 503 -> backoffMs(loadErrorInfo.errorCount)
             else -> super.getRetryDelayMsFor(loadErrorInfo)
         }
         listener.onHttpError(code, loadErrorInfo.errorCount, delay)
@@ -96,6 +100,7 @@ class PortalcastLoadErrorPolicy(private val listener: LoadErrorListener) : Defau
 
     companion object {
         const val MAX_RETRIES = 10
+        const val SERVER_ERROR_RETRIES = 3
         const val MAX_DELAY_MS = 5_000L
 
         /** 1 s, 2 s, 4 s, then 5 s; `C.TIME_UNSET` once [MAX_RETRIES] attempts have failed. */
