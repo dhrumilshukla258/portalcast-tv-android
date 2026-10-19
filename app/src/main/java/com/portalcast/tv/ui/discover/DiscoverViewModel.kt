@@ -1,5 +1,6 @@
 package com.portalcast.tv.ui.discover
 
+import androidx.compose.runtime.Immutable
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.portalcast.tv.data.model.DiscoverFacets
@@ -24,6 +25,7 @@ import kotlinx.coroutines.sync.withPermit
 enum class RowKind { Recommended, WhatsNew, Genre }
 
 /** One horizontal Discover row. Genre rows start unrequested and load when they near the viewport. */
+@Immutable // lets unchanged rows skip recomposition when another row loads
 data class DiscoverRow(
     val key: String,
     val kind: RowKind,
@@ -52,6 +54,7 @@ data class DiscoverRow(
 }
 
 /** A Continue Watching card plus the list item its click hands to the detail screen. */
+@Immutable
 data class ContinueEntry(
     val key: String,
     val title: String,
