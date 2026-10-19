@@ -19,7 +19,7 @@ import kotlinx.coroutines.launch
  * Movie detail. The display item comes from [SelectedItemHolder] (the list/Discover item
  * the user clicked); the playable file from `VodRepository.resolveFile`, which also fills
  * fields the list item lacks and is the whole item when the holder is empty.
- * A Discover-resolved item already carries `cmd`: its id is the file id (CLAUDE.md).
+ * The file is always resolved; a Discover-resolved item (id already the file id) is the fallback.
  */
 class MovieDetailViewModel(
     private val movieId: String,
@@ -53,20 +53,25 @@ class MovieDetailViewModel(
     init { load() }
 
     fun load() {
-        val item = _state.value.item
-        if (item != null && item.cmd != null) {
-            _state.update { it.copy(loading = false) }
-        } else {
-            _state.update { it.copy(loading = it.item == null, error = null) }
-            viewModelScope.launch {
-                vod.resolveFile(movieId, effectiveCategory).fold(
-                    onSuccess = { file ->
-                        _state.update { s -> s.copy(loading = false, file = file, item = s.item?.mergedWith(file) ?: file) }
-                    },
-                    // With a held item the screen still works; Play retries the resolve.
-                    onFailure = { e -> _state.update { s -> s.copy(loading = false, error = if (s.item == null) e else null) } },
-                )
-            }
+        // Always resolve the real file. A `cmd` on the item is NOT proof it is already a file:
+        // on Stalker every list item carries one, and playing the list id made the portal answer
+        // "nothing_to_play" (found on a real portal). Only when the lookup fails and the item has
+        // a cmd (a Discover-resolved item, whose id already IS the file id) is the item used as is.
+        _state.update { it.copy(loading = it.item == null, error = null) }
+        viewModelScope.launch {
+            vod.resolveFile(movieId, effectiveCategory).fold(
+                onSuccess = { file ->
+                    _state.update { s -> s.copy(loading = false, file = file, item = s.item?.mergedWith(file) ?: file) }
+                },
+                onFailure = { e ->
+                    _state.update { s ->
+                        val held = s.item
+                        if (held?.cmd != null) s.copy(loading = false, file = held)
+                        // With a held item the screen still works; Play retries the resolve.
+                        else s.copy(loading = false, error = if (held == null) e else null)
+                    }
+                },
+            )
         }
         refreshProgress()
     }
@@ -91,11 +96,13 @@ class MovieDetailViewModel(
         _state.update { it.copy(starting = true, playError = null) }
         viewModelScope.launch {
             val fileId: String? = when {
-                item.cmd != null -> item.id
                 s.file != null -> s.file.id
                 else -> vod.resolveFile(movieId, effectiveCategory).fold(
                     onSuccess = { file -> _state.update { it.copy(file = file) }; file.id },
-                    onFailure = { e -> _state.update { it.copy(starting = false, playError = e.panelMessage()) }; null },
+                    onFailure = { e ->
+                        if (item.cmd != null) item.id // Discover-resolved: the id is the file id
+                        else { _state.update { it.copy(starting = false, playError = e.panelMessage()) }; null }
+                    },
                 )
             }
             if (fileId == null) return@launch

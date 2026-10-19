@@ -37,6 +37,7 @@ import androidx.compose.foundation.relocation.bringIntoViewResponder
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -47,6 +48,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.focusRestorer
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
@@ -95,6 +99,8 @@ fun DiscoverScreen(
     modifier: Modifier = Modifier,
     /** Opens the app's global Search tab (Discover does not search itself). */
     onOpenSearch: () -> Unit = {},
+    /** True when coming back from a detail/player: put focus back on the last card. */
+    restoreFocus: Boolean = false,
 ) {
     val container = LocalContext.current.appContainer
     val vm: DiscoverViewModel = viewModel(
@@ -160,7 +166,7 @@ fun DiscoverScreen(
                     )
                     HeroInfo(hero, Modifier.fillMaxWidth().weight(1f))
                 }
-                RowsContent(state, serverUrl, vm, hero, Modifier.fillMaxWidth().weight(1f))
+                RowsContent(state, serverUrl, vm, hero, restoreFocus, Modifier.fillMaxWidth().weight(1f))
             }
         }
 
@@ -266,6 +272,7 @@ private fun RowsContent(
     serverUrl: String?,
     vm: DiscoverViewModel,
     hero: HeroFocus,
+    restoreFocus: Boolean,
     modifier: Modifier,
 ) {
     val rows = state.visibleRows
@@ -290,6 +297,22 @@ private fun RowsContent(
     val onFocusItem: (MediaItem) -> Unit = remember(hero) { { item -> hero.item = item } }
     val onOpen: (MediaItem) -> Unit = remember(vm) { vm::open }
     val onRowNearEnd: (String) -> Unit = remember(vm) { vm::onRowNearEnd }
+    // Back from a title opened here: focus the card it was opened from (Home otherwise fell back
+    // to the rail, which looked like Back "opening the side bar").
+    val restoreRequester = remember { FocusRequester() }
+    val restoreKey = remember { if (restoreFocus) vm.lastFocusedKey else null }
+    LaunchedEffect(restoreKey) {
+        if (restoreKey == null) return@LaunchedEffect
+        repeat(20) {
+            withFrameNanos { }
+            if (runCatching { restoreRequester.requestFocus() }.isSuccess) return@LaunchedEffect
+            delay(50)
+        }
+    }
+    val cardModifier: (String) -> Modifier = { key ->
+        val base = Modifier.onFocusChanged { if (it.isFocused) vm.lastFocusedKey = key }
+        if (key == restoreKey) base.focusRequester(restoreRequester) else base
+    }
     LazyColumn(
         modifier.fillMaxSize(),
         state = listState,
@@ -305,6 +328,7 @@ private fun RowsContent(
                     onOpen = vm::openContinueWatching,
                     onFocusItem = onFocusItem,
                     cardPad = cardPad,
+                    cardModifier = cardModifier,
                     modifier = Modifier.bringIntoViewResponder(pivot),
                 )
             }
@@ -325,6 +349,7 @@ private fun RowsContent(
                 onFocusItem = onFocusItem,
                 onRowNearEnd = onRowNearEnd,
                 cardPad = cardPad,
+                cardModifier = cardModifier,
                 modifier = Modifier.bringIntoViewResponder(pivot),
             )
         }
@@ -345,6 +370,7 @@ private fun ContinueWatchingRow(
     onOpen: (ContinueEntry) -> Unit,
     onFocusItem: (MediaItem) -> Unit,
     cardPad: PadRectHorizontally,
+    cardModifier: (String) -> Modifier,
     modifier: Modifier,
 ) {
     Column(modifier) {
@@ -363,7 +389,7 @@ private fun ContinueWatchingRow(
                     progressPercent = e.progressPercent,
                     onClick = { onOpen(e) },
                     onFocused = { onFocusItem(e.target) },
-                    modifier = Modifier.bringIntoViewResponder(cardPad),
+                    modifier = cardModifier("cw|${e.key}").bringIntoViewResponder(cardPad),
                 )
             }
         }
@@ -378,6 +404,7 @@ private fun MediaRow(
     onFocusItem: (MediaItem) -> Unit,
     onRowNearEnd: (String) -> Unit,
     cardPad: PadRectHorizontally,
+    cardModifier: (String) -> Modifier,
     modifier: Modifier,
 ) {
     val listState = rememberLazyListState()
@@ -410,7 +437,7 @@ private fun MediaRow(
                     serverUrl = serverUrl,
                     onClick = { onOpen(item) },
                     onFocused = { onFocusItem(item) },
-                    modifier = Modifier.bringIntoViewResponder(cardPad),
+                    modifier = cardModifier("${row.key}|${item.id}").bringIntoViewResponder(cardPad),
                 )
             }
         }

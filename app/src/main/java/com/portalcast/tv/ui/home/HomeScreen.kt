@@ -122,12 +122,19 @@ fun HomeScreen(
         runCatching { target.requestFocus() }
     }
 
+    val contentRequester = remember { FocusRequester() }
     LaunchedEffect(current != null) {
         if (current == null) return@LaunchedEffect
         if (restorePending) {
             delay(400)
             restorePending = false
-            if (!contentFocused && !railFocused) focusRail()
+            // Back from a child screen: the tab should have restored its own focus. If it didn't,
+            // go into the content, not the rail (opening the rail on Back looked like a bug).
+            if (!contentFocused && !railFocused) {
+                runCatching { contentRequester.requestFocus() }
+                withFrameNanos { }
+                if (!contentFocused && !railFocused) focusRail()
+            }
         } else {
             withFrameNanos { }
             focusRail()
@@ -138,7 +145,6 @@ fun HomeScreen(
     // Focus recovery: when the focused element disappears (e.g. a Retry button replaced by the
     // content it loaded) nothing on screen has focus and the remote does nothing visible.
     // Move focus into the content (first focusable child), falling back to the rail.
-    val contentRequester = remember { FocusRequester() }
     LaunchedEffect(contentFocused, railFocused, restorePending) {
         if (current == null || contentFocused || railFocused || restorePending) return@LaunchedEffect
         delay(250)
@@ -174,7 +180,7 @@ fun HomeScreen(
         ) {
             when (current) {
                 HomeTab.SEARCH -> SearchScreen(onOpenMovie = openMovie, onOpenSeries = openSeries, onPlay = onPlay)
-                HomeTab.DISCOVER -> DiscoverScreen(onOpenMovie = openMovie, onOpenSeries = openSeries, onOpenSearch = { select(HomeTab.SEARCH) })
+                HomeTab.DISCOVER -> DiscoverScreen(onOpenMovie = openMovie, onOpenSeries = openSeries, onOpenSearch = { select(HomeTab.SEARCH) }, restoreFocus = restorePending)
                 HomeTab.LIVE -> LiveScreen(onPlay = onPlay, restoreFocus = restorePending)
                 HomeTab.MOVIES -> MoviesScreen(onOpenMovie = openMovie, restoreFocus = restorePending)
                 HomeTab.SERIES -> SeriesScreen(onOpenSeries = openSeries, restoreFocus = restorePending)

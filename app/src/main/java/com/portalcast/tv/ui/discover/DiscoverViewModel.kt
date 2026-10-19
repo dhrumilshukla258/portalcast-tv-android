@@ -112,6 +112,9 @@ class DiscoverViewModel(
     private val user: UserRepository,
 ) : ViewModel() {
 
+    /** Last focused card ("cw|key" or "rowKey|itemId"), so Back from a detail lands on it again. */
+    var lastFocusedKey: String? = null
+
     private val _state = MutableStateFlow(DiscoverUiState())
     val state: StateFlow<DiscoverUiState> = _state
 

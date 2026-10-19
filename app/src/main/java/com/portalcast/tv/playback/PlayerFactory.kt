@@ -87,8 +87,10 @@ class PortalcastLoadErrorPolicy(private val listener: LoadErrorListener) : Defau
             401, 403 -> C.TIME_UNSET
             // 500 is the server saying it could not get a link from the portal ("Failed to
             // generate URL"); retrying 10 times meant ~45 s of "Loading…" before any message.
-            500 -> if (loadErrorInfo.errorCount > SERVER_ERROR_RETRIES) C.TIME_UNSET else backoffMs(loadErrorInfo.errorCount)
-            429, 404, 502, 503 -> backoffMs(loadErrorInfo.errorCount)
+            // 500/404 from the server mean the provider can't serve it (dead title, link failure):
+            // a few retries, then the error panel, instead of ~45 s of "Loading…".
+            500, 404 -> if (loadErrorInfo.errorCount > SERVER_ERROR_RETRIES) C.TIME_UNSET else backoffMs(loadErrorInfo.errorCount)
+            429, 502, 503 -> backoffMs(loadErrorInfo.errorCount)
             else -> super.getRetryDelayMsFor(loadErrorInfo)
         }
         listener.onHttpError(code, loadErrorInfo.errorCount, delay)

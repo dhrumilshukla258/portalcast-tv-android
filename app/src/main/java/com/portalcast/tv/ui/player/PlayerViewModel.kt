@@ -382,8 +382,10 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
     private fun messageFor(t: Throwable, httpCode: Int? = null): String = when {
         t is ApiError.RateLimited || httpCode == 429 -> "Server is rate limiting, retrying…"
         httpCode == 401 || httpCode == 403 -> "Stream authorization expired (HTTP $httpCode)"
-        httpCode == 404 -> "Stream not found (HTTP 404)"
-        httpCode != null && httpCode >= 500 -> "Upstream error (HTTP $httpCode)"
+        // The server answers 404 "Failed to fetch stream" / 500 "Failed to generate URL" when the
+        // provider no longer serves this title or channel: say so in plain words.
+        httpCode == 404 -> if (session is PlaybackSession.Live) "This channel isn't available from your provider right now." else "This title isn't available from your provider right now."
+        httpCode != null && httpCode >= 500 -> "Your provider couldn't start this stream (error $httpCode). Try again later."
         t is ApiError -> t.message ?: "Request failed"
         t is PlaybackException -> when (t.errorCode) {
             PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_FAILED,

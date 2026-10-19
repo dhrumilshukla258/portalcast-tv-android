@@ -50,8 +50,9 @@ Read before changing anything:
   at its default needs `@EncodeDefault` (see `LoginRequest.clientType`, `ProgressRecord`).
 - Interceptors may only throw `IOException`s; anything else is swallowed by OkHttp
   (see `NoServerConfiguredException`).
-- A Discover-resolved movie already has a file id and `cmd`; skip `resolveFile` and go
-  straight to movie-link with `item.id` (same rule as the webui's `startPlayback`).
+- Always resolve a movie's file (`resolveFile`) before movie-link. Do NOT treat `cmd != null`
+  as "already a file": Stalker list items all carry `cmd`, and sending the list id gives
+  `nothing_to_play`. Fall back to `item.id` only when resolve fails on a Discover-resolved item.
 - Compose key handlers: `onKeyEvent`/`onPreviewKeyEvent` must come BEFORE `focusable()` in
   the chain (after it they are children of the focus target and never fire; this left
   every player key dead once). Request initial focus after a frame and retry.
