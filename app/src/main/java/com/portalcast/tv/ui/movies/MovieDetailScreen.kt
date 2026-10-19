@@ -96,7 +96,9 @@ fun MovieDetailScreen(id: String, category: String, onPlay: () -> Unit, modifier
                 MovieInfo(item)
                 Spacer(Modifier.height(28.dp))
                 if (state.progressLoaded) {
-                    Row {
+                    // Padding gives the focused button's scale + ring room inside the scrolling column,
+                    // which clips its children (the ring was cut off at the bottom).
+                    Row(Modifier.padding(vertical = 10.dp, horizontal = 6.dp)) {
                         val resume = state.resumeMs
                         if (resume != null) {
                             TvButton(

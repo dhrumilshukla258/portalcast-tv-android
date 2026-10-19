@@ -27,6 +27,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import kotlinx.coroutines.delay
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.key.Key
@@ -86,13 +91,22 @@ fun PlayerScreen(
     BackHandler(onBack = exit)
 
     val hasError = state.error != null
+    // Request focus after the first frame and retry until it sticks: a request made during the
+    // first composition (before attach) silently failed, so the first remote key was spent just
+    // moving focus into the player (the first channel-down press did nothing).
+    var rootHasFocus by remember { mutableStateOf(false) }
     LaunchedEffect(hasError, state.showNextEpisode) {
-        runCatching {
-            when {
-                hasError -> retryFocus.requestFocus()
-                state.showNextEpisode -> nextFocus.requestFocus()
-                else -> rootFocus.requestFocus()
-            }
+        repeat(10) {
+            withFrameNanos { }
+            val ok = runCatching {
+                when {
+                    hasError -> retryFocus.requestFocus()
+                    state.showNextEpisode -> nextFocus.requestFocus()
+                    else -> rootFocus.requestFocus()
+                }
+            }.isSuccess
+            if (ok && (hasError || state.showNextEpisode || rootHasFocus)) return@LaunchedEffect
+            delay(50)
         }
     }
 
@@ -100,8 +114,8 @@ fun PlayerScreen(
         Modifier
             .fillMaxSize()
             .background(Color.Black)
-            .focusRequester(rootFocus)
-            .focusable()
+            // onKeyEvent must sit BEFORE focusable(): modifiers after the focus target are its
+            // children and never see key events, which left every remote key dead in the player.
             .onKeyEvent { event ->
                 if (event.type != KeyEventType.KeyDown || hasError) return@onKeyEvent false
                 val live = state.isLive
@@ -121,13 +135,21 @@ fun PlayerScreen(
                     Key.Info, Key.Menu -> { vm.toggleOverlay(); true }
                     else -> false
                 }
-            },
+            }
+            .onFocusChanged { rootHasFocus = it.isFocused }
+            .focusRequester(rootFocus)
+            .focusable(),
     ) {
         AndroidView(
             modifier = Modifier.fillMaxSize(),
             factory = { ctx ->
                 PlayerView(ctx).apply {
                     useController = false
+                    // Defensive: keep the Android view out of focus so the remote always reaches
+                    // the Compose key handler on the root Box.
+                    isFocusable = false
+                    isFocusableInTouchMode = false
+                    descendantFocusability = android.view.ViewGroup.FOCUS_BLOCK_DESCENDANTS
                     keepScreenOn = true
                     resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FIT
                     setShutterBackgroundColor(android.graphics.Color.BLACK)

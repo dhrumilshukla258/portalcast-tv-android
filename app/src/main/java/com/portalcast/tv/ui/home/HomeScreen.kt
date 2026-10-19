@@ -3,6 +3,7 @@ package com.portalcast.tv.ui.home
 import android.app.Activity
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -38,6 +39,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.foundation.focusGroup
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.focusRestorer
 import androidx.compose.ui.focus.onFocusChanged
@@ -130,6 +132,18 @@ fun HomeScreen(
         visited = true
     }
 
+    // Focus recovery: when the focused element disappears (e.g. a Retry button replaced by the
+    // content it loaded) nothing on screen has focus and the remote does nothing visible.
+    // Move focus into the content (first focusable child), falling back to the rail.
+    val contentRequester = remember { FocusRequester() }
+    LaunchedEffect(contentFocused, railFocused, restorePending) {
+        if (current == null || contentFocused || railFocused || restorePending) return@LaunchedEffect
+        delay(250)
+        runCatching { contentRequester.requestFocus() }
+        withFrameNanos { }
+        if (!contentFocused && !railFocused) focusRail()
+    }
+
     BackHandler {
         if (railFocused) (context as? Activity)?.finish() else focusRail()
     }
@@ -151,7 +165,9 @@ fun HomeScreen(
             Modifier
                 .fillMaxSize()
                 .padding(start = RailCompact)
-                .onFocusChanged { contentFocused = it.hasFocus },
+                .onFocusChanged { contentFocused = it.hasFocus }
+                .focusRequester(contentRequester)
+                .focusGroup(),
         ) {
             when (current) {
                 HomeTab.DISCOVER -> DiscoverScreen(onOpenMovie = openMovie, onOpenSeries = openSeries)
@@ -161,13 +177,18 @@ fun HomeScreen(
             }
         }
 
+        // While the rail is open it overlays the content: dim everything behind it so text cut
+        // off by the rail's edge doesn't read as broken layout (found on the emulator).
+        val scrim by animateFloatAsState(if (railFocused) 0.55f else 0f, label = "railScrim")
+        if (scrim > 0f) Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = scrim)))
+
         val railWidth by animateDpAsState(if (railFocused) RailExpanded else RailCompact, label = "rail")
         Column(
             Modifier
                 .width(railWidth)
                 .fillMaxHeight()
                 .background(
-                    if (railFocused) Brush.horizontalGradient(0.7f to AppColors.Background, 1f to AppColors.Background.copy(alpha = 0.92f))
+                    if (railFocused) Brush.horizontalGradient(0f to AppColors.Background, 1f to AppColors.Background)
                     else Brush.horizontalGradient(0f to AppColors.Background, 1f to AppColors.Background.copy(alpha = 0.85f)),
                 )
                 .onFocusChanged { railFocused = it.hasFocus }

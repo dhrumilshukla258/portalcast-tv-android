@@ -1,5 +1,6 @@
 package com.portalcast.tv.ui.components
 
+import android.os.SystemClock
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -10,6 +11,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -62,6 +64,7 @@ fun TvTextField(
     focusRequester: FocusRequester? = null,
 ) {
     val focusManager = LocalFocusManager.current
+    var openedAtMs by remember { mutableLongStateOf(0L) }
     var focused by remember { mutableStateOf(false) }
     val shape = RoundedCornerShape(8.dp)
     Column(modifier) {
@@ -73,13 +76,24 @@ fun TvTextField(
         )
         OutlinedTextField(
             value = value,
-            onValueChange = onValueChange,
+            onValueChange = { next ->
+                // Center opens the keyboard on key-down; the keyboard can appear in time to take the
+                // key-up as a press on its focused key and type a stray character (a "q" on Gboard,
+                // intermittent). Drop a single appended character arriving right after opening:
+                // nobody can reach and press a keyboard key that fast with a remote.
+                if (!isStrayFromOpen(value, next, SystemClock.uptimeMillis() - openedAtMs)) onValueChange(next)
+            },
             modifier = Modifier
                 .fillMaxWidth()
                 .then(if (focusRequester != null) Modifier.focusRequester(focusRequester) else Modifier)
                 .onFocusChanged { focused = it.isFocused }
                 .border(2.dp, if (focused) AppColors.Focus else Color.Transparent, shape)
                 .onPreviewKeyEvent { event ->
+                    if ((event.key == Key.DirectionCenter || event.key == Key.Enter || event.key == Key.NumPadEnter) &&
+                        event.type == KeyEventType.KeyDown
+                    ) {
+                        openedAtMs = SystemClock.uptimeMillis()
+                    }
                     if (event.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
                     when (event.key) {
                         Key.DirectionDown -> focusManager.moveFocus(FocusDirection.Down)
@@ -102,3 +116,13 @@ fun TvTextField(
         )
     }
 }
+
+internal const val STRAY_KEY_WINDOW_MS = 500L
+
+/**
+ * True when [next] is [current] plus one appended character and it arrived within
+ * [STRAY_KEY_WINDOW_MS] of the Center/Enter press that opened the keyboard: the keyboard's
+ * own focused key, not something the user typed.
+ */
+internal fun isStrayFromOpen(current: String, next: String, msSinceOpen: Long): Boolean =
+    msSinceOpen in 0 until STRAY_KEY_WINDOW_MS && next.length == current.length + 1 && next.startsWith(current)
