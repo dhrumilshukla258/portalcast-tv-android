@@ -116,3 +116,16 @@ data class MediaInfoReport(
     val fps: Double? = null,
     val codec: String? = null,
 )
+
+/** One OpenSubtitles result from GET /api/v2/subtitles/search. */
+@Serializable
+data class SubtitleResult(
+    val id: LenientStr? = null,
+    val fileId: Long = 0,
+    val language: String? = null,
+    val releaseName: String? = null,
+    val downloadCount: Int = 0,
+)
+
+@Serializable
+data class SubtitleSearchResponse(val success: Boolean = false, val results: List<SubtitleResult> = emptyList())

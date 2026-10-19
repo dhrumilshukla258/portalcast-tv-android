@@ -92,6 +92,7 @@ fun PlayerScreen(
 
     val exit = { vm.flushForExit(); onBack() }
     BackHandler(onBack = exit)
+    BackHandler(enabled = state.subtitlePanel != null) { vm.closeSubtitlePanel() }
 
     val hasError = state.error != null
     // Request focus after the first frame and retry until it sticks: a request made during the
@@ -123,7 +124,7 @@ fun PlayerScreen(
             // onKeyEvent must sit BEFORE focusable(): modifiers after the focus target are its
             // children and never see key events, which left every remote key dead in the player.
             .onKeyEvent { event ->
-                if (event.type != KeyEventType.KeyDown || hasError) return@onKeyEvent false
+                if (event.type != KeyEventType.KeyDown || hasError || state.subtitlePanel != null) return@onKeyEvent false
                 val live = state.isLive
                 val held = event.nativeKeyEvent.repeatCount >= 3
                 val step = if (held) PlayerViewModel.SEEK_STEP_FAST_MS else PlayerViewModel.SEEK_STEP_MS
@@ -134,7 +135,9 @@ fun PlayerScreen(
                     Key.MediaStop -> { exit(); true }
                     Key.DirectionLeft, Key.MediaRewind -> { if (live) vm.showOverlay() else vm.seekBy(-step); true }
                     Key.DirectionRight, Key.MediaFastForward -> { if (live) vm.showOverlay() else vm.seekBy(step); true }
-                    Key.DirectionUp -> { if (live) vm.channelStep(-LIVE_DOWN_KEY_DELTA) else vm.showOverlay(); true }
+                    // Up opens the subtitles panel for movies/episodes (and shows the info overlay).
+                    Key.DirectionUp -> { if (live) vm.channelStep(-LIVE_DOWN_KEY_DELTA) else { vm.showOverlay(); vm.openSubtitlePanel() }; true }
+                    Key.Captions -> { if (!live) vm.openSubtitlePanel(); true }
                     Key.DirectionDown -> {
                         when {
                             live -> vm.channelStep(LIVE_DOWN_KEY_DELTA)
@@ -202,6 +205,8 @@ fun PlayerScreen(
         }
 
         if (!hasError) StatusPills(state)
+        state.subtitleText?.let { SubtitleLine(it) }
+        state.subtitlePanel?.let { SubtitlePanel(it, state.subtitleDelayMs, state.externalSubtitles, vm) }
         // Real decoded quality (also reported to the server so catalog badges are truthful).
         if (!hasError && state.overlayVisible) state.videoStats?.let { VideoStatsChip(it) }
     }

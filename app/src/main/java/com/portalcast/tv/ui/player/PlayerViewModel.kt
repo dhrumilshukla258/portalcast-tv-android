@@ -11,6 +11,9 @@ import androidx.media3.exoplayer.ExoPlayer
 import com.portalcast.tv.appContainer
 import com.portalcast.tv.data.model.Channel
 import com.portalcast.tv.data.model.MediaInfoReport
+import com.portalcast.tv.playback.SubtitleCue
+import com.portalcast.tv.playback.SubtitleCues
+import com.portalcast.tv.playback.SubtitlePrefs
 import com.portalcast.tv.data.net.ApiError
 import com.portalcast.tv.data.net.UserAgent
 import com.portalcast.tv.playback.DefaultProgressReporter
@@ -53,6 +56,14 @@ data class PlayerUiState(
     val reauthorizing: Boolean = false,
     /** What the decoder is actually playing, e.g. "1080p · 23.976 fps · H.264"; null until known. */
     val videoStats: String? = null,
+    /** Downloaded-subtitle line on screen now (app-rendered); null = none. */
+    val subtitleText: String? = null,
+    /** Viewer's timing offset for downloaded subtitles of this title (+ later, − earlier). */
+    val subtitleDelayMs: Long = 0L,
+    /** Downloaded subtitles are loaded for this title. */
+    val externalSubtitles: Boolean = false,
+    /** Subtitles side panel; null = closed. */
+    val subtitlePanel: SubtitlePanelState? = null,
 ) {
     val isLive: Boolean get() = session is PlaybackSession.Live
     val nextEpisodeTitle: String? get() = (session as? PlaybackSession.Episode)?.let { s ->
@@ -140,6 +151,170 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
         override fun onVideoSizeChanged(videoSize: androidx.media3.common.VideoSize) = onVideoFormat()
     }
 
+    // ---- subtitles -------------------------------------------------------------------
+    // Downloaded (online) subtitles are parsed and drawn by the app so their timing can be
+    // moved both ways; built-in tracks are selected in ExoPlayer and drawn by PlayerView.
+    private val subtitlePrefs = SubtitlePrefs(app)
+    private var cues: List<SubtitleCue> = emptyList()
+    private var subtitleJob: Job? = null
+    private var subtitleKey: String? = null
+
+    /** "movie:<id>" / "episode:<id>" for movies and episodes; null for live. */
+    private fun titleKey(s: PlaybackSession?): String? = when (s) {
+        is PlaybackSession.Movie -> "movie:" + (s.item.catalogId?.removePrefix("movie_") ?: s.item.streamId?.takeIf { it.isNotBlank() } ?: s.item.rawId)
+        is PlaybackSession.Episode -> "episode:" + s.episode.id
+        else -> null
+    }
+
+    private fun resetSubtitlesFor(target: PlaybackSession) {
+        subtitleJob?.cancel()
+        cues = emptyList()
+        val key = titleKey(target)
+        subtitleKey = key
+        val delay = key?.let { subtitlePrefs.delayMs(it) } ?: 0L
+        _state.update { it.copy(subtitleText = null, subtitleDelayMs = delay, externalSubtitles = false, subtitlePanel = null) }
+        // Bring back the online subtitle chosen last time for this title.
+        val fileId = key?.let { subtitlePrefs.fileId(it) } ?: return
+        viewModelScope.launch { loadOnlineSubtitle(fileId, label = null, remember = false) }
+    }
+
+    fun openSubtitlePanel() {
+        if (session == null || session is PlaybackSession.Live) return
+        hideOverlayJob?.cancel()
+        _state.update { it.copy(subtitlePanel = (it.subtitlePanel ?: SubtitlePanelState(language = subtitlePrefs.language)).copy(embedded = embeddedTracks(), activeLabel = activeLabel())) }
+    }
+
+    fun closeSubtitlePanel() {
+        _state.update { it.copy(subtitlePanel = null) }
+        scheduleOverlayHide()
+    }
+
+    private fun embeddedTracks(): List<TextTrackOption> {
+        val out = ArrayList<TextTrackOption>()
+        player.currentTracks.groups.forEachIndexed { gi, g ->
+            if (g.type != C.TRACK_TYPE_TEXT) return@forEachIndexed
+            for (ti in 0 until g.length) {
+                val f = g.getTrackFormat(ti)
+                val name = f.label?.takeIf { it.isNotBlank() }
+                    ?: f.language?.let { java.util.Locale(it).displayLanguage.takeIf { d -> d.isNotBlank() } }
+                    ?: "Track ${out.size + 1}"
+                out += TextTrackOption("$gi:$ti", name, g.isTrackSelected(ti))
+            }
+        }
+        return out
+    }
+
+    private fun activeLabel(): String = when {
+        _state.value.externalSubtitles -> "Online subtitles"
+        else -> embeddedTracks().firstOrNull { it.selected }?.let { "${it.label} (built-in)" } ?: "Off"
+    }
+
+    private fun refreshPanel() = _state.update { st ->
+        st.subtitlePanel?.let { st.copy(subtitlePanel = it.copy(embedded = embeddedTracks(), activeLabel = activeLabel())) } ?: st
+    }
+
+    fun subtitlesOff() {
+        clearOnline()
+        player.trackSelectionParameters = player.trackSelectionParameters.buildUpon()
+            .setTrackTypeDisabled(C.TRACK_TYPE_TEXT, true).build()
+        refreshPanel()
+    }
+
+    fun selectEmbeddedSubtitle(id: String) {
+        val (gi, ti) = id.split(":").map { it.toInt() }
+        val group = player.currentTracks.groups.getOrNull(gi) ?: return
+        clearOnline()
+        player.trackSelectionParameters = player.trackSelectionParameters.buildUpon()
+            .setTrackTypeDisabled(C.TRACK_TYPE_TEXT, false)
+            .setOverrideForType(androidx.media3.common.TrackSelectionOverride(group.mediaTrackGroup, listOf(ti)))
+            .build()
+        viewModelScope.launch { delay(300); refreshPanel() }
+    }
+
+    private fun clearOnline() {
+        subtitleJob?.cancel()
+        cues = emptyList()
+        subtitleKey?.let { subtitlePrefs.setFileId(it, null) }
+        _state.update { it.copy(subtitleText = null, externalSubtitles = false) }
+    }
+
+    fun cycleSubtitleLanguage() {
+        val langs = SubtitlePrefs.LANGUAGES.map { it.first }
+        val next = langs[(langs.indexOf(subtitlePrefs.language) + 1).mod(langs.size)]
+        subtitlePrefs.language = next
+        _state.update { st -> st.subtitlePanel?.let { st.copy(subtitlePanel = it.copy(language = next, results = null, message = null)) } ?: st }
+    }
+
+    fun searchOnlineSubtitles() {
+        val s = session ?: return
+        val (title, year, season, episode) = when (s) {
+            is PlaybackSession.Movie -> SearchQuery(s.item.displayTitle, s.item.displayYear, null, null)
+            is PlaybackSession.Episode -> {
+                val idx = s.siblings.indexOfFirst { it.id == s.episode.id }.coerceAtLeast(0)
+                SearchQuery(s.series.displayTitle, null, s.seasonNumber, EpisodeInfo.number(s.episode, idx))
+            }
+            is PlaybackSession.Live -> return
+        }
+        val lang = subtitlePrefs.language
+        _state.update { st -> st.subtitlePanel?.let { st.copy(subtitlePanel = it.copy(searching = true, message = null)) } ?: st }
+        viewModelScope.launch {
+            val result = runCatching { container.api.searchSubtitles(title, year, season, episode, lang) }
+            _state.update { st ->
+                val p = st.subtitlePanel ?: return@update st
+                result.fold(
+                    onSuccess = { r ->
+                        st.copy(subtitlePanel = p.copy(searching = false, results = r.results,
+                            message = if (r.results.isEmpty()) "Nothing found. The server needs an OpenSubtitles API key for online search." else null))
+                    },
+                    onFailure = { st.copy(subtitlePanel = p.copy(searching = false, message = "Search failed: ${ApiError.from(it).message}")) },
+                )
+            }
+        }
+    }
+
+    private data class SearchQuery(val title: String, val year: String?, val season: Int?, val episode: Int?)
+
+    fun pickOnlineSubtitle(r: com.portalcast.tv.data.model.SubtitleResult) {
+        viewModelScope.launch { loadOnlineSubtitle(r.fileId, label = r.releaseName, remember = true) }
+    }
+
+    private suspend fun loadOnlineSubtitle(fileId: Long, label: String?, remember: Boolean) {
+        _state.update { st -> st.subtitlePanel?.let { st.copy(subtitlePanel = it.copy(loadingFile = fileId)) } ?: st }
+        val text = runCatching { container.api.downloadSubtitle(fileId).use { it.string() } }
+        val parsed = text.getOrNull()?.let { SubtitleCues.parse(it) }.orEmpty()
+        if (parsed.isEmpty()) {
+            _state.update { st -> st.subtitlePanel?.let { st.copy(subtitlePanel = it.copy(loadingFile = null, message = "Couldn't load that subtitle. Try another.")) } ?: st }
+            return
+        }
+        // Online subtitles replace any built-in track.
+        player.trackSelectionParameters = player.trackSelectionParameters.buildUpon()
+            .setTrackTypeDisabled(C.TRACK_TYPE_TEXT, true).build()
+        cues = parsed
+        if (remember) subtitleKey?.let { subtitlePrefs.setFileId(it, fileId) }
+        _state.update { st ->
+            st.copy(externalSubtitles = true,
+                subtitlePanel = st.subtitlePanel?.copy(loadingFile = null, activeLabel = "Online · ${label ?: "subtitle"}"))
+        }
+        subtitleJob?.cancel()
+        subtitleJob = viewModelScope.launch {
+            var last: String? = null
+            while (isActive) {
+                val cue = SubtitleCues.at(cues, player.currentPosition, _state.value.subtitleDelayMs)
+                val text = cue?.text
+                if (text != last) { last = text; _state.update { it.copy(subtitleText = text) } }
+                delay(80)
+            }
+        }
+    }
+
+    fun adjustSubtitleDelay(deltaMs: Long) {
+        val next = (_state.value.subtitleDelayMs + deltaMs).coerceIn(-60_000L, 60_000L)
+        _state.update { it.copy(subtitleDelayMs = next) }
+        subtitleKey?.let { subtitlePrefs.setDelayMs(it, next) }
+    }
+
+    fun resetSubtitleDelay() = adjustSubtitleDelay(-_state.value.subtitleDelayMs)
+
     // ---- measured video quality ------------------------------------------------------
     private var reportedKey: String? = null
 
@@ -202,6 +377,7 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
     private fun load(target: PlaybackSession, resumeFromMs: Long?, forceRefresh: Boolean) {
         loadJob?.cancel()
         _state.update { it.copy(videoStats = null) }
+        resetSubtitlesFor(target)
         loadJob = viewModelScope.launch {
             val resume = resumeFromMs ?: if (target.isLive) null else reporter.resumePositionMs(target)
             val resolved = resolver.resolve(target, forceRefresh)

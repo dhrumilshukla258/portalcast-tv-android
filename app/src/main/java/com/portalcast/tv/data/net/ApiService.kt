@@ -45,6 +45,20 @@ interface ApiService {
 
     // ---- auth (no Bearer; the interceptor skips /api/auth/) ----------------
 
+    /** Online subtitles (OpenSubtitles via the server; empty when the server has no API key). */
+    @GET("api/v2/subtitles/search")
+    suspend fun searchSubtitles(
+        @Query("title") title: String,
+        @Query("year") year: String? = null,
+        @Query("season") season: Int? = null,
+        @Query("episode") episode: Int? = null,
+        @Query("lang") lang: String? = null,
+    ): com.portalcast.tv.data.model.SubtitleSearchResponse
+
+    /** WebVTT text of one subtitle file (stored by the server after the first download). */
+    @GET("api/v2/subtitles/download")
+    suspend fun downloadSubtitle(@Query("fileId") fileId: Long): okhttp3.ResponseBody
+
     /** Report the decoded video quality of a title (servers from 2026-10-19; older ones 404). */
     @POST("api/v2/media-info")
     suspend fun reportMediaInfo(@Body body: com.portalcast.tv.data.model.MediaInfoReport): okhttp3.ResponseBody
