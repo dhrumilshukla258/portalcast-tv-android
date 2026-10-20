@@ -20,6 +20,19 @@ object EpisodeInfo {
     private val ISO_DATE = Regex("""^\s*((?:19|20)\d{2})-(\d{1,2})-(\d{1,2})\s*(?:[.:\-–—|]\s*)?""")
     private val DMY_DATE = Regex("""^\s*(\d{1,2})[-./](\d{1,2})[-./]((?:19|20)\d{2})\s*(?:[.:\-–—|]\s*)?""")
     private val MONTHS = listOf("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
+    private const val MONTH_WORD = """(jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|june?|july?|aug(?:ust)?|sep(?:t(?:ember)?)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)"""
+    // "October 19, 2026" / "19 October 2026"
+    private val MDY_WORDS = Regex("""^\s*$MONTH_WORD\.?\s+(\d{1,2})(?:st|nd|rd|th)?,?\s+((?:19|20)\d{2})\s*(?:[.:\-–—|]\s*)?""", RegexOption.IGNORE_CASE)
+    private val DMY_WORDS = Regex("""^\s*(\d{1,2})(?:st|nd|rd|th)?\s+$MONTH_WORD\.?,?\s+((?:19|20)\d{2})\s*(?:[.:\-–—|]\s*)?""", RegexOption.IGNORE_CASE)
+    private fun monthIndex(word: String): Int = MONTHS.indexOfFirst { word.lowercase().startsWith(it.lowercase()) }
+
+    /** "Kamali - October 19, 2026" -> "October 19, 2026": a show-name prefix says nothing. */
+    private fun withoutShowName(name: String, seriesTitle: String?): String {
+        val show = seriesTitle?.trim()?.takeIf { it.isNotEmpty() } ?: return name
+        if (!name.startsWith(show, ignoreCase = true)) return name
+        val rest = name.substring(show.length)
+        return if (Regex("""^\s*[-–—:|]""").containsMatchIn(rest)) rest.replaceFirst(Regex("""^\s*[-–—:|]\s*"""), "") else name
+    }
 
     /** The episode name after its number prefix ("Episode 13.", "S01E13", "13."). */
     private fun afterNumber(name: String): String = name
@@ -29,8 +42,10 @@ object EpisodeInfo {
         .trim()
 
     /** "26 May 2026" when the name starts with an air date (after any episode prefix), else null. */
-    fun airDate(ep: MediaItem): String? {
-        val rest = afterNumber(ep.displayTitle.trim())
+    fun airDate(ep: MediaItem, seriesTitle: String? = null): String? {
+        val rest = withoutShowName(afterNumber(ep.displayTitle.trim()), seriesTitle)
+        MDY_WORDS.find(rest)?.let { m -> return format(m.groupValues[2].toInt(), monthIndex(m.groupValues[1]) + 1, m.groupValues[3]) }
+        DMY_WORDS.find(rest)?.let { m -> return format(m.groupValues[1].toInt(), monthIndex(m.groupValues[2]) + 1, m.groupValues[3]) }
         ISO_DATE.find(rest)?.let { m ->
             val (y, mo, d) = m.destructured
             return format(d.toInt(), mo.toInt(), y)
@@ -68,8 +83,8 @@ object EpisodeInfo {
      * including a name that is only the show's own name ("2026-05-30 - Kamali").
      */
     fun title(ep: MediaItem, fallbackIndex: Int, seriesTitle: String? = null): String {
-        var rest = afterNumber(ep.displayTitle.trim())
-        rest = rest.replaceFirst(ISO_DATE, "").replaceFirst(DMY_DATE, "")
+        var rest = withoutShowName(afterNumber(ep.displayTitle.trim()), seriesTitle)
+        rest = rest.replaceFirst(ISO_DATE, "").replaceFirst(DMY_DATE, "").replaceFirst(MDY_WORDS, "").replaceFirst(DMY_WORDS, "")
         // "25-07-2026 : Ep. 1294 - Title": a second episode marker after the date.
         rest = rest.replaceFirst(LEADING_EPISODE, "").replaceFirst(LEADING_NUMBER, "")
         val stripped = rest

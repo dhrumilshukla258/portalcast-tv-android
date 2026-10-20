@@ -395,7 +395,7 @@ private fun EpisodeRow(
                 )
                 val sub = listOfNotNull(
                     if (isResume) "▶ Continue watching" else null,
-                    EpisodeInfo.airDate(episode),
+                    EpisodeInfo.airDate(episode, seriesTitle),
                     Formatting.runtime(episode),
                     if (progress != null && progress >= 0.9f) "Watched" else null,
                 ).joinToString("  ·  ")

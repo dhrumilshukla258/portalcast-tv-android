@@ -53,5 +53,9 @@ class EpisodeInfoTest {
         assertEquals(1294, EpisodeInfo.number(pushpa, 0))
 
         assertEquals(null, EpisodeInfo.airDate(MediaItem(id = "4", name = "Episode 6. The Kim Cup")))
+
+        val written = MediaItem(id = "5", name = "Kamali - October 19, 2026")
+        assertEquals("Episode 462", EpisodeInfo.title(written, 461, "Kamali"))
+        assertEquals("19 Oct 2026", EpisodeInfo.airDate(written, "Kamali"))
     }
 }
