@@ -297,7 +297,7 @@ private fun BoxScope.VodOverlay(state: PlayerUiState) {
                 Text("▲", style = MaterialTheme.typography.labelMedium, color = AppColors.Text)
                 Spacer(Modifier.width(8.dp))
                 Text(
-                    if (state.externalSubtitles) "Subtitles: On" else "Subtitles",
+                    if (state.externalSubtitles) "Subtitles: On" else "Audio & subtitles",
                     style = MaterialTheme.typography.labelLarge,
                     color = AppColors.Text,
                 )

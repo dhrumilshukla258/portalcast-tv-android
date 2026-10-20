@@ -42,6 +42,8 @@ data class TextTrackOption(val id: String, val label: String, val selected: Bool
 /** State of the subtitles side panel (null in [PlayerUiState] = closed). */
 data class SubtitlePanelState(
     val embedded: List<TextTrackOption> = emptyList(),
+    /** Audio tracks of the file; shown only when there is more than one. */
+    val audio: List<TextTrackOption> = emptyList(),
     /** What is on now: "Off", "English (built-in)", "Online · <release>". */
     val activeLabel: String = "Off",
     val language: String = "en",
@@ -84,14 +86,25 @@ fun BoxScope.SubtitlePanel(
             .padding(horizontal = 28.dp, vertical = 32.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
-        Text("Subtitles", style = MaterialTheme.typography.headlineSmall, color = AppColors.Text, fontWeight = FontWeight.SemiBold)
+        Text(if (panel.audio.size > 1) "Audio and subtitles" else "Subtitles", style = MaterialTheme.typography.headlineSmall, color = AppColors.Text, fontWeight = FontWeight.SemiBold)
         Text("Now: ${panel.activeLabel}", style = MaterialTheme.typography.bodyMedium, color = AppColors.TextMuted, maxLines = 1, overflow = TextOverflow.Ellipsis)
         Spacer(Modifier.height(4.dp))
 
         LazyColumn(Modifier.weight(1f, fill = true), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            // Audio language/format (local files often carry several); the first focus lands
+            // on the selected one.
+            if (panel.audio.size > 1) {
+                item { Text("Audio", style = MaterialTheme.typography.titleSmall, color = AppColors.TextMuted) }
+                items(panel.audio, key = { "aud:" + it.id }) { t ->
+                    val mod = if (t.selected) Modifier.fillMaxWidth().focusRequester(first) else Modifier.fillMaxWidth()
+                    TvButton(text = (if (t.selected) "✓ " else "") + t.label, onClick = { vm.selectAudioTrack(t.id) },
+                        style = TvButtonStyle.Secondary, modifier = mod)
+                }
+                item { Text("Subtitles", style = MaterialTheme.typography.titleSmall, color = AppColors.TextMuted) }
+            }
             item {
-                TvButton(text = "Off", onClick = vm::subtitlesOff, style = TvButtonStyle.Secondary,
-                    modifier = Modifier.fillMaxWidth().focusRequester(first))
+                val mod = if (panel.audio.size > 1) Modifier.fillMaxWidth() else Modifier.fillMaxWidth().focusRequester(first)
+                TvButton(text = "Off", onClick = vm::subtitlesOff, style = TvButtonStyle.Secondary, modifier = mod)
             }
             items(panel.embedded, key = { "emb:" + it.id }) { t ->
                 TvButton(text = (if (t.selected) "✓ " else "") + t.label + " (built-in)", onClick = { vm.selectEmbeddedSubtitle(t.id) },

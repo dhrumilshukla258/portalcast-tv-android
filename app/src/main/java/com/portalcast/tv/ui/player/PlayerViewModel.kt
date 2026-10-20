@@ -182,7 +182,50 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
     fun openSubtitlePanel() {
         if (session == null || session is PlaybackSession.Live) return
         hideOverlayJob?.cancel()
-        _state.update { it.copy(subtitlePanel = (it.subtitlePanel ?: SubtitlePanelState(language = subtitlePrefs.language)).copy(embedded = embeddedTracks(), activeLabel = activeLabel())) }
+        _state.update { it.copy(subtitlePanel = (it.subtitlePanel ?: SubtitlePanelState(language = subtitlePrefs.language)).copy(embedded = embeddedTracks(), audio = audioTracks(), activeLabel = activeLabel())) }
+    }
+
+    /** "English · 5.1 · DTS" for each audio track. */
+    private fun audioTracks(): List<TextTrackOption> {
+        val out = ArrayList<TextTrackOption>()
+        player.currentTracks.groups.forEachIndexed { gi, g ->
+            if (g.type != C.TRACK_TYPE_AUDIO) return@forEachIndexed
+            for (ti in 0 until g.length) {
+                val f = g.getTrackFormat(ti)
+                val lang = f.language?.takeIf { it.isNotBlank() && it != "und" }?.let { java.util.Locale(it).displayLanguage }
+                val channels = when (f.channelCount) {
+                    1 -> "Mono"; 2 -> "Stereo"; 6 -> "5.1"; 8 -> "7.1"
+                    else -> if (f.channelCount > 0) "${f.channelCount} ch" else null
+                }
+                val codec = audioCodecName(f.sampleMimeType)
+                val label = listOfNotNull(f.label?.takeIf { it.isNotBlank() } ?: lang ?: "Track ${out.size + 1}", channels, codec)
+                    .joinToString("  ·  ")
+                out += TextTrackOption("$gi:$ti", if (g.isTrackSupported(ti)) label else "$label (not supported)", g.isTrackSelected(ti))
+            }
+        }
+        return out
+    }
+
+    private fun audioCodecName(mime: String?): String? = when (mime) {
+        androidx.media3.common.MimeTypes.AUDIO_AAC -> "AAC"
+        androidx.media3.common.MimeTypes.AUDIO_AC3 -> "Dolby Digital"
+        androidx.media3.common.MimeTypes.AUDIO_E_AC3, androidx.media3.common.MimeTypes.AUDIO_E_AC3_JOC -> "Dolby Digital Plus"
+        androidx.media3.common.MimeTypes.AUDIO_TRUEHD -> "TrueHD"
+        androidx.media3.common.MimeTypes.AUDIO_DTS, androidx.media3.common.MimeTypes.AUDIO_DTS_HD, androidx.media3.common.MimeTypes.AUDIO_DTS_EXPRESS -> "DTS"
+        androidx.media3.common.MimeTypes.AUDIO_OPUS -> "Opus"
+        androidx.media3.common.MimeTypes.AUDIO_MPEG -> "MP3"
+        androidx.media3.common.MimeTypes.AUDIO_FLAC -> "FLAC"
+        else -> null
+    }
+
+    fun selectAudioTrack(id: String) {
+        val (gi, ti) = id.split(":").map { it.toInt() }
+        val group = player.currentTracks.groups.getOrNull(gi) ?: return
+        player.trackSelectionParameters = player.trackSelectionParameters.buildUpon()
+            .setTrackTypeDisabled(C.TRACK_TYPE_AUDIO, false)
+            .setOverrideForType(androidx.media3.common.TrackSelectionOverride(group.mediaTrackGroup, listOf(ti)))
+            .build()
+        viewModelScope.launch { delay(300); refreshPanel() }
     }
 
     fun closeSubtitlePanel() {
@@ -211,7 +254,7 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     private fun refreshPanel() = _state.update { st ->
-        st.subtitlePanel?.let { st.copy(subtitlePanel = it.copy(embedded = embeddedTracks(), activeLabel = activeLabel())) } ?: st
+        st.subtitlePanel?.let { st.copy(subtitlePanel = it.copy(embedded = embeddedTracks(), audio = audioTracks(), activeLabel = activeLabel())) } ?: st
     }
 
     fun subtitlesOff() {

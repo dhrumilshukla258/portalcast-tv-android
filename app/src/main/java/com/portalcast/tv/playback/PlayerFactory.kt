@@ -10,6 +10,7 @@ import androidx.media3.datasource.DefaultDataSource
 import androidx.media3.datasource.HttpDataSource
 import androidx.media3.datasource.okhttp.OkHttpDataSource
 import androidx.media3.exoplayer.DefaultLoadControl
+import androidx.media3.exoplayer.DefaultRenderersFactory
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.exoplayer.upstream.DefaultLoadErrorHandlingPolicy
@@ -42,7 +43,11 @@ class PlayerFactory(
         val dataSource = DefaultDataSource.Factory(context, http)
         val mediaSources = DefaultMediaSourceFactory(dataSource)
             .setLoadErrorHandlingPolicy(PortalcastLoadErrorPolicy(listener))
-        return ExoPlayer.Builder(context)
+        // The TV's own decoders first (passthrough to a soundbar keeps working); FFmpeg only for
+        // audio the TV cannot decode, such as DTS or TrueHD in local library files.
+        val renderers = DefaultRenderersFactory(context)
+            .setExtensionRendererMode(DefaultRenderersFactory.EXTENSION_RENDERER_MODE_ON)
+        return ExoPlayer.Builder(context, renderers)
             .setMediaSourceFactory(mediaSources)
             .setLoadControl(DefaultLoadControl())
             .setHandleAudioBecomingNoisy(false)

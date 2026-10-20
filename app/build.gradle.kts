@@ -49,6 +49,8 @@ android {
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
+        // Needed by the FFmpeg decoder (org.jellyfin.media3:media3-ffmpeg-decoder).
+        isCoreLibraryDesugaringEnabled = true
     }
     kotlinOptions {
         jvmTarget = "17"
@@ -91,6 +93,10 @@ dependencies {
     implementation("androidx.media3:media3-exoplayer-hls:1.3.1")
     implementation("androidx.media3:media3-ui:1.3.1")
     implementation("androidx.media3:media3-datasource-okhttp:1.3.1")
+    // FFmpeg audio decoders for what the TV's own decoders lack (DTS, TrueHD, ...), in local
+    // library files. Jellyfin's published build of Media3's FFmpeg extension, matching 1.3.1.
+    implementation("org.jellyfin.media3:media3-ffmpeg-decoder:1.3.1+2")
+    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.0.4")
 
     // Networking + JSON
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
