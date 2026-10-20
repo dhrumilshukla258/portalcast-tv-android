@@ -226,6 +226,7 @@ interface ApiService {
         @Query("country") country: String? = null,
         @Query("language") language: String? = null,
         @Query("theme") theme: String? = null,
+        @Query("network") network: String? = null,
         @Query("page") page: Int = 1,
     ): DiscoverBrowseResponse
 

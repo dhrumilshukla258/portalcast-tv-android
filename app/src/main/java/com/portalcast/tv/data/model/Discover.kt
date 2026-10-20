@@ -5,7 +5,7 @@ import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 @Serializable
-data class FacetValue(val value: String = "", val count: LenientInt = 0)
+data class FacetValue(val value: String = "", val count: LenientInt = 0, val logo: String? = null)
 
 /** `GET /api/v2/discover/facets?type=` */
 @Serializable
@@ -14,6 +14,8 @@ data class DiscoverFacets(
     val countries: List<FacetValue> = emptyList(),
     val themes: List<FacetValue> = emptyList(),
     val languages: List<FacetValue> = emptyList(),
+    /** TV channels shows air on ("Zee5", "Star Plus"), with logos. */
+    val networks: List<FacetValue> = emptyList(),
 )
 
 /** `GET /api/v2/discover/browse` — page size fixed at 40. */
@@ -44,6 +46,7 @@ data class DiscoverQuery(
     val country: String? = null,
     val language: String? = null,
     val theme: String? = null,
+    val network: String? = null,
 ) {
     val genreParam: String? get() = genres.takeIf { it.isNotEmpty() }?.joinToString(",")
 }

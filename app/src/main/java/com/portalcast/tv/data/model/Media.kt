@@ -67,6 +67,9 @@ data class MediaItem(
     @SerialName("genres_str") val genresStr: String? = null,
     @SerialName("backdrop_path") val backdropPath: String? = null,
     @SerialName("backdrop_hd_path") val backdropHdPath: String? = null,
+    /** Discover only: the TV channel the title airs on, taken out of its name, and its logo. */
+    val network: String? = null,
+    @SerialName("network_logo") val networkLogo: String? = null,
     @SerialName("trailer_key") val trailerKey: String? = null,
     /** Discover variants only. */
     val variantLabel: String? = null,

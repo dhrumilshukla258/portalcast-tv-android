@@ -196,7 +196,7 @@ fun DiscoverScreen(
                         onSelectorPositioned = { dim, x -> selectorX[dim] = x },
                         modifier = Modifier.onSizeChanged { topBarHeightPx = it.height },
                     )
-                    HeroInfo(hero, Modifier.fillMaxWidth().weight(1f))
+                    HeroInfo(hero, Modifier.fillMaxWidth().weight(1f), serverUrl)
                 }
                 RowsContent(state, serverUrl, vm, hero, restoreFocus, Modifier.fillMaxWidth().weight(1f))
             }
@@ -488,6 +488,8 @@ private fun MediaRow(
                     serverUrl = serverUrl,
                     onClick = { onOpen(item) },
                     onFocused = { onFocusItem(item) },
+                    channel = item.network,
+                    channelLogo = item.networkLogo,
                     modifier = cardModifier("${row.key}|${item.id}").rememberedIn(memory).bringIntoViewResponder(cardPad),
                 )
             }
@@ -564,6 +566,8 @@ private fun FilterGridContent(
                             serverUrl = serverUrl,
                             onClick = { onOpen(item) },
                             onFocused = { hero.item = item },
+                            channel = item.network,
+                            channelLogo = item.networkLogo,
                             modifier = Modifier.rememberedIn(memory),
                         )
                     }

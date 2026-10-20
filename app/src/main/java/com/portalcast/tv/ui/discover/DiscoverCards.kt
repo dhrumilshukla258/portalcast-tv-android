@@ -97,6 +97,8 @@ internal fun PosterCard(
     progressPercent: Int? = null,
     onFocused: () -> Unit = {},
     onLongClick: (() -> Unit)? = null,
+    channel: String? = null,
+    channelLogo: String? = null,
 ) {
     var focused by remember { mutableStateOf(false) }
     val context = LocalContext.current
@@ -149,6 +151,9 @@ internal fun PosterCard(
                         maxLines = 4,
                         overflow = TextOverflow.Ellipsis,
                     )
+                }
+                if (channel != null) {
+                    ChannelBadge(channel, channelLogo, serverUrl, Modifier.align(Alignment.TopStart).padding(6.dp))
                 }
                 if (progressPercent != null) {
                     Box(

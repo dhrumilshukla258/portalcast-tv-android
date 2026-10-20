@@ -47,12 +47,13 @@ import java.util.Locale
  * ("Genre ▾  Language ▾  Country ▾  Mood ▾"), each opening a short list. One choice per
  * selector, applied the moment it is picked; no Apply button, no modal.
  */
-enum class FilterDim(val label: String) { Genre("Genre"), Language("Language"), Country("Country"), Mood("Mood") }
+enum class FilterDim(val label: String) { Genre("Genre"), Language("Language"), Country("Country"), Channel("Channel"), Mood("Mood") }
 
 internal fun DiscoverQuery?.valueOf(dim: FilterDim): String? = when (dim) {
     FilterDim.Genre -> this?.genres?.firstOrNull()
     FilterDim.Language -> this?.language
     FilterDim.Country -> this?.country
+    FilterDim.Channel -> this?.network
     FilterDim.Mood -> this?.theme
 }
 
@@ -60,6 +61,7 @@ internal fun DiscoverQuery.with(dim: FilterDim, value: String?): DiscoverQuery =
     FilterDim.Genre -> copy(genres = listOfNotNull(value))
     FilterDim.Language -> copy(language = value)
     FilterDim.Country -> copy(country = value)
+    FilterDim.Channel -> copy(network = value)
     FilterDim.Mood -> copy(theme = value)
 }
 
@@ -67,11 +69,14 @@ internal fun DiscoverFacets.optionsFor(dim: FilterDim): List<FacetValue> = when 
     FilterDim.Genre -> genres.filter { it.value.isNotBlank() && !it.value.equals("Uncategorized", ignoreCase = true) }
     FilterDim.Language -> languages.filter { it.value.isNotBlank() }
     FilterDim.Country -> countries.filter { it.value.isNotBlank() }
+    FilterDim.Channel -> networks.filter { it.value.isNotBlank() }
     FilterDim.Mood -> themes.filter { it.value.isNotBlank() }
 }
 
 /** "hi" -> "Hindi"; unknown codes stay as they are. */
 internal fun languageName(code: String): String {
+    // TMDB's own codes that are not ISO 639: "cn" is Cantonese (Mandarin/Chinese is "zh").
+    when (code.lowercase()) { "cn" -> return "Cantonese"; "xx" -> return "No language" }
     if (code.length !in 2..3) return code
     val name = Locale(code).getDisplayLanguage(Locale.ENGLISH)
     return if (name.isBlank() || name.equals(code, ignoreCase = true)) code else name

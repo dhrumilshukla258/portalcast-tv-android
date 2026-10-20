@@ -2,6 +2,8 @@
 
 package com.portalcast.tv.ui.discover
 
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
@@ -142,7 +144,7 @@ internal fun HeroBackdrop(focus: HeroFocus, serverUrl: String?, modifier: Modifi
 
 /** Title, meta line (year · rating · genres · runtime) and a 3-line overview of the shown item. */
 @Composable
-internal fun HeroInfo(focus: HeroFocus, modifier: Modifier = Modifier) {
+internal fun HeroInfo(focus: HeroFocus, modifier: Modifier = Modifier, serverUrl: String? = null) {
     val item = focus.shown
     Box(modifier.padding(start = 48.dp, end = 48.dp, bottom = 8.dp), contentAlignment = Alignment.BottomStart) {
         if (item != null) {
@@ -156,15 +158,22 @@ internal fun HeroInfo(focus: HeroFocus, modifier: Modifier = Modifier) {
                     overflow = TextOverflow.Ellipsis,
                 )
                 val meta = remember(item) { Formatting.metaLine(item) }
-                if (meta.isNotBlank()) {
+                val channel = item.network
+                if (meta.isNotBlank() || channel != null) {
                     Spacer(Modifier.height(6.dp))
-                    Text(
-                        meta,
-                        style = MaterialTheme.typography.titleSmall,
-                        color = AppColors.TextMuted,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        if (channel != null) {
+                            ChannelBadge(channel, item.networkLogo, serverUrl, height = 26.dp)
+                            Spacer(Modifier.width(12.dp))
+                        }
+                        Text(
+                            meta,
+                            style = MaterialTheme.typography.titleSmall,
+                            color = AppColors.TextMuted,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
                 }
                 Spacer(Modifier.height(10.dp))
                 Text(
