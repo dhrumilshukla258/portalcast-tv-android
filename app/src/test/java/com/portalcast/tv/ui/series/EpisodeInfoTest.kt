@@ -38,4 +38,20 @@ class EpisodeInfoTest {
         assertEquals(listOf("s1", "s2", "s3", "s4", "s5"), sorted.map { it.id })
         assertEquals("Season 5", EpisodeInfo.seasonLabel(seasons[0], 0))
     }
+    @Test
+    fun `air dates move out of the title`() {
+        val kamali = MediaItem(id = "1", name = "2026-05-26 - Kamini Secretly Plots")
+        assertEquals("Kamini Secretly Plots", EpisodeInfo.title(kamali, 0, "Kamali"))
+        assertEquals("26 May 2026", EpisodeInfo.airDate(kamali))
+
+        val showName = MediaItem(id = "2", name = "2026-05-30 - Kamali")
+        assertEquals("Episode 3", EpisodeInfo.title(showName, 2, "Kamali"))
+
+        val pushpa = MediaItem(id = "3", name = "Episode 1294. 25-07-2026 : Ep. 1294 - A Tough Time For Pushpa")
+        assertEquals("A Tough Time For Pushpa", EpisodeInfo.title(pushpa, 0))
+        assertEquals("25 Jul 2026", EpisodeInfo.airDate(pushpa))
+        assertEquals(1294, EpisodeInfo.number(pushpa, 0))
+
+        assertEquals(null, EpisodeInfo.airDate(MediaItem(id = "4", name = "Episode 6. The Kim Cup")))
+    }
 }

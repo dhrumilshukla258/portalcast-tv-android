@@ -96,6 +96,7 @@ internal fun PosterCard(
     modifier: Modifier = Modifier,
     progressPercent: Int? = null,
     onFocused: () -> Unit = {},
+    onLongClick: (() -> Unit)? = null,
 ) {
     var focused by remember { mutableStateOf(false) }
     val context = LocalContext.current
@@ -109,6 +110,7 @@ internal fun PosterCard(
     Column(modifier.width(PosterWidth)) {
         Card(
             onClick = onClick,
+            onLongClick = onLongClick,
             modifier = Modifier
                 .fillMaxWidth()
                 .posterAspect()

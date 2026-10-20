@@ -2,6 +2,8 @@
 
 package com.portalcast.tv.ui.discover
 
+import androidx.compose.foundation.border
+import androidx.compose.ui.window.Dialog
 import com.portalcast.tv.ui.components.rememberedIn
 import com.portalcast.tv.ui.components.rememberFocusMemory
 import com.portalcast.tv.ui.components.focusMemory
@@ -108,8 +110,8 @@ fun DiscoverScreen(
     onOpenMovie: (MediaItem) -> Unit,
     onOpenSeries: (MediaItem) -> Unit,
     modifier: Modifier = Modifier,
-    /** Opens the app's global Search tab (Discover does not search itself). */
-    onOpenSearch: () -> Unit = {},
+    /** Kept for Home's call site; Discover has no Search button (the rail has Search). */
+    @Suppress("UNUSED_PARAMETER") onOpenSearch: () -> Unit = {},
     /** True when coming back from a detail/player: put focus back on the last card. */
     restoreFocus: Boolean = false,
 ) {
@@ -176,7 +178,6 @@ fun DiscoverScreen(
                     onType = vm::setType,
                     onOpenFilter = { openFilter = it },
                     onClear = vm::clearFilter,
-                    onSearch = onOpenSearch,
                     onSelectorPositioned = { dim, x -> selectorX[dim] = x },
                     modifier = Modifier.onSizeChanged { topBarHeightPx = it.height },
                 )
@@ -191,7 +192,6 @@ fun DiscoverScreen(
                         onType = vm::setType,
                         onOpenFilter = { openFilter = it },
                         onClear = vm::clearFilter,
-                        onSearch = onOpenSearch,
                         onSelectorPositioned = { dim, x -> selectorX[dim] = x },
                         modifier = Modifier.onSizeChanged { topBarHeightPx = it.height },
                     )
@@ -254,7 +254,6 @@ private fun TopBar(
     onType: (String?) -> Unit,
     onOpenFilter: (FilterDim) -> Unit,
     onClear: () -> Unit,
-    onSearch: () -> Unit,
     onSelectorPositioned: (FilterDim, Float) -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -265,7 +264,6 @@ private fun TopBar(
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
             Text("Discover", style = MaterialTheme.typography.headlineSmall, color = AppColors.Text)
             Spacer(Modifier.width(24.dp))
-            SearchButton(onClick = onSearch)
             listOf<Pair<String?, String>>(null to "All", "movie" to "Movies", "series" to "Series").forEach { (value, label) ->
                 TvButton(
                     text = label,
@@ -277,35 +275,6 @@ private fun TopBar(
         // Letterboxd's "Browse by" line: the selectors on a row of their own, so a long
         // value ("United States ▾") never squeezes the row above into wrapped letters.
         FilterSelectors(facets = facets, query = query, focus = selectorFocus, onOpen = onOpenFilter, onClear = onClear, onPositioned = onSelectorPositioned)
-    }
-}
-
-/** Glass "Search" button (icon + label): opens the global Search tab. Focus treatment matches [TvButton]. */
-@Composable
-private fun SearchButton(onClick: () -> Unit) {
-    val shape = RoundedCornerShape(8.dp)
-    val ring = Border(BorderStroke(2.dp, AppColors.Focus), inset = 2.dp, shape = shape)
-    Button(
-        onClick = onClick,
-        shape = ButtonDefaults.shape(shape = shape),
-        scale = ButtonDefaults.scale(focusedScale = 1.05f, pressedScale = 1.05f),
-        colors = ButtonDefaults.colors(
-            containerColor = AppColors.GlassFill,
-            contentColor = AppColors.Text,
-            focusedContainerColor = AppColors.Primary,
-            focusedContentColor = AppColors.OnPrimary,
-            pressedContainerColor = AppColors.Primary,
-            pressedContentColor = AppColors.OnPrimary,
-        ),
-        border = ButtonDefaults.border(
-            border = Border(BorderStroke(1.dp, AppColors.GlassBorder), shape = shape),
-            focusedBorder = ring,
-            pressedBorder = ring,
-        ),
-    ) {
-        Icon(Icons.Filled.Search, contentDescription = null, modifier = Modifier.size(18.dp))
-        Spacer(Modifier.width(8.dp))
-        Text("Search", style = MaterialTheme.typography.labelLarge)
     }
 }
 
@@ -372,6 +341,7 @@ private fun RowsContent(
                     cw,
                     serverUrl,
                     onOpen = vm::openContinueWatching,
+                    onRemove = vm::removeContinue,
                     onFocusItem = onFocusItem,
                     cardPad = cardPad,
                     cardModifier = cardModifier,
@@ -414,12 +384,18 @@ private fun ContinueWatchingRow(
     entries: List<ContinueEntry>,
     serverUrl: String?,
     onOpen: (ContinueEntry) -> Unit,
+    onRemove: (ContinueEntry) -> Unit,
     onFocusItem: (MediaItem) -> Unit,
     cardPad: PadRectHorizontally,
     cardModifier: (String) -> Modifier,
     modifier: Modifier,
 ) {
     val memory = rememberFocusMemory()
+    // Hold Center on a card: confirm, then remove it from Continue Watching.
+    var confirm by remember { mutableStateOf<ContinueEntry?>(null) }
+    confirm?.let { entry ->
+        RemoveContinueDialog(entry, onRemove = { confirm = null; onRemove(entry) }, onDismiss = { confirm = null })
+    }
     Column(modifier) {
         RowTitle("Continue Watching")
         LazyRow(
@@ -435,9 +411,33 @@ private fun ContinueWatchingRow(
                     serverUrl = serverUrl,
                     progressPercent = e.progressPercent,
                     onClick = { onOpen(e) },
+                    onLongClick = { confirm = e },
                     onFocused = { onFocusItem(e.target) },
                     modifier = cardModifier("cw|${e.key}").rememberedIn(memory).bringIntoViewResponder(cardPad),
                 )
+            }
+        }
+    }
+}
+
+@Composable
+private fun RemoveContinueDialog(entry: ContinueEntry, onRemove: () -> Unit, onDismiss: () -> Unit) {
+    val first = remember { FocusRequester() }
+    LaunchedEffect(entry.key) { repeat(10) { withFrameNanos { }; if (runCatching { first.requestFocus() }.isSuccess) return@LaunchedEffect } }
+    Dialog(onDismissRequest = onDismiss) {
+        Column(
+            Modifier
+                .width(520.dp)
+                .background(AppColors.Background.copy(alpha = 0.97f), RoundedCornerShape(16.dp))
+                .border(1.dp, AppColors.GlassBorder, RoundedCornerShape(16.dp))
+                .padding(28.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+        ) {
+            Text(entry.title, style = MaterialTheme.typography.titleLarge, color = AppColors.Text, maxLines = 2)
+            Text("Remove it from Continue Watching? Your place in it is forgotten.", style = MaterialTheme.typography.bodyMedium, color = AppColors.TextMuted)
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                TvButton("Remove", onClick = onRemove, style = TvButtonStyle.Primary, modifier = Modifier.focusRequester(first))
+                TvButton("Cancel", onClick = onDismiss)
             }
         }
     }

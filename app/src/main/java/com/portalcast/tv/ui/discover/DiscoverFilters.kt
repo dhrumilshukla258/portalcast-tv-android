@@ -145,7 +145,8 @@ internal fun BoxScope.FilterDropdown(
             .align(Alignment.TopStart)
             .padding(start = with(LocalDensity.current) { leftPx.toDp() }, top = with(LocalDensity.current) { topPx.toDp() } + 4.dp)
             .width(380.dp)
-            .background(AppColors.GlassScrim, RoundedCornerShape(14.dp))
+            // Near-solid: the list sits over the hero image and must stay readable.
+            .background(AppColors.Background.copy(alpha = 0.97f), RoundedCornerShape(14.dp))
             .border(1.dp, AppColors.GlassBorder, RoundedCornerShape(14.dp))
             .padding(10.dp),
     ) {

@@ -1,5 +1,6 @@
 package com.portalcast.tv.ui.series
 
+import com.portalcast.tv.ui.components.uniqueKeys
 import com.portalcast.tv.ui.components.rememberedIn
 import com.portalcast.tv.ui.components.rememberFocusMemory
 import com.portalcast.tv.ui.components.focusMemory
@@ -99,55 +100,93 @@ fun SeriesDetailScreen(id: String, category: String, onPlay: () -> Unit, modifie
     val continueRow = state.continueRow
     val resumeMs = continueRow?.let { ProgressRows.resumableMs(it) }
 
-    // One initial focus per showing: the last played episode, else Resume, else the first episode.
+    // One initial focus per showing, on the episode the viewer is at: the episode focus was
+    // on before the player (Back from playback), else the episode the series' progress row
+    // points at (its season is already the selected one), else Resume when that episode is
+    // not in the list, else the first episode. While the progress episode's season is still
+    // loading nothing is focused yet, so focus does not settle on Resume and then stay there.
     val initialFocus = remember { FocusRequester() }
     var focusDone by remember { mutableStateOf(false) }
     val restoreId = vm.lastFocusedEpisodeId?.takeIf { rid -> state.episodes.items.any { it.id == rid } }
+    val continueId = state.continueEpisode?.id?.takeIf { cid -> state.episodes.items.any { it.id == cid } }
     val focusTarget: String? = when {
         restoreId != null -> "ep:$restoreId"
+        continueId != null -> "ep:$continueId"
+        continueRow != null && !state.episodes.hasLoaded && state.seasonsError == null -> null
         continueRow != null -> "resume"
         state.episodes.items.isNotEmpty() -> "ep:${state.episodes.items.first().id}"
         state.seasonsError != null || (state.episodes.hasLoaded && state.episodes.isEmpty) -> "back"
         else -> null
     }
     LaunchedEffect(focusTarget) {
-        if (focusTarget != null && !focusDone) {
+        if (focusTarget == null || focusDone) return@LaunchedEffect
+        // The target row may still be scrolling into view (EpisodeList scrolls to it first).
+        repeat(12) {
             withFrameNanos { }
-            withFrameNanos { }
-            if (runCatching { initialFocus.requestFocus() }.isSuccess) focusDone = true
+            if (runCatching { initialFocus.requestFocus() }.isSuccess) { focusDone = true; return@LaunchedEffect }
         }
     }
     fun Modifier.initialFocusIf(key: String): Modifier = if (key == focusTarget) this.focusRequester(initialFocus) else this
 
     Box(modifier.fillMaxSize()) {
-        Backdrop(rememberImageUrl(series.backdropArt), blurred = series.backdropHdPath == null && series.backdropPath == null)
+        val hasBackdrop = series.backdropHdPath != null || series.backdropPath != null
+        Backdrop(rememberImageUrl(series.backdropArt), blurred = !hasBackdrop, seed = series.displayTitle)
         // Netflix layout: the show (title, details, Resume, seasons) on the left, the selected
-        // season's episodes as a list on the right.
+        // season's episodes as a list on the right. The left column adapts to what the title
+        // has: a real backdrop carries the page on its own; without one the poster sits beside
+        // the text; an overview, cast, director and country appear only when present.
         Row(Modifier.fillMaxSize().padding(start = 56.dp, end = 40.dp, top = 40.dp)) {
-            Column(Modifier.width(540.dp).fillMaxHeight()) {
-                Text(
-                    series.displayTitle.ifBlank { "Series" },
-                    style = MaterialTheme.typography.headlineLarge,
-                    color = AppColors.Text,
-                    maxLines = 3,
-                    overflow = TextOverflow.Ellipsis,
-                )
-                val meta = listOfNotNull(
-                    Formatting.metaLine(series).takeIf { it.isNotBlank() },
-                    state.seasons.size.takeIf { it > 0 }?.let { if (it == 1) "1 season" else "$it seasons" },
-                ).joinToString("  ·  ")
-                if (meta.isNotBlank()) {
-                    Text(meta, style = MaterialTheme.typography.titleSmall, color = AppColors.TextMuted, modifier = Modifier.padding(top = 6.dp))
-                }
-                series.overview?.let {
-                    Text(
-                        it,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = AppColors.Text,
-                        maxLines = 5,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.padding(top = 10.dp),
-                    )
+            // About 40 % of the screen: the episode list gets the rest, since episode names
+            // (daily soaps especially) are long.
+            Column(Modifier.width(380.dp).fillMaxHeight()) {
+                val poster = rememberImageUrl(series.posterPath)
+                Row(verticalAlignment = Alignment.Top) {
+                    if (!hasBackdrop && poster != null) {
+                        ArtImage(
+                            url = poster,
+                            fallbackText = series.displayTitle,
+                            modifier = Modifier.width(140.dp).aspectRatio(PosterAspect).clip(RoundedCornerShape(10.dp)),
+                        )
+                        Spacer(Modifier.width(22.dp))
+                    }
+                    Column(Modifier.weight(1f)) {
+                        Text(
+                            series.displayTitle.ifBlank { "Series" },
+                            style = MaterialTheme.typography.headlineLarge,
+                            color = AppColors.Text,
+                            maxLines = 3,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                        val meta = listOfNotNull(
+                            Formatting.metaLine(series).takeIf { it.isNotBlank() },
+                            state.seasons.size.takeIf { it > 0 }?.let { if (it == 1) "1 season" else "$it seasons" },
+                            state.episodes.totalItems?.takeIf { it > 0 }?.let { if (it == 1) "1 episode" else "$it episodes" },
+                        ).joinToString("  ·  ")
+                        if (meta.isNotBlank()) {
+                            Text(meta, style = MaterialTheme.typography.titleSmall, color = AppColors.TextMuted, modifier = Modifier.padding(top = 6.dp))
+                        }
+                        series.overview?.let {
+                            Text(
+                                it,
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = AppColors.Text,
+                                maxLines = if (hasBackdrop) 5 else 4,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.padding(top = 10.dp),
+                            )
+                        }
+                        val details = listOfNotNull(
+                            series.director?.takeIf { it.isNotBlank() && it != "-" }?.let { "Director: $it" },
+                            series.cast?.takeIf { it.isNotBlank() && it != "-" }?.let { "Cast: $it" },
+                            series.country?.takeIf { it.isNotBlank() && it != "-" }?.let { "Country: $it" },
+                        )
+                        if (details.isNotEmpty()) {
+                            Spacer(Modifier.height(8.dp))
+                            for (line in details) {
+                                Text(line, style = MaterialTheme.typography.bodySmall, color = AppColors.TextMuted, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                            }
+                        }
+                    }
                 }
                 if (continueRow != null) {
                     Spacer(Modifier.height(14.dp))
@@ -192,7 +231,7 @@ fun SeriesDetailScreen(id: String, category: String, onPlay: () -> Unit, modifie
                 }
             }
 
-            Spacer(Modifier.width(36.dp))
+            Spacer(Modifier.width(28.dp))
 
             val seasonsError = state.seasonsError
             Box(Modifier.weight(1f).fillMaxHeight()) {
@@ -207,6 +246,7 @@ fun SeriesDetailScreen(id: String, category: String, onPlay: () -> Unit, modifie
                         onVisible = vm::onEpisodeVisible,
                         onRetry = vm::loadMoreEpisodes,
                         episodeModifier = { ep -> Modifier.initialFocusIf("ep:${ep.id}") },
+                        scrollToId = focusTarget?.removePrefix("ep:")?.takeIf { focusTarget.startsWith("ep:") },
                         modifier = Modifier.fillMaxSize(),
                     )
                 }
@@ -224,6 +264,8 @@ private fun EpisodeList(
     onVisible: (Int) -> Unit,
     onRetry: () -> Unit,
     episodeModifier: (MediaItem) -> Modifier,
+    /** Episode to bring into view before focus lands on it (the viewer's current episode). */
+    scrollToId: String?,
     modifier: Modifier = Modifier,
 ) {
     val episodes = state.episodes
@@ -234,12 +276,23 @@ private fun EpisodeList(
         episodes.isEmpty -> { EmptyPanel("No episodes found for this season.", modifier); return }
     }
     val listState = rememberLazyListState()
+    var scrolledTo by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(scrollToId, episodes.items.size) {
+        val id = scrollToId ?: return@LaunchedEffect
+        if (scrolledTo == id) return@LaunchedEffect
+        val idx = episodes.items.indexOfFirst { it.id == id }
+        if (idx < 0) return@LaunchedEffect
+        // One row above the target stays visible, so the viewer sees where they are in the season.
+        listState.scrollToItem((idx - 1).coerceAtLeast(0))
+        scrolledTo = id
+    }
     LaunchedEffect(listState, state.selectedSeasonId) {
         snapshotFlow { (listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: -1) to listState.layoutInfo.totalItemsCount }
             .collect { (last, _) -> onVisible(last) }
     }
     // Netflix-style: a vertical list. Each row is thumbnail left, number + title, runtime
     // and description right; the focused row is highlighted and shows a longer description.
+    val keys = remember(episodes.items) { uniqueKeys(episodes.items.map { it.id }) }
     val memory = rememberFocusMemory()
     LazyColumn(
         state = listState,
@@ -247,10 +300,11 @@ private fun EpisodeList(
         contentPadding = PaddingValues(top = 6.dp, bottom = 24.dp, start = 8.dp, end = 8.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
-        itemsIndexed(episodes.items, key = { i, ep -> "$i:${ep.id}" }) { i, ep ->
+        itemsIndexed(episodes.items, key = { i, _ -> keys[i] }) { i, ep ->
             EpisodeRow(
                 episode = ep,
                 index = i,
+                seriesTitle = state.series.displayTitle,
                 progress = state.fractions[ep.id],
                 onClick = { onPlay(ep) },
                 enabled = !state.starting,
@@ -272,6 +326,7 @@ private fun EpisodeList(
 private fun EpisodeRow(
     episode: MediaItem,
     index: Int,
+    seriesTitle: String,
     progress: Float?,
     onClick: () -> Unit,
     enabled: Boolean,
@@ -300,49 +355,59 @@ private fun EpisodeRow(
             disabledContentColor = AppColors.TextMuted,
         ),
     ) {
-        Row(Modifier.padding(10.dp), verticalAlignment = Alignment.Top) {
+        // Netflix proportions: a 130 dp still (about an eighth of the screen width), the
+        // title with the runtime beside it and a two-line description. An episode the portal
+        // has no still or description for is a single text line, not an empty box.
+        val art = rememberImageUrl(episode.posterPath)
+        val overview = episode.overview?.trim().orEmpty()
+        val compact = art == null && overview.isEmpty()
+        Row(
+            Modifier.padding(horizontal = 10.dp, vertical = if (compact) 4.dp else 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
             Text(
                 "$number",
-                style = MaterialTheme.typography.headlineSmall,
+                style = MaterialTheme.typography.titleMedium,
                 color = if (focused) AppColors.Text else AppColors.TextMuted,
-                modifier = Modifier.width(40.dp).padding(top = 28.dp),
+                modifier = Modifier.width(36.dp),
                 textAlign = TextAlign.Center,
             )
-            Spacer(Modifier.width(8.dp))
-            Box(Modifier.width(200.dp).aspectRatio(WideAspect).clip(RoundedCornerShape(8.dp))) {
-                ArtImage(url = rememberImageUrl(episode.posterPath), fallbackText = "$number", modifier = Modifier.fillMaxSize())
-                if (progress != null && progress > 0f) {
-                    ProgressLine(progress, Modifier.align(Alignment.BottomCenter).fillMaxWidth().padding(6.dp))
-                }
-            }
-            Spacer(Modifier.width(20.dp))
-            Column(Modifier.weight(1f).padding(top = 4.dp)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        EpisodeInfo.title(episode, index),
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.SemiBold,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.weight(1f, fill = false),
-                    )
-                    val sub = listOfNotNull(
-                        Formatting.runtime(episode),
-                        if (progress != null && progress >= 0.9f) "Watched" else null,
-                    ).joinToString("  ·  ")
-                    if (sub.isNotBlank()) {
-                        Spacer(Modifier.width(16.dp))
-                        Text(sub, style = MaterialTheme.typography.bodyMedium, color = AppColors.TextMuted, maxLines = 1)
+            if (art != null) {
+                Spacer(Modifier.width(6.dp))
+                Box(Modifier.width(130.dp).aspectRatio(WideAspect).clip(RoundedCornerShape(6.dp))) {
+                    ArtImage(url = art, fallbackText = "$number", modifier = Modifier.fillMaxSize())
+                    if (progress != null && progress > 0f) {
+                        ProgressLine(progress, Modifier.align(Alignment.BottomCenter).fillMaxWidth().padding(5.dp))
                     }
                 }
+            }
+            Spacer(Modifier.width(14.dp))
+            Column(Modifier.weight(1f)) {
                 Text(
-                    episode.overview.orEmpty(),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = AppColors.TextMuted,
-                    maxLines = if (focused) 4 else 2,
+                    EpisodeInfo.title(episode, index, seriesTitle),
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.SemiBold,
+                    maxLines = if (focused) 2 else 1,
                     overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.padding(top = 6.dp),
                 )
+                val sub = listOfNotNull(
+                    EpisodeInfo.airDate(episode),
+                    Formatting.runtime(episode),
+                    if (progress != null && progress >= 0.9f) "Watched" else null,
+                ).joinToString("  ·  ")
+                if (sub.isNotBlank()) {
+                    Text(sub, style = MaterialTheme.typography.bodySmall, color = AppColors.TextMuted, maxLines = 1, modifier = Modifier.padding(top = 1.dp))
+                }
+                if (overview.isNotEmpty()) {
+                    Text(
+                        overview,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = AppColors.TextMuted,
+                        maxLines = if (focused) 3 else 2,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.padding(top = 3.dp),
+                    )
+                }
             }
         }
     }

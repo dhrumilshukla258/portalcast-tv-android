@@ -16,6 +16,34 @@ object EpisodeInfo {
     private val LEADING_EPISODE = Regex("""^\s*(?:episode|ep\.?|e)\s*(\d{1,4})\s*(?:[.:\-–—)]\s*)?""", RegexOption.IGNORE_CASE)
     private val LEADING_NUMBER = Regex("""^\s*(\d{1,4})\s*[.:\-–—)]\s+""")
     private val SEASON_IN_NAME = Regex("""\bseason\s*(\d{1,3})\b""", RegexOption.IGNORE_CASE)
+    // Daily soaps carry the air date in the name: "2026-05-26 - Title", "25-07-2026 : Ep. 1294 - Title".
+    private val ISO_DATE = Regex("""^\s*((?:19|20)\d{2})-(\d{1,2})-(\d{1,2})\s*(?:[.:\-–—|]\s*)?""")
+    private val DMY_DATE = Regex("""^\s*(\d{1,2})[-./](\d{1,2})[-./]((?:19|20)\d{2})\s*(?:[.:\-–—|]\s*)?""")
+    private val MONTHS = listOf("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
+
+    /** The episode name after its number prefix ("Episode 13.", "S01E13", "13."). */
+    private fun afterNumber(name: String): String = name
+        .replace(SXXEYY, " ")
+        .replaceFirst(LEADING_EPISODE, "")
+        .replaceFirst(LEADING_NUMBER, "")
+        .trim()
+
+    /** "26 May 2026" when the name starts with an air date (after any episode prefix), else null. */
+    fun airDate(ep: MediaItem): String? {
+        val rest = afterNumber(ep.displayTitle.trim())
+        ISO_DATE.find(rest)?.let { m ->
+            val (y, mo, d) = m.destructured
+            return format(d.toInt(), mo.toInt(), y)
+        }
+        DMY_DATE.find(rest)?.let { m ->
+            val (d, mo, y) = m.destructured
+            return format(d.toInt(), mo.toInt(), y)
+        }
+        return null
+    }
+
+    private fun format(day: Int, month: Int, year: String): String? =
+        if (month in 1..12 && day in 1..31) "$day ${MONTHS[month - 1]} $year" else null
 
     /** The episode's number: from its name, then `episode_num`, then its position (1-based). */
     fun number(ep: MediaItem, fallbackIndex: Int): Int {
@@ -34,17 +62,22 @@ object EpisodeInfo {
             (ep.episodeNum ?: 0) > 0
     }
 
-    /** The title without its "Episode 13." / "S01E13" / "13." prefix; "Episode N" when nothing is left. */
-    fun title(ep: MediaItem, fallbackIndex: Int): String {
-        val name = ep.displayTitle.trim()
-        val stripped = name
-            .replace(SXXEYY, " ")
-            .replaceFirst(LEADING_EPISODE, "")
-            .replaceFirst(LEADING_NUMBER, "")
+    /**
+     * The title without its "Episode 13." / "S01E13" / "13." prefix and without a leading air
+     * date (shown separately, see [airDate]). "Episode N" when nothing meaningful is left,
+     * including a name that is only the show's own name ("2026-05-30 - Kamali").
+     */
+    fun title(ep: MediaItem, fallbackIndex: Int, seriesTitle: String? = null): String {
+        var rest = afterNumber(ep.displayTitle.trim())
+        rest = rest.replaceFirst(ISO_DATE, "").replaceFirst(DMY_DATE, "")
+        // "25-07-2026 : Ep. 1294 - Title": a second episode marker after the date.
+        rest = rest.replaceFirst(LEADING_EPISODE, "").replaceFirst(LEADING_NUMBER, "")
+        val stripped = rest
             .replace(Regex("\\s+"), " ")
             .trim()
-            .trimStart('-', '–', '—', ':', '.', ' ')
-        return stripped.ifEmpty { "Episode ${number(ep, fallbackIndex)}" }
+            .trimStart('-', '–', '—', ':', '.', '|', ' ')
+        val isShowName = seriesTitle != null && stripped.equals(seriesTitle.trim(), ignoreCase = true)
+        return if (stripped.isEmpty() || isShowName) "Episode ${number(ep, fallbackIndex)}" else stripped
     }
 
     /** Episodes in ascending episode order (stable for equal numbers). */

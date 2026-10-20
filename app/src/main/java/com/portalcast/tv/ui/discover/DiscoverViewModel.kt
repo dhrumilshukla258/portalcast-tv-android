@@ -202,6 +202,17 @@ class DiscoverViewModel(
         _state.update { it.copy(continueWatching = entries) }
     }
 
+    /**
+     * Long-press > Remove on a Continue Watching card: the card goes at once, the progress
+     * row is deleted on the server; on failure the row list is reloaded so the card returns.
+     */
+    fun removeContinue(entry: ContinueEntry) {
+        _state.update { st -> st.copy(continueWatching = st.continueWatching.filterNot { it.key == entry.key }) }
+        viewModelScope.launch {
+            if (user.deleteProgress(entry.key).isFailure) loadContinueWatching()
+        }
+    }
+
     /** A row (genre rows only do anything) came near the viewport: fetch its first page once. */
     fun onRowVisible(key: String) {
         val row = _state.value.rows.firstOrNull { it.key == key } ?: return

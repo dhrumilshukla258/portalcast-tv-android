@@ -84,7 +84,7 @@ fun MovieDetailScreen(id: String, category: String, onPlay: () -> Unit, modifier
     }
 
     Box(modifier.fillMaxSize()) {
-        Backdrop(rememberImageUrl(item.backdropArt), blurred = item.backdropHdPath == null && item.backdropPath == null)
+        Backdrop(rememberImageUrl(item.backdropArt), blurred = item.backdropHdPath == null && item.backdropPath == null, seed = item.displayTitle)
         Row(Modifier.fillMaxSize().padding(horizontal = 56.dp, vertical = 48.dp)) {
             ArtImage(
                 url = rememberImageUrl(item.posterPath),

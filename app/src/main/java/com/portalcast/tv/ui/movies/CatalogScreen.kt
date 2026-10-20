@@ -1,5 +1,12 @@
 package com.portalcast.tv.ui.movies
 
+import com.portalcast.tv.ui.components.uniqueKeys
+import androidx.compose.ui.input.key.type
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.Key
+import androidx.compose.runtime.mutableIntStateOf
 import com.portalcast.tv.ui.components.rememberedIn
 import com.portalcast.tv.ui.components.rememberFocusMemory
 import com.portalcast.tv.ui.components.focusMemory
@@ -84,6 +91,21 @@ fun CatalogScreen(
     val restoreRequester = remember { FocusRequester() }
     val gridRequester = remember { FocusRequester() }
     var gridShown by remember { mutableStateOf(false) }
+    // The category list is only shown while it (or nothing yet) has focus: once you are in a
+    // category the grid takes the whole width. Left from the grid's first column brings the
+    // list back and focuses it.
+    val sideRequester = remember { FocusRequester() }
+    var sideVisible by remember { mutableStateOf(true) }
+    var revealSide by remember { mutableStateOf(false) }
+    var focusedColumn by remember { mutableIntStateOf(0) }
+    LaunchedEffect(revealSide) {
+        if (!revealSide) return@LaunchedEffect
+        sideVisible = true
+        repeat(10) {
+            withFrameNanos { }
+            if (runCatching { sideRequester.requestFocus() }.isSuccess) return@LaunchedEffect
+        }
+    }
     LaunchedEffect(restoreFocus) {
         if (restoreFocus && vm.lastFocusedId != null) {
             withFrameNanos { }
@@ -94,8 +116,13 @@ fun CatalogScreen(
 
     val groupsMemory = rememberFocusMemory()
     Row(modifier.fillMaxSize().padding(top = 32.dp)) {
-        LazyColumn(
-            modifier = Modifier.width(240.dp).fillMaxHeight().focusMemory(groupsMemory),
+        if (sideVisible) LazyColumn(
+            modifier = Modifier
+                .width(240.dp)
+                .fillMaxHeight()
+                .focusRequester(sideRequester)
+                .onFocusChanged { if (it.hasFocus) revealSide = false }
+                .focusMemory(groupsMemory),
             contentPadding = PaddingValues(start = 24.dp, end = 12.dp, bottom = 32.dp),
             verticalArrangement = Arrangement.spacedBy(4.dp),
         ) {
@@ -145,16 +172,26 @@ fun CatalogScreen(
                                 .collect { (last, _) -> vm.onVisible(last) }
                         }
                         DisposableEffect(Unit) { gridShown = true; onDispose { gridShown = false } }
+                        val keys = remember(list.items) { uniqueKeys(list.items.map { it.id }) }
                         val memory = rememberFocusMemory()
                         LazyVerticalGrid(
-                            columns = GridCells.Fixed(5),
+                            columns = GridCells.Fixed(GRID_COLUMNS),
                             state = gridState,
-                            modifier = Modifier.fillMaxSize().focusRequester(gridRequester).focusMemory(memory),
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .focusRequester(gridRequester)
+                                .onFocusChanged { if (it.hasFocus) sideVisible = false }
+                                .onPreviewKeyEvent { ev ->
+                                    val wantsSide = ev.type == KeyEventType.KeyDown && ev.key == Key.DirectionLeft && focusedColumn == 0 && !sideVisible
+                                    if (wantsSide) revealSide = true
+                                    wantsSide
+                                }
+                                .focusMemory(memory),
                             contentPadding = PaddingValues(start = 16.dp, end = 32.dp, top = 16.dp, bottom = 32.dp),
                             horizontalArrangement = Arrangement.spacedBy(20.dp),
                             verticalArrangement = Arrangement.spacedBy(24.dp),
                         ) {
-                            itemsIndexed(list.items, key = { i, item -> "$i:${item.id}" }) { _, item ->
+                            itemsIndexed(list.items, key = { i, _ -> keys[i] }) { i, item ->
                                 MediaCard(
                                     item = item,
                                     onClick = {
@@ -163,7 +200,7 @@ fun CatalogScreen(
                                     },
                                     width = Dp.Unspecified,
                                     modifier = Modifier
-                                        .onFocusChanged { if (it.hasFocus) vm.lastFocusedId = item.id }
+                                        .onFocusChanged { if (it.hasFocus) { vm.lastFocusedId = item.id; focusedColumn = i % GRID_COLUMNS } }
                                         .then(if (item.id == vm.lastFocusedId) Modifier.focusRequester(restoreRequester) else Modifier)
                                         .rememberedIn(memory),
                                 )
@@ -183,6 +220,8 @@ fun CatalogScreen(
         }
     }
 }
+
+private const val GRID_COLUMNS = 5
 
 /** Stamp the browsing category on an item that has none, so detail/playback get a real one. */
 internal fun MediaItem.withCategory(selected: String): MediaItem =
