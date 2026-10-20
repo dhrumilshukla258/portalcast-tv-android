@@ -31,6 +31,9 @@ import kotlinx.coroutines.delay
  * Live and Search. The pool is app-wide, so a screen with no art of its own (Live) still
  * shows the last titles seen instead of a flat page.
  */
+private const val TMDB_ORIGINAL = "image.tmdb.org/t/p/original/"
+private const val TMDB_W1280 = "image.tmdb.org/t/p/w1280/"
+
 object AmbientPool {
     private const val CAP = 80
     internal val urls = mutableStateListOf<String>()
@@ -39,7 +42,9 @@ object AmbientPool {
     fun offer(serverUrl: String?, items: List<MediaItem>) {
         for (item in items) {
             val path = item.backdropHdPath?.takeIf { it.isNotBlank() } ?: item.backdropPath?.takeIf { it.isNotBlank() } ?: continue
-            val url = ImageUrl.resolve(serverUrl, path) ?: continue
+            // The background is drawn at 1280x720, blurred and dimmed: TMDB's 1280 px size is
+            // enough and is a fraction of the original's download (often 4K, several MB).
+            val url = (ImageUrl.resolve(serverUrl, path) ?: continue).replace(TMDB_ORIGINAL, TMDB_W1280)
             if (url in urls) continue
             if (urls.size >= CAP) urls.removeAt(0)
             urls.add(url)
