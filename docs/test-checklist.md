@@ -32,6 +32,15 @@ hardware-keyboard event and behaves differently in text fields (it typed a stray
 - [ ] Cold server cache (fresh profile as a non-admin): "library not synced" panel, no crash.
 - [ ] Back navigation: player → where you came from; home → exit prompt/exit.
 
+## Since 0.3 (Discover, Search, Series)
+- [ ] Discover: selectors open under themselves; Channel / Platform only with Series selected; badges on cards.
+- [ ] Search: one result per title (versions → picker); Live TV results play.
+- [ ] Series: opens on the episode being watched ("Continue watching" row focused); dates out of episode names.
+- [ ] Continue Watching: hold Center → popup with Cancel focused; releasing the key does not remove.
+- [ ] Movies grid: hold Down, focus stays in its column.
+- [ ] Player: "▲ Subtitles" hint; resolution/fps in the overlay.
+- [ ] Frames: `adb shell dumpsys gfxinfo com.portalcast.tv reset`, browse Discover 20 s, check janky % and p99.
+
 ## TV-only (focus)
 - [ ] Every tile reachable with d-pad only; focus visibly highlighted; no focus traps in rows.
 - [ ] Focus is restored to the tile you left when returning from detail/player.

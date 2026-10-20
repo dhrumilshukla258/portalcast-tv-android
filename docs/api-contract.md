@@ -187,6 +187,20 @@ treat 403 on these four routes as "cold".)
   only used to look up the container extension.)
 - 401 if the token is bad; mint a new link on any 401/403 from the stream.
 
+### 3.4b Fields added 2026-10-19/20 (all optional; older servers omit them)
+
+- Discover cards (`/discover/browse`, `/recommendations`): `name` is the cleaned title (channel
+  prefix, language/quality tags removed), `description`, `network` + `network_logo`
+  (channel/platform badge; logo is an image path, `ImageUrl.resolve` rules apply).
+- `/discover/facets?type=series`: `networks: [{ value, count, logo? }]` (Channel / Platform
+  filter; empty for movies/all). `/discover/browse` takes `network=`.
+- Catalog list items (`/movies`, `/series`): `title_key` (the server's grouping key) and
+  `clean_name`. Search groups a title's versions by `title_key`.
+- Episodes (`/series?movieId=&seasonId=`): TMDB still in `screenshot_uri`, `description`,
+  `time` (minutes), and a real title in `name` for placeholder names, when TMDB knows the show.
+  Optional `seasonNumber=` helps the server pick the TMDB season.
+- `/api/v2/media-info` (POST): the player reports measured width/height/fps/codec per title.
+
 ### 3.5 EPG
 
 - Preferred (servers from 2026-10-19): `GET /api/v2/epg/window?hours=6[&ids=1,2]` →
@@ -340,7 +354,9 @@ stream 401/403 means "re-resolve", never "re-login".
    URL as loadable and any relative one as `/api/images`-prefixed.
 2. `expiry` is a server-locale string on Xtream. Display, never parse.
 3. `"-"` and `"No description available"` are placeholders, not values.
-4. Detail and episode responses on Xtream contain raw upstream URLs with
-   portal credentials in `cmd`. Never log them, never play them.
+4. Upstream links in `cmd` reach the client **sealed** (`sealed:<opaque>`, server
+   2026-10-20): pass the value back to movie-link/download-link unchanged, never
+   play it, never log it. Older servers sent raw upstream URLs there; the same
+   rule covers both.
 5. The docs call the socket event `config-change`; the code emits `config_changed`.
 6. `authCheck` accepts refresh JWTs as Bearer. Never send one as the access token.

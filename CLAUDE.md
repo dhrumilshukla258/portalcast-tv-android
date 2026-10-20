@@ -40,6 +40,7 @@ Read before changing anything:
 
 - Never play `cmd` from a list/detail response or show `stream_icon`/`cover`.
   Live: play `channel.cmd`. VOD/episode: `/api/v2/movie-link`, prefix the origin.
+  A `cmd` may be sealed (`sealed:…`): hand it back as is, never parse it.
 - Always pass `category` (use `*`) on `/movies` and `/series`; page size is 14, fixed.
 - Progress rows and `meta` must mirror the webui (two rows per episode save,
   `catalogId`), or Continue Watching diverges across devices.
@@ -61,12 +62,28 @@ Read before changing anything:
   d-pad, which trapped focus in Search and typed stray letters.
 - Rows/grids that replace a focused element (Retry → content) must not leave focus
   nowhere; Home recovers it, new screens hosted elsewhere need the same care.
+- Do NOT use `Modifier.focusRestorer()`: on Compose 1.7 it crashed the app ("Release
+  should only be called once") when the remembered item was disposed. Use
+  `ui/components/FocusMemory` (`focusMemory` on the list, `rememberedIn` on each child).
+- Poster grids use `ui/components/GridFocus` (`keepColumn` on the grid, `gridItem` on each
+  card): holding Down otherwise outran composition and focus fell to column 1.
+- Lazy-list keys are item ids (`uniqueKeys`), never `"$index:$id"`: positional keys change
+  when a page is appended and re-sorted, which threw focus to the top while scrolling.
+- Full-screen art and gradients are drawn into one offscreen layer
+  (`CompositingStrategy.Offscreen`); re-shading them every frame cost up to 80 ms on a
+  Mali-G52 TV. Measure with `dumpsys gfxinfo com.portalcast.tv` before/after UI changes.
+- Episode numbers, titles and air dates come from `ui/series/EpisodeInfo` (same rules as the
+  webui's `utils/episodeInfo.ts`); Search groups by the server's `title_key` (fallback
+  `util/TitleKey`, a port of the server's rules).
 
 ## Build
 
 ```bash
-JAVA_HOME=/path/to/jdk17 ./gradlew assembleDebug testDebugUnitTest   # → app/build/outputs/apk/debug/app-debug.apk
+JAVA_HOME=/path/to/jdk17 ./gradlew assembleRelease testReleaseUnitTest   # → app/build/outputs/apk/release/app-release.apk
 ```
+
+Test on release builds: debug Compose is several times slower on a TV. Releases are built by
+`.github/workflows/release.yml` on a `v*` tag (it also runs `lintRelease`).
 
 Needs a JDK 17 and an Android SDK with `platforms;android-34`, `build-tools;34.0.0`
 and `platform-tools`; point `local.properties` (gitignored) at it with forward
