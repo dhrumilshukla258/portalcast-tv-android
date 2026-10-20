@@ -1,5 +1,8 @@
 package com.portalcast.tv.ui.live
 
+import com.portalcast.tv.ui.components.rememberedIn
+import com.portalcast.tv.ui.components.rememberFocusMemory
+import com.portalcast.tv.ui.components.focusMemory
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -24,7 +27,6 @@ import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
-import androidx.compose.ui.focus.focusRestorer
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -116,9 +118,10 @@ fun LiveScreen(onPlay: () -> Unit, modifier: Modifier = Modifier, restoreFocus: 
         }
     }
 
+    val groupsMemory = rememberFocusMemory()
     Row(modifier.fillMaxSize().padding(top = 32.dp)) {
         LazyColumn(
-            modifier = Modifier.width(210.dp).fillMaxHeight().focusRestorer(),
+            modifier = Modifier.width(210.dp).fillMaxHeight().focusMemory(groupsMemory),
             contentPadding = PaddingValues(start = 20.dp, end = 8.dp, bottom = 32.dp),
             verticalArrangement = Arrangement.spacedBy(4.dp),
         ) {
@@ -127,6 +130,7 @@ fun LiveScreen(onPlay: () -> Unit, modifier: Modifier = Modifier, restoreFocus: 
                     text = group.displayTitle,
                     selected = group.id == state.selectedGroupId,
                     onClick = { vm.selectGroup(group.id) },
+                    modifier = Modifier.rememberedIn(groupsMemory),
                 )
             }
         }
@@ -159,9 +163,10 @@ fun LiveScreen(onPlay: () -> Unit, modifier: Modifier = Modifier, restoreFocus: 
                             val idx = state.visible.indexOfFirst { it.id == restoreId }
                             LazyListState(firstVisibleItemIndex = (idx - 2).coerceAtLeast(0))
                         }
+                        val memory = rememberFocusMemory()
                         LazyColumn(
                             state = listState,
-                            modifier = Modifier.fillMaxSize().focusRestorer(),
+                            modifier = Modifier.fillMaxSize().focusMemory(memory),
                             contentPadding = PaddingValues(start = 8.dp, end = 12.dp, top = 4.dp, bottom = 32.dp),
                             verticalArrangement = Arrangement.spacedBy(6.dp),
                         ) {
@@ -176,7 +181,7 @@ fun LiveScreen(onPlay: () -> Unit, modifier: Modifier = Modifier, restoreFocus: 
                                     onPlay = playChannel,
                                     onToggleFavorite = toggleFavorite,
                                     onFocused = channelFocused,
-                                    modifier = if (channel.id == restoreId) Modifier.focusRequester(restoreRequester) else Modifier,
+                                    modifier = (if (channel.id == restoreId) Modifier.focusRequester(restoreRequester) else Modifier).rememberedIn(memory),
                                 )
                             }
                         }

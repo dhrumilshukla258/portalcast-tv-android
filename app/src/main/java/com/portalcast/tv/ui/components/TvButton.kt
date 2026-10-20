@@ -1,5 +1,6 @@
 package com.portalcast.tv.ui.components
 
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
@@ -55,7 +56,9 @@ fun TvButton(
         ),
         border = ButtonDefaults.border(focusedBorder = ring, pressedBorder = ring),
     ) {
-        Text(text, style = MaterialTheme.typography.labelLarge)
+        // A button never wraps: when the row is tight the label ellipsizes instead of
+        // breaking into a column of letters.
+        Text(text, style = MaterialTheme.typography.labelLarge, maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis)
     }
 }
 

@@ -2,6 +2,16 @@
 
 package com.portalcast.tv.ui.discover
 
+import com.portalcast.tv.ui.components.rememberedIn
+import com.portalcast.tv.ui.components.rememberFocusMemory
+import com.portalcast.tv.ui.components.focusMemory
+import androidx.compose.ui.layout.positionInWindow
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableStateMapOf
+import androidx.compose.foundation.lazy.LazyListPrefetchStrategy
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.runtime.mutableIntStateOf
 import com.portalcast.tv.data.model.DiscoverQuery
 import com.portalcast.tv.data.model.DiscoverFacets
 import androidx.activity.compose.BackHandler
@@ -49,7 +59,6 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.focus.focusRestorer
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.FocusRequester
@@ -115,6 +124,10 @@ fun DiscoverScreen(
     var openFilter by remember { mutableStateOf<FilterDim?>(null) }
     var returnFocusTo by remember { mutableStateOf<FilterDim?>(null) }
     val selectorFocus = remember { FilterDim.entries.associateWith { FocusRequester() } }
+    // Measured height of the top bar: the open selector list is drawn right under it.
+    var topBarHeightPx by remember { mutableIntStateOf(0) }
+    val selectorX = remember { mutableStateMapOf<FilterDim, Float>() }
+    var screenX by remember { mutableFloatStateOf(0f) }
     LaunchedEffect(returnFocusTo) {
         val dim = returnFocusTo ?: return@LaunchedEffect
         repeat(20) { if (runCatching { selectorFocus.getValue(dim).requestFocus() }.isSuccess) return@LaunchedEffect; delay(40) }
@@ -145,7 +158,7 @@ fun DiscoverScreen(
     // A type switch reloads every row: drop the stale focused item.
     LaunchedEffect(state.type) { hero.item = null }
 
-    Box(modifier.fillMaxSize().background(AppColors.Background)) {
+    Box(modifier.fillMaxSize().background(AppColors.Background).onGloballyPositioned { screenX = it.positionInWindow().x }) {
         HeroBackdrop(
             focus = hero,
             serverUrl = serverUrl,
@@ -164,6 +177,8 @@ fun DiscoverScreen(
                     onOpenFilter = { openFilter = it },
                     onClear = vm::clearFilter,
                     onSearch = onOpenSearch,
+                    onSelectorPositioned = { dim, x -> selectorX[dim] = x },
+                    modifier = Modifier.onSizeChanged { topBarHeightPx = it.height },
                 )
                 FilterGridContent(grid, serverUrl, hero, onOpen = vm::open, onNearEnd = vm::onGridNearEnd)
             } else {
@@ -177,6 +192,8 @@ fun DiscoverScreen(
                         onOpenFilter = { openFilter = it },
                         onClear = vm::clearFilter,
                         onSearch = onOpenSearch,
+                        onSelectorPositioned = { dim, x -> selectorX[dim] = x },
+                        modifier = Modifier.onSizeChanged { topBarHeightPx = it.height },
                     )
                     HeroInfo(hero, Modifier.fillMaxWidth().weight(1f))
                 }
@@ -201,6 +218,8 @@ fun DiscoverScreen(
                 dim = dim,
                 facets = state.facets,
                 query = state.grid?.query,
+                topPx = topBarHeightPx,
+                leftPx = ((selectorX[dim] ?: screenX) - screenX).toInt().coerceAtLeast(0),
                 onPick = { value ->
                     val base = state.grid?.query ?: DiscoverQuery(type = state.type)
                     vm.applyFilter(base.with(dim, value))
@@ -236,24 +255,28 @@ private fun TopBar(
     onOpenFilter: (FilterDim) -> Unit,
     onClear: () -> Unit,
     onSearch: () -> Unit,
+    onSelectorPositioned: (FilterDim, Float) -> Unit,
+    modifier: Modifier = Modifier,
 ) {
-    Row(
-        Modifier.fillMaxWidth().padding(start = 48.dp, end = 48.dp, top = 20.dp, bottom = 4.dp),
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
-        verticalAlignment = Alignment.CenterVertically,
+    Column(
+        modifier.fillMaxWidth().padding(start = 48.dp, end = 48.dp, top = 20.dp, bottom = 4.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        Text("Discover", style = MaterialTheme.typography.headlineSmall, color = AppColors.Text)
-        Spacer(Modifier.width(24.dp))
-        SearchButton(onClick = onSearch)
-        listOf<Pair<String?, String>>(null to "All", "movie" to "Movies", "series" to "Series").forEach { (value, label) ->
-            TvButton(
-                text = label,
-                onClick = { onType(value) },
-                style = if (type == value) TvButtonStyle.Primary else TvButtonStyle.Subtle,
-            )
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
+            Text("Discover", style = MaterialTheme.typography.headlineSmall, color = AppColors.Text)
+            Spacer(Modifier.width(24.dp))
+            SearchButton(onClick = onSearch)
+            listOf<Pair<String?, String>>(null to "All", "movie" to "Movies", "series" to "Series").forEach { (value, label) ->
+                TvButton(
+                    text = label,
+                    onClick = { onType(value) },
+                    style = if (type == value) TvButtonStyle.Primary else TvButtonStyle.Subtle,
+                )
+            }
         }
-        Spacer(Modifier.width(24.dp))
-        FilterSelectors(facets = facets, query = query, focus = selectorFocus, onOpen = onOpenFilter, onClear = onClear)
+        // Letterboxd's "Browse by" line: the selectors on a row of their own, so a long
+        // value ("United States ▾") never squeezes the row above into wrapped letters.
+        FilterSelectors(facets = facets, query = query, focus = selectorFocus, onOpen = onOpenFilter, onClear = onClear, onPositioned = onSelectorPositioned)
     }
 }
 
@@ -310,7 +333,10 @@ private fun RowsContent(
         }
         return
     }
-    val listState = rememberLazyListState()
+    // Stepping Down brings a whole new row on screen; with the default nested prefetch (2
+    // cards) its other ~6 cards were composed inside one frame (up to 48 ms on the TV).
+    // Prefetching a full row's worth spreads that over idle frame time instead.
+    val listState = rememberLazyListState(prefetchStrategy = remember { LazyListPrefetchStrategy(nestedPrefetchItemCount = 8) })
     val pivot = remember(listState) { PivotRowToTop { listState.layoutInfo.viewportSize.height } }
     val cardPad = with(LocalDensity.current) { remember { PadRectHorizontally(40.dp.toPx()) } }
     // Stable per-screen lambdas: cards get the same instances every recomposition.
@@ -393,10 +419,11 @@ private fun ContinueWatchingRow(
     cardModifier: (String) -> Modifier,
     modifier: Modifier,
 ) {
+    val memory = rememberFocusMemory()
     Column(modifier) {
         RowTitle("Continue Watching")
         LazyRow(
-            modifier = Modifier.focusRestorer(),
+            modifier = Modifier.focusMemory(memory),
             contentPadding = PaddingValues(horizontal = 48.dp, vertical = 12.dp),
             horizontalArrangement = Arrangement.spacedBy(16.dp),
         ) {
@@ -409,7 +436,7 @@ private fun ContinueWatchingRow(
                     progressPercent = e.progressPercent,
                     onClick = { onOpen(e) },
                     onFocused = { onFocusItem(e.target) },
-                    modifier = cardModifier("cw|${e.key}").bringIntoViewResponder(cardPad),
+                    modifier = cardModifier("cw|${e.key}").rememberedIn(memory).bringIntoViewResponder(cardPad),
                 )
             }
         }
@@ -437,6 +464,7 @@ private fun MediaRow(
             if (total > 0 && last >= total - PAGE_AHEAD) nearEnd(row.key)
         }
     }
+    val memory = rememberFocusMemory()
     Column(modifier) {
         RowTitle(row.title)
         if (!row.loaded) {
@@ -445,7 +473,7 @@ private fun MediaRow(
         }
         LazyRow(
             state = listState,
-            modifier = Modifier.focusRestorer(),
+            modifier = Modifier.focusMemory(memory),
             contentPadding = PaddingValues(horizontal = 48.dp, vertical = 12.dp),
             horizontalArrangement = Arrangement.spacedBy(16.dp),
         ) {
@@ -457,7 +485,7 @@ private fun MediaRow(
                     serverUrl = serverUrl,
                     onClick = { onOpen(item) },
                     onFocused = { onFocusItem(item) },
-                    modifier = cardModifier("${row.key}|${item.id}").bringIntoViewResponder(cardPad),
+                    modifier = cardModifier("${row.key}|${item.id}").rememberedIn(memory).bringIntoViewResponder(cardPad),
                 )
             }
         }
@@ -516,10 +544,11 @@ private fun FilterGridContent(
                         if (total > 0 && last >= total - PAGE_AHEAD) nearEnd()
                     }
                 }
+                val memory = rememberFocusMemory()
                 LazyVerticalGrid(
                     columns = GridCells.Adaptive(PosterWidth + 16.dp),
                     state = gridState,
-                    modifier = Modifier.fillMaxSize().focusRestorer(),
+                    modifier = Modifier.fillMaxSize().focusMemory(memory),
                     contentPadding = PaddingValues(horizontal = 48.dp, vertical = 12.dp),
                     horizontalArrangement = Arrangement.spacedBy(16.dp),
                     verticalArrangement = Arrangement.spacedBy(16.dp),
@@ -532,6 +561,7 @@ private fun FilterGridContent(
                             serverUrl = serverUrl,
                             onClick = { onOpen(item) },
                             onFocused = { hero.item = item },
+                            modifier = Modifier.rememberedIn(memory),
                         )
                     }
                 }

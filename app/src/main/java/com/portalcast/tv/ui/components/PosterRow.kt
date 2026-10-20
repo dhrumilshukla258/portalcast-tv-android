@@ -1,5 +1,8 @@
 package com.portalcast.tv.ui.components
 
+import com.portalcast.tv.ui.components.rememberedIn
+import com.portalcast.tv.ui.components.rememberFocusMemory
+import com.portalcast.tv.ui.components.focusMemory
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -15,7 +18,6 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.focus.focusRestorer
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.tv.material3.MaterialTheme
@@ -25,7 +27,7 @@ import com.portalcast.tv.ui.theme.AppColors
 
 /**
  * A titled horizontal row of [MediaCard]s. Focus re-entering the row returns to the
- * card that last had it (`focusRestorer`). [onLoadMore] fires when the last visible
+ * card that last had it (see FocusMemory). [onLoadMore] fires when the last visible
  * card is within a few of the end (call it repeatedly safe: the caller de-dupes).
  *
  * @param progressFor watched fraction per item (Continue Watching), null for none.
@@ -53,6 +55,7 @@ fun PosterRow(
                 .collect { (last, total) -> if (total > 0 && last >= total - 4) loadMore?.invoke() }
         }
     }
+    val memory = rememberFocusMemory()
     Column(modifier) {
         Text(
             title,
@@ -62,7 +65,7 @@ fun PosterRow(
         )
         LazyRow(
             state = state,
-            modifier = Modifier.focusRestorer(),
+            modifier = Modifier.focusMemory(memory),
             contentPadding = PaddingValues(horizontal = 48.dp, vertical = 12.dp),
             horizontalArrangement = Arrangement.spacedBy(20.dp),
         ) {
@@ -70,7 +73,7 @@ fun PosterRow(
                 MediaCard(
                     item = item,
                     onClick = { onItemClick(item) },
-                    modifier = itemModifier(i, item),
+                    modifier = itemModifier(i, item).rememberedIn(memory),
                     subtitle = subtitleFor(item),
                     progress = progressFor(item),
                     width = cardWidth,

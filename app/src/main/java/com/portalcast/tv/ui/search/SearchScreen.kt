@@ -2,6 +2,9 @@
 
 package com.portalcast.tv.ui.search
 
+import com.portalcast.tv.ui.components.rememberedIn
+import com.portalcast.tv.ui.components.rememberFocusMemory
+import com.portalcast.tv.ui.components.focusMemory
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -34,7 +37,6 @@ import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
-import androidx.compose.ui.focus.focusRestorer
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -203,16 +205,17 @@ private fun AllResults(state: SearchViewModel.State, vm: SearchViewModel, onPlay
     val epg = remember(state.epgIndex) { EpgLookup(state.epgIndex) }
     val now = remember(state.searched) { System.currentTimeMillis() }
     val use24h = rememberIs24h()
+    val memory = rememberFocusMemory()
     LazyColumn(
-        Modifier.fillMaxSize().focusRestorer(),
+        Modifier.fillMaxSize().focusMemory(memory),
         contentPadding = PaddingValues(bottom = 40.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         if (state.movies.groups.isNotEmpty()) item(key = "movies") {
-            GroupRow("Movies", state.movies, { vm.openGroup(it, isSeries = false) }, vm::loadMoreMovies) { cardModifier("m|$it") }
+            GroupRow("Movies", state.movies, { vm.openGroup(it, isSeries = false) }, vm::loadMoreMovies, Modifier.rememberedIn(memory)) { cardModifier("m|$it") }
         }
         if (state.series.groups.isNotEmpty()) item(key = "series") {
-            GroupRow("Series", state.series, { vm.openGroup(it, isSeries = true) }, vm::loadMoreSeries) { cardModifier("s|$it") }
+            GroupRow("Series", state.series, { vm.openGroup(it, isSeries = true) }, vm::loadMoreSeries, Modifier.rememberedIn(memory)) { cardModifier("s|$it") }
         }
         if (state.channels.isNotEmpty()) {
             item(key = "live-title") {
@@ -223,7 +226,7 @@ private fun AllResults(state: SearchViewModel.State, vm: SearchViewModel, onPlay
                 ChannelRow(
                     channel = ch, epg = epg, nowMs = now, use24h = use24h, serverUrl = serverUrl, isFavorite = false,
                     onPlay = { vm.playChannel(it); onPlay() }, onToggleFavorite = {}, onFocused = {},
-                    modifier = Modifier.padding(horizontal = 4.dp),
+                    modifier = Modifier.padding(horizontal = 4.dp).rememberedIn(memory),
                 )
             }
         }
@@ -238,6 +241,7 @@ private fun GroupRow(
     section: SearchViewModel.Section,
     onOpen: (SearchViewModel.TitleGroup) -> Unit,
     onLoadMore: () -> Unit,
+    modifier: Modifier,
     cardModifier: (String) -> Modifier,
 ) {
     val byId = remember(section.groups) { section.groups.associateBy { it.display.id } }
@@ -245,6 +249,7 @@ private fun GroupRow(
     PosterRow(
         title = "$title · ${section.groups.size}${if (section.hasMore) "+" else ""}",
         items = items,
+        modifier = modifier,
         onItemClick = { item -> byId[item.id]?.let(onOpen) },
         subtitleFor = { item -> byId[item.id]?.versionsLabel },
         onLoadMore = if (section.hasMore) onLoadMore else null,
@@ -267,16 +272,17 @@ private fun PosterGrid(
             .distinctUntilChanged()
             .collect { last -> if (last >= section.groups.size - 7) onNearEnd() }
     }
+    val memory = rememberFocusMemory()
     LazyVerticalGrid(
         columns = GridCells.Fixed(6),
         state = gridState,
-        modifier = Modifier.fillMaxSize().focusRestorer(),
+        modifier = Modifier.fillMaxSize().focusMemory(memory),
         contentPadding = PaddingValues(top = 8.dp, bottom = 40.dp, start = 4.dp, end = 4.dp),
         horizontalArrangement = Arrangement.spacedBy(20.dp),
         verticalArrangement = Arrangement.spacedBy(24.dp),
     ) {
         itemsIndexed(section.groups, key = { _, g -> g.key }) { _, g ->
-            MediaCard(item = g.display, onClick = { onOpen(g) }, subtitle = g.versionsLabel, width = Dp.Unspecified, modifier = cardModifier(g.key))
+            MediaCard(item = g.display, onClick = { onOpen(g) }, subtitle = g.versionsLabel, width = Dp.Unspecified, modifier = cardModifier(g.key).rememberedIn(memory))
         }
     }
 }
@@ -288,8 +294,9 @@ private fun ChannelList(state: SearchViewModel.State, vm: SearchViewModel, onPla
     val epg = remember(state.epgIndex) { EpgLookup(state.epgIndex) }
     val now = remember(state.searched) { System.currentTimeMillis() }
     val use24h = rememberIs24h()
+    val memory = rememberFocusMemory()
     LazyColumn(
-        Modifier.fillMaxSize().focusRestorer(),
+        Modifier.fillMaxSize().focusMemory(memory),
         contentPadding = PaddingValues(top = 8.dp, bottom = 40.dp, start = 4.dp, end = 4.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
@@ -297,6 +304,7 @@ private fun ChannelList(state: SearchViewModel.State, vm: SearchViewModel, onPla
             ChannelRow(
                 channel = ch, epg = epg, nowMs = now, use24h = use24h, serverUrl = serverUrl, isFavorite = false,
                 onPlay = { vm.playChannel(it); onPlay() }, onToggleFavorite = {}, onFocused = {},
+                modifier = Modifier.rememberedIn(memory),
             )
         }
     }

@@ -24,6 +24,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.CompositingStrategy
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -72,6 +74,11 @@ internal val MediaItem.heroArtPath: String?
  * gradient (the webui's AmbientBackdrop, without blur: API 30 has no RenderEffect).
  * It follows focus only after focus rests [HERO_IMAGE_DEBOUNCE_MS], and fades once
  * from the previous image (kept as the placeholder) to the new one.
+ *
+ * The whole thing (bitmap + two full-screen gradients) is composited offscreen: the GPU
+ * then rasterises it once per image change and blits the cached layer on every scroll
+ * frame, instead of re-shading ~2M gradient pixels per frame (Mali-G52 at 1080p spent
+ * up to 80 ms per frame on "issue draw commands" doing that).
  */
 @Composable
 internal fun HeroBackdrop(focus: HeroFocus, serverUrl: String?, modifier: Modifier = Modifier) {
@@ -99,7 +106,7 @@ internal fun HeroBackdrop(focus: HeroFocus, serverUrl: String?, modifier: Modifi
                 .build()
         }
     }
-    Box(modifier) {
+    Box(modifier.graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen }) {
         if (request != null) {
             AsyncImage(
                 model = request,

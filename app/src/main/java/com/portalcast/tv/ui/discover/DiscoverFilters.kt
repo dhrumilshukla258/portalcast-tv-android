@@ -1,5 +1,8 @@
 package com.portalcast.tv.ui.discover
 
+import androidx.compose.ui.layout.positionInWindow
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.platform.LocalDensity
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -84,6 +87,8 @@ internal fun FilterSelectors(
     focus: Map<FilterDim, FocusRequester>,
     onOpen: (FilterDim) -> Unit,
     onClear: () -> Unit,
+    /** Window x of each selector, so its list can open right under it. */
+    onPositioned: (FilterDim, Float) -> Unit = { _, _ -> },
 ) {
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
         for (dim in FilterDim.entries) {
@@ -93,7 +98,9 @@ internal fun FilterSelectors(
                 text = (value?.let { displayValue(dim, it) } ?: dim.label) + "  ▾",
                 onClick = { onOpen(dim) },
                 style = if (value != null) TvButtonStyle.Primary else TvButtonStyle.Subtle,
-                modifier = Modifier.focusRequester(focus.getValue(dim)),
+                modifier = Modifier
+                    .focusRequester(focus.getValue(dim))
+                    .onGloballyPositioned { onPositioned(dim, it.positionInWindow().x) },
             )
         }
         if (FilterDim.entries.any { query.valueOf(it) != null }) {
@@ -111,6 +118,10 @@ internal fun BoxScope.FilterDropdown(
     dim: FilterDim,
     facets: DiscoverFacets,
     query: DiscoverQuery?,
+    /** Measured height of the top bar (px): the list opens right under it. */
+    topPx: Int,
+    /** x (px, in the screen's Box) of the selector that opened it: the list lines up with it. */
+    leftPx: Int,
     onPick: (String?) -> Unit,
     onDismiss: () -> Unit,
 ) {
@@ -132,7 +143,7 @@ internal fun BoxScope.FilterDropdown(
     Column(
         Modifier
             .align(Alignment.TopStart)
-            .padding(start = 48.dp, top = 84.dp)
+            .padding(start = with(LocalDensity.current) { leftPx.toDp() }, top = with(LocalDensity.current) { topPx.toDp() } + 4.dp)
             .width(380.dp)
             .background(AppColors.GlassScrim, RoundedCornerShape(14.dp))
             .border(1.dp, AppColors.GlassBorder, RoundedCornerShape(14.dp))

@@ -1,5 +1,8 @@
 package com.portalcast.tv.ui.series
 
+import com.portalcast.tv.ui.components.rememberedIn
+import com.portalcast.tv.ui.components.rememberFocusMemory
+import com.portalcast.tv.ui.components.focusMemory
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.ui.graphics.Color
@@ -36,7 +39,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
-import androidx.compose.ui.focus.focusRestorer
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -171,8 +173,9 @@ fun SeriesDetailScreen(id: String, category: String, onPlay: () -> Unit, modifie
                 if (state.seasons.isNotEmpty()) {
                     Spacer(Modifier.height(22.dp))
                     Text("Seasons", style = MaterialTheme.typography.labelLarge, color = AppColors.TextMuted, modifier = Modifier.padding(bottom = 8.dp))
+                    val seasonsMemory = rememberFocusMemory()
                     LazyColumn(
-                        modifier = Modifier.weight(1f, fill = false).focusRestorer(),
+                        modifier = Modifier.weight(1f, fill = false).focusMemory(seasonsMemory),
                         contentPadding = PaddingValues(vertical = 4.dp, horizontal = 4.dp),
                         verticalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
@@ -182,7 +185,7 @@ fun SeriesDetailScreen(id: String, category: String, onPlay: () -> Unit, modifie
                                 text = EpisodeInfo.seasonLabel(season, i),
                                 onClick = { vm.selectSeason(season.id) },
                                 style = if (selected) TvButtonStyle.Primary else TvButtonStyle.Subtle,
-                                modifier = Modifier.width(260.dp),
+                                modifier = Modifier.width(260.dp).rememberedIn(seasonsMemory),
                             )
                         }
                     }
@@ -237,9 +240,10 @@ private fun EpisodeList(
     }
     // Netflix-style: a vertical list. Each row is thumbnail left, number + title, runtime
     // and description right; the focused row is highlighted and shows a longer description.
+    val memory = rememberFocusMemory()
     LazyColumn(
         state = listState,
-        modifier = modifier.fillMaxWidth().focusRestorer(),
+        modifier = modifier.fillMaxWidth().focusMemory(memory),
         contentPadding = PaddingValues(top = 6.dp, bottom = 24.dp, start = 8.dp, end = 8.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
@@ -250,7 +254,7 @@ private fun EpisodeList(
                 progress = state.fractions[ep.id],
                 onClick = { onPlay(ep) },
                 enabled = !state.starting,
-                modifier = episodeModifier(ep).onFocusChanged { if (it.hasFocus) onFocused(ep) },
+                modifier = episodeModifier(ep).rememberedIn(memory).onFocusChanged { if (it.hasFocus) onFocused(ep) },
             )
         }
         if (error != null) {

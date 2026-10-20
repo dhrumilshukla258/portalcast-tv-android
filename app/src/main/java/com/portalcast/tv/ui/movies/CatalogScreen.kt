@@ -1,5 +1,8 @@
 package com.portalcast.tv.ui.movies
 
+import com.portalcast.tv.ui.components.rememberedIn
+import com.portalcast.tv.ui.components.rememberFocusMemory
+import com.portalcast.tv.ui.components.focusMemory
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -33,7 +36,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
-import androidx.compose.ui.focus.focusRestorer
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.Dp
@@ -90,9 +92,10 @@ fun CatalogScreen(
         }
     }
 
+    val groupsMemory = rememberFocusMemory()
     Row(modifier.fillMaxSize().padding(top = 32.dp)) {
         LazyColumn(
-            modifier = Modifier.width(240.dp).fillMaxHeight().focusRestorer(),
+            modifier = Modifier.width(240.dp).fillMaxHeight().focusMemory(groupsMemory),
             contentPadding = PaddingValues(start = 24.dp, end = 12.dp, bottom = 32.dp),
             verticalArrangement = Arrangement.spacedBy(4.dp),
         ) {
@@ -101,6 +104,7 @@ fun CatalogScreen(
                     text = group.displayTitle,
                     selected = group.id == state.selectedCategory,
                     onClick = { vm.selectCategory(group.id) },
+                    modifier = Modifier.rememberedIn(groupsMemory),
                 )
             }
         }
@@ -141,10 +145,11 @@ fun CatalogScreen(
                                 .collect { (last, _) -> vm.onVisible(last) }
                         }
                         DisposableEffect(Unit) { gridShown = true; onDispose { gridShown = false } }
+                        val memory = rememberFocusMemory()
                         LazyVerticalGrid(
                             columns = GridCells.Fixed(5),
                             state = gridState,
-                            modifier = Modifier.fillMaxSize().focusRequester(gridRequester).focusRestorer(),
+                            modifier = Modifier.fillMaxSize().focusRequester(gridRequester).focusMemory(memory),
                             contentPadding = PaddingValues(start = 16.dp, end = 32.dp, top = 16.dp, bottom = 32.dp),
                             horizontalArrangement = Arrangement.spacedBy(20.dp),
                             verticalArrangement = Arrangement.spacedBy(24.dp),
@@ -159,7 +164,8 @@ fun CatalogScreen(
                                     width = Dp.Unspecified,
                                     modifier = Modifier
                                         .onFocusChanged { if (it.hasFocus) vm.lastFocusedId = item.id }
-                                        .then(if (item.id == vm.lastFocusedId) Modifier.focusRequester(restoreRequester) else Modifier),
+                                        .then(if (item.id == vm.lastFocusedId) Modifier.focusRequester(restoreRequester) else Modifier)
+                                        .rememberedIn(memory),
                                 )
                             }
                             if (pageError != null) {
