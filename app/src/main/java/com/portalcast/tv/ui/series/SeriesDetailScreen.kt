@@ -1,5 +1,7 @@
 package com.portalcast.tv.ui.series
 
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.ui.graphics.Color
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -234,44 +236,37 @@ private fun EpisodeList(
         snapshotFlow { (listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: -1) to listState.layoutInfo.totalItemsCount }
             .collect { (last, _) -> onVisible(last) }
     }
-    // Netflix-style: one horizontal row sized so ~5 episodes fit across the screen (the old
-    // full-width cards showed only two). Padding leaves room for the focused card's zoom.
-    BoxWithConstraints(modifier.fillMaxWidth()) {
-        val sidePad = 16.dp
-        val gap = 18.dp
-        val cardWidth = (maxWidth - sidePad * 2 - gap * (EPISODES_PER_SCREEN - 1)) / EPISODES_PER_SCREEN
-        LazyRow(
-            state = listState,
-            modifier = Modifier.fillMaxWidth().focusRestorer(),
-            contentPadding = PaddingValues(horizontal = sidePad, vertical = 14.dp),
-            horizontalArrangement = Arrangement.spacedBy(gap),
-        ) {
-            itemsIndexed(episodes.items, key = { i, ep -> "$i:${ep.id}" }) { i, ep ->
-                EpisodeCard(
-                    episode = ep,
-                    index = i,
-                    progress = state.fractions[ep.id],
-                    onClick = { onPlay(ep) },
-                    enabled = !state.starting,
-                    modifier = episodeModifier(ep).width(cardWidth).onFocusChanged { if (it.hasFocus) onFocused(ep) },
-                )
-            }
-            if (error != null) {
-                item {
-                    Column(Modifier.width(cardWidth), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text(error.panelMessage(), color = AppColors.Error, style = MaterialTheme.typography.bodySmall)
-                        TvButton(text = "Retry", onClick = onRetry)
-                    }
+    // Netflix-style: a vertical list. Each row is thumbnail left, number + title, runtime
+    // and description right; the focused row is highlighted and shows a longer description.
+    LazyColumn(
+        state = listState,
+        modifier = modifier.fillMaxWidth().focusRestorer(),
+        contentPadding = PaddingValues(top = 6.dp, bottom = 24.dp, start = 8.dp, end = 8.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        itemsIndexed(episodes.items, key = { i, ep -> "$i:${ep.id}" }) { i, ep ->
+            EpisodeRow(
+                episode = ep,
+                index = i,
+                progress = state.fractions[ep.id],
+                onClick = { onPlay(ep) },
+                enabled = !state.starting,
+                modifier = episodeModifier(ep).onFocusChanged { if (it.hasFocus) onFocused(ep) },
+            )
+        }
+        if (error != null) {
+            item {
+                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(error.panelMessage(), color = AppColors.Error, style = MaterialTheme.typography.bodySmall)
+                    TvButton(text = "Retry", onClick = onRetry)
                 }
             }
         }
     }
 }
 
-private const val EPISODES_PER_SCREEN = 5
-
 @Composable
-private fun EpisodeCard(
+private fun EpisodeRow(
     episode: MediaItem,
     index: Int,
     progress: Float?,
@@ -279,58 +274,71 @@ private fun EpisodeCard(
     enabled: Boolean,
     modifier: Modifier = Modifier,
 ) {
-    val shape = RoundedCornerShape(14.dp)
+    val shape = RoundedCornerShape(12.dp)
     val number = EpisodeInfo.number(episode, index)
+    var focused by remember { mutableStateOf(false) }
     Surface(
         onClick = onClick,
         enabled = enabled,
-        modifier = modifier,
+        modifier = modifier.fillMaxWidth().onFocusChanged { focused = it.isFocused },
         shape = ClickableSurfaceDefaults.shape(shape = shape),
-        scale = ClickableSurfaceDefaults.scale(focusedScale = 1.05f),
+        scale = ClickableSurfaceDefaults.scale(focusedScale = 1.01f),
         border = ClickableSurfaceDefaults.border(
-            border = Border(BorderStroke(1.dp, AppColors.GlassBorder), shape = shape),
-            focusedBorder = Border(BorderStroke(3.dp, AppColors.Focus), shape = shape),
+            border = Border(BorderStroke(1.dp, Color.Transparent), shape = shape),
+            focusedBorder = Border(BorderStroke(2.dp, AppColors.Focus), shape = shape),
         ),
         colors = ClickableSurfaceDefaults.colors(
-            containerColor = AppColors.GlassFill,
+            containerColor = Color.Transparent,
             contentColor = AppColors.Text,
             focusedContainerColor = AppColors.GlassFillFocused,
             focusedContentColor = AppColors.Text,
             pressedContainerColor = AppColors.GlassFillFocused,
-            disabledContainerColor = AppColors.GlassFill,
+            disabledContainerColor = Color.Transparent,
             disabledContentColor = AppColors.TextMuted,
         ),
     ) {
-        Column {
-            Box(Modifier.fillMaxWidth().aspectRatio(WideAspect).clip(RoundedCornerShape(topStart = 14.dp, topEnd = 14.dp))) {
+        Row(Modifier.padding(10.dp), verticalAlignment = Alignment.Top) {
+            Text(
+                "$number",
+                style = MaterialTheme.typography.headlineSmall,
+                color = if (focused) AppColors.Text else AppColors.TextMuted,
+                modifier = Modifier.width(44.dp).padding(top = 34.dp),
+                textAlign = TextAlign.Center,
+            )
+            Spacer(Modifier.width(8.dp))
+            Box(Modifier.width(236.dp).aspectRatio(WideAspect).clip(RoundedCornerShape(8.dp))) {
                 ArtImage(url = rememberImageUrl(episode.posterPath), fallbackText = "$number", modifier = Modifier.fillMaxSize())
                 if (progress != null && progress > 0f) {
                     ProgressLine(progress, Modifier.align(Alignment.BottomCenter).fillMaxWidth().padding(6.dp))
                 }
             }
-            Column(Modifier.padding(horizontal = 10.dp, vertical = 8.dp)) {
-                Text(
-                    "$number. ${EpisodeInfo.title(episode, index)}",
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.SemiBold,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                )
-                val sub = listOfNotNull(
-                    Formatting.runtime(episode),
-                    if (progress != null && progress >= 0.9f) "Watched" else null,
-                ).joinToString("  ·  ")
-                if (sub.isNotBlank()) {
-                    Text(sub, style = MaterialTheme.typography.bodySmall, color = AppColors.TextMuted, maxLines = 1, modifier = Modifier.padding(top = 2.dp))
+            Spacer(Modifier.width(20.dp))
+            Column(Modifier.weight(1f).padding(top = 4.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        EpisodeInfo.title(episode, index),
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f, fill = false),
+                    )
+                    val sub = listOfNotNull(
+                        Formatting.runtime(episode),
+                        if (progress != null && progress >= 0.9f) "Watched" else null,
+                    ).joinToString("  ·  ")
+                    if (sub.isNotBlank()) {
+                        Spacer(Modifier.width(16.dp))
+                        Text(sub, style = MaterialTheme.typography.bodyMedium, color = AppColors.TextMuted, maxLines = 1)
+                    }
                 }
                 Text(
                     episode.overview.orEmpty(),
-                    style = MaterialTheme.typography.bodySmall,
+                    style = MaterialTheme.typography.bodyMedium,
                     color = AppColors.TextMuted,
-                    maxLines = 2,
-                    minLines = 2,
+                    maxLines = if (focused) 4 else 2,
                     overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.padding(top = 4.dp),
+                    modifier = Modifier.padding(top = 6.dp),
                 )
             }
         }
