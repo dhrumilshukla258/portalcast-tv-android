@@ -2,6 +2,8 @@
 
 package com.portalcast.tv.ui.discover
 
+import com.portalcast.tv.data.model.DiscoverQuery
+import com.portalcast.tv.data.model.DiscoverFacets
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -108,7 +110,15 @@ fun DiscoverScreen(
     )
     val state by vm.state.collectAsStateWithLifecycle()
     val serverUrl by container.sessionStore.serverUrl.collectAsStateWithLifecycle()
-    var showFilters by remember { mutableStateOf(false) }
+    // Letterboxd-style selectors (DiscoverFilters.kt): which one is open, and where focus
+    // goes back to when it closes.
+    var openFilter by remember { mutableStateOf<FilterDim?>(null) }
+    var returnFocusTo by remember { mutableStateOf<FilterDim?>(null) }
+    val selectorFocus = remember { FilterDim.entries.associateWith { FocusRequester() } }
+    LaunchedEffect(returnFocusTo) {
+        val dim = returnFocusTo ?: return@LaunchedEffect
+        repeat(20) { if (runCatching { selectorFocus.getValue(dim).requestFocus() }.isSuccess) return@LaunchedEffect; delay(40) }
+    }
     val hero = remember { HeroFocus() }
 
     LaunchedEffect(Unit) { vm.onScreenShown() }
@@ -147,9 +157,11 @@ fun DiscoverScreen(
             if (grid != null) {
                 TopBar(
                     type = state.type,
-                    filtered = true,
+                    facets = state.facets,
+                    query = grid.query,
+                    selectorFocus = selectorFocus,
                     onType = vm::setType,
-                    onFilters = { showFilters = true },
+                    onOpenFilter = { openFilter = it },
                     onClear = vm::clearFilter,
                     onSearch = onOpenSearch,
                 )
@@ -158,9 +170,11 @@ fun DiscoverScreen(
                 Column(Modifier.fillMaxWidth().fillMaxHeight(HERO_FRACTION)) {
                     TopBar(
                         type = state.type,
-                        filtered = false,
+                        facets = state.facets,
+                        query = null,
+                        selectorFocus = selectorFocus,
                         onType = vm::setType,
-                        onFilters = { showFilters = true },
+                        onOpenFilter = { openFilter = it },
                         onClear = vm::clearFilter,
                         onSearch = onOpenSearch,
                     )
@@ -182,6 +196,20 @@ fun DiscoverScreen(
                 style = MaterialTheme.typography.bodyLarge,
             )
         }
+        openFilter?.let { dim ->
+            FilterDropdown(
+                dim = dim,
+                facets = state.facets,
+                query = state.grid?.query,
+                onPick = { value ->
+                    val base = state.grid?.query ?: DiscoverQuery(type = state.type)
+                    vm.applyFilter(base.with(dim, value))
+                    openFilter = null
+                    returnFocusTo = dim
+                },
+                onDismiss = { openFilter = null; returnFocusTo = dim },
+            )
+        }
         state.openError?.let { msg ->
             Box(
                 Modifier
@@ -196,23 +224,16 @@ fun DiscoverScreen(
     state.variants?.let { variants ->
         VariantPickerDialog(variants, serverUrl, onChoose = vm::chooseVariant, onDismiss = vm::dismissVariants)
     }
-    if (showFilters) {
-        FiltersDialog(
-            facets = state.facets,
-            current = state.grid?.query,
-            onApply = { q -> showFilters = false; vm.applyFilter(q) },
-            onClear = { showFilters = false; vm.clearFilter() },
-            onDismiss = { showFilters = false },
-        )
-    }
 }
 
 @Composable
 private fun TopBar(
     type: String?,
-    filtered: Boolean,
+    facets: DiscoverFacets,
+    query: DiscoverQuery?,
+    selectorFocus: Map<FilterDim, FocusRequester>,
     onType: (String?) -> Unit,
-    onFilters: () -> Unit,
+    onOpenFilter: (FilterDim) -> Unit,
     onClear: () -> Unit,
     onSearch: () -> Unit,
 ) {
@@ -232,8 +253,7 @@ private fun TopBar(
             )
         }
         Spacer(Modifier.width(24.dp))
-        TvButton(text = if (filtered) "Filters •" else "Filters", onClick = onFilters)
-        if (filtered) TvButton(text = "Clear", onClick = onClear, style = TvButtonStyle.Subtle)
+        FilterSelectors(facets = facets, query = query, focus = selectorFocus, onOpen = onOpenFilter, onClear = onClear)
     }
 }
 

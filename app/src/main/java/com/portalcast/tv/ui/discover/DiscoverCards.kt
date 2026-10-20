@@ -77,7 +77,6 @@ internal val PosterWidth: Dp = 130.dp
 
 internal fun Modifier.posterAspect(): Modifier = aspectRatio(2f / 3f)
 
-private const val MAX_FACET_CHIPS = 40
 
 private val CardShape = RoundedCornerShape(14.dp)
 
@@ -380,74 +379,3 @@ private fun VariantChipView(chip: VariantChip) {
 }
 
 
-/**
- * Genre multi-select (AND on the server), single country and single language.
- * Edits a draft; Apply switches the screen into the filtered grid.
- */
-@Composable
-internal fun FiltersDialog(
-    facets: DiscoverFacets,
-    current: DiscoverQuery?,
-    onApply: (DiscoverQuery) -> Unit,
-    onClear: () -> Unit,
-    onDismiss: () -> Unit,
-) {
-    var genres by remember { mutableStateOf(current?.genres.orEmpty().toSet()) }
-    var country by remember { mutableStateOf(current?.country) }
-    var language by remember { mutableStateOf(current?.language) }
-    val applyFocus = remember { FocusRequester() }
-
-    Dialog(onDismissRequest = onDismiss) {
-        DialogFrame {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Text("Filters", style = MaterialTheme.typography.headlineSmall, color = AppColors.Text)
-                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    TvButton(
-                        "Apply",
-                        onClick = { onApply(DiscoverQuery(genres = genres.toList(), country = country, language = language)) },
-                        style = TvButtonStyle.Primary,
-                        modifier = Modifier.focusRequester(applyFocus),
-                    )
-                    TvButton("Clear", onClick = onClear)
-                    TvButton("Cancel", onClick = onDismiss, style = TvButtonStyle.Subtle)
-                }
-                LazyColumn(Modifier.height(420.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                    item(key = "genres") {
-                        FacetSection("Genres (all must match)", facets.genres.map { it.value }.filter { it.isNotBlank() }, genres::contains) { v ->
-                            genres = if (v in genres) genres - v else genres + v
-                        }
-                    }
-                    item(key = "country") {
-                        FacetSection("Country", facets.countries.map { it.value }.filter { it.isNotBlank() }, { it == country }) { v ->
-                            country = if (country == v) null else v
-                        }
-                    }
-                    item(key = "language") {
-                        FacetSection("Language", facets.languages.map { it.value }.filter { it.isNotBlank() }, { it == language }) { v ->
-                            language = if (language == v) null else v
-                        }
-                    }
-                }
-            }
-        }
-        LaunchedEffect(Unit) { runCatching { applyFocus.requestFocus() } }
-    }
-}
-
-@Composable
-private fun FacetSection(title: String, values: List<String>, isSelected: (String) -> Boolean, onToggle: (String) -> Unit) {
-    if (values.isEmpty()) return
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text(title, style = MaterialTheme.typography.titleMedium, color = AppColors.TextMuted)
-        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            values.take(MAX_FACET_CHIPS).forEach { v ->
-                val selected = isSelected(v)
-                TvButton(
-                    text = if (selected) "✓ $v" else v,
-                    onClick = { onToggle(v) },
-                    style = if (selected) TvButtonStyle.Primary else TvButtonStyle.Secondary,
-                )
-            }
-        }
-    }
-}
