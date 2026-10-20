@@ -152,7 +152,8 @@ fun MediaCard(
 fun ArtImage(url: String?, fallbackText: String, modifier: Modifier = Modifier, contentScale: ContentScale = ContentScale.Crop) {
     Box(modifier.background(AppColors.SurfaceVariant), contentAlignment = Alignment.Center) {
         Text(
-            text = fallbackText.trim().firstOrNull()?.uppercase() ?: "",
+            // Titles show their initial ("K"); a short number (episode 89) is shown whole.
+            text = fallbackText.trim().let { t -> if (t.length <= 3 && t.all(Char::isDigit)) t else t.firstOrNull()?.uppercase() ?: "" },
             style = MaterialTheme.typography.headlineMedium,
             color = AppColors.TextMuted,
         )
