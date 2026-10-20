@@ -47,7 +47,7 @@ import java.util.Locale
  * ("Genre ▾  Language ▾  Country ▾  Mood ▾"), each opening a short list. One choice per
  * selector, applied the moment it is picked; no Apply button, no modal.
  */
-enum class FilterDim(val label: String) { Genre("Genre"), Language("Language"), Country("Country"), Channel("Channel"), Mood("Mood") }
+enum class FilterDim(val label: String) { Genre("Genre"), Language("Language"), Country("Country"), Channel("Channel / Platform"), Mood("Mood") }
 
 internal fun DiscoverQuery?.valueOf(dim: FilterDim): String? = when (dim) {
     FilterDim.Genre -> this?.genres?.firstOrNull()
