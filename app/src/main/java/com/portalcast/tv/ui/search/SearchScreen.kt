@@ -2,6 +2,9 @@
 
 package com.portalcast.tv.ui.search
 
+import com.portalcast.tv.ui.components.keepColumn
+import com.portalcast.tv.ui.components.gridItem
+import com.portalcast.tv.ui.components.rememberGridFocus
 import com.portalcast.tv.ui.components.rememberedIn
 import com.portalcast.tv.ui.components.rememberFocusMemory
 import com.portalcast.tv.ui.components.focusMemory
@@ -273,16 +276,17 @@ private fun PosterGrid(
             .collect { last -> if (last >= section.groups.size - 7) onNearEnd() }
     }
     val memory = rememberFocusMemory()
+    val gridFocus = rememberGridFocus(gridState)
     LazyVerticalGrid(
         columns = GridCells.Fixed(6),
         state = gridState,
-        modifier = Modifier.fillMaxSize().focusMemory(memory),
+        modifier = Modifier.fillMaxSize().keepColumn(gridFocus, section.groups.size).focusMemory(memory),
         contentPadding = PaddingValues(top = 8.dp, bottom = 40.dp, start = 4.dp, end = 4.dp),
         horizontalArrangement = Arrangement.spacedBy(20.dp),
         verticalArrangement = Arrangement.spacedBy(24.dp),
     ) {
-        itemsIndexed(section.groups, key = { _, g -> g.key }) { _, g ->
-            MediaCard(item = g.display, onClick = { onOpen(g) }, subtitle = g.versionsLabel, width = Dp.Unspecified, modifier = cardModifier(g.key).rememberedIn(memory))
+        itemsIndexed(section.groups, key = { _, g -> g.key }) { i, g ->
+            MediaCard(item = g.display, onClick = { onOpen(g) }, subtitle = g.versionsLabel, width = Dp.Unspecified, modifier = cardModifier(g.key).rememberedIn(memory).gridItem(gridFocus, i))
         }
     }
 }

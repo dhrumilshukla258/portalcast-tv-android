@@ -2,6 +2,10 @@
 
 package com.portalcast.tv.ui.discover
 
+import androidx.compose.foundation.lazy.grid.itemsIndexed
+import com.portalcast.tv.ui.components.keepColumn
+import com.portalcast.tv.ui.components.gridItem
+import com.portalcast.tv.ui.components.rememberGridFocus
 import com.portalcast.tv.ui.components.FeedAmbient
 import androidx.compose.foundation.border
 import androidx.compose.ui.window.Dialog
@@ -550,15 +554,16 @@ private fun FilterGridContent(
                     }
                 }
                 val memory = rememberFocusMemory()
+                val gridFocus = rememberGridFocus(gridState)
                 LazyVerticalGrid(
                     columns = GridCells.Adaptive(PosterWidth + 16.dp),
                     state = gridState,
-                    modifier = Modifier.fillMaxSize().focusMemory(memory),
+                    modifier = Modifier.fillMaxSize().keepColumn(gridFocus, grid.items.size).focusMemory(memory),
                     contentPadding = PaddingValues(horizontal = 48.dp, vertical = 12.dp),
                     horizontalArrangement = Arrangement.spacedBy(16.dp),
                     verticalArrangement = Arrangement.spacedBy(16.dp),
                 ) {
-                    items(grid.items, key = { it.id }) { item ->
+                    itemsIndexed(grid.items, key = { _, it -> it.id }) { i, item ->
                         PosterCard(
                             title = item.displayTitle,
                             subtitle = item.displayYear,
@@ -568,7 +573,7 @@ private fun FilterGridContent(
                             onFocused = { hero.item = item },
                             channel = item.network,
                             channelLogo = item.networkLogo,
-                            modifier = Modifier.rememberedIn(memory),
+                            modifier = Modifier.rememberedIn(memory).gridItem(gridFocus, i),
                         )
                     }
                 }

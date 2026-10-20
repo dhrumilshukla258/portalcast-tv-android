@@ -1,5 +1,8 @@
 package com.portalcast.tv.ui.movies
 
+import com.portalcast.tv.ui.components.keepColumn
+import com.portalcast.tv.ui.components.gridItem
+import com.portalcast.tv.ui.components.rememberGridFocus
 import com.portalcast.tv.ui.components.rememberServerUrl
 import com.portalcast.tv.ui.components.FeedAmbient
 import com.portalcast.tv.ui.components.uniqueKeys
@@ -176,6 +179,7 @@ fun CatalogScreen(
                         }
                         DisposableEffect(Unit) { gridShown = true; onDispose { gridShown = false } }
                         val keys = remember(list.items) { uniqueKeys(list.items.map { it.id }) }
+                        val gridFocus = rememberGridFocus(gridState)
                         val memory = rememberFocusMemory()
                         LazyVerticalGrid(
                             columns = GridCells.Fixed(GRID_COLUMNS),
@@ -183,6 +187,7 @@ fun CatalogScreen(
                             modifier = Modifier
                                 .fillMaxSize()
                                 .focusRequester(gridRequester)
+                                .keepColumn(gridFocus, list.items.size)
                                 .onFocusChanged { if (it.hasFocus) sideVisible = false }
                                 .onPreviewKeyEvent { ev ->
                                     val wantsSide = ev.type == KeyEventType.KeyDown && ev.key == Key.DirectionLeft && focusedColumn == 0 && !sideVisible
@@ -205,7 +210,8 @@ fun CatalogScreen(
                                     modifier = Modifier
                                         .onFocusChanged { if (it.hasFocus) { vm.lastFocusedId = item.id; focusedColumn = i % GRID_COLUMNS } }
                                         .then(if (item.id == vm.lastFocusedId) Modifier.focusRequester(restoreRequester) else Modifier)
-                                        .rememberedIn(memory),
+                                        .rememberedIn(memory)
+                                        .gridItem(gridFocus, i),
                                 )
                             }
                             if (pageError != null) {
