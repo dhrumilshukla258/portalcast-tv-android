@@ -109,10 +109,11 @@ fun SeriesDetailScreen(id: String, category: String, onPlay: () -> Unit, modifie
     var focusDone by remember { mutableStateOf(false) }
     val restoreId = vm.lastFocusedEpisodeId?.takeIf { rid -> state.episodes.items.any { it.id == rid } }
     val continueId = state.continueEpisode?.id?.takeIf { cid -> state.episodes.items.any { it.id == cid } }
+    val seasonSettled = state.episodes.endReached || state.episodesError != null || (state.episodes.hasLoaded && !state.episodesLoading)
     val focusTarget: String? = when {
         restoreId != null -> "ep:$restoreId"
         continueId != null -> "ep:$continueId"
-        continueRow != null && !state.episodes.hasLoaded && state.seasonsError == null -> null
+        continueRow != null && !seasonSettled && state.seasonsError == null -> null
         continueRow != null -> "resume"
         state.episodes.items.isNotEmpty() -> "ep:${state.episodes.items.first().id}"
         state.seasonsError != null || (state.episodes.hasLoaded && state.episodes.isEmpty) -> "back"
@@ -282,8 +283,8 @@ private fun EpisodeList(
         if (scrolledTo == id) return@LaunchedEffect
         val idx = episodes.items.indexOfFirst { it.id == id }
         if (idx < 0) return@LaunchedEffect
-        // One row above the target stays visible, so the viewer sees where they are in the season.
-        listState.scrollToItem((idx - 1).coerceAtLeast(0))
+        // The episode being resumed is the top row, focused (Netflix does the same).
+        listState.scrollToItem(idx)
         scrolledTo = id
     }
     LaunchedEffect(listState, state.selectedSeasonId) {
@@ -305,6 +306,7 @@ private fun EpisodeList(
                 episode = ep,
                 index = i,
                 seriesTitle = state.series.displayTitle,
+                isResume = ep.id == state.continueEpisode?.id,
                 progress = state.fractions[ep.id],
                 onClick = { onPlay(ep) },
                 enabled = !state.starting,
@@ -327,6 +329,7 @@ private fun EpisodeRow(
     episode: MediaItem,
     index: Int,
     seriesTitle: String,
+    isResume: Boolean,
     progress: Float?,
     onClick: () -> Unit,
     enabled: Boolean,
@@ -391,6 +394,7 @@ private fun EpisodeRow(
                     overflow = TextOverflow.Ellipsis,
                 )
                 val sub = listOfNotNull(
+                    if (isResume) "▶ Continue watching" else null,
                     EpisodeInfo.airDate(episode),
                     Formatting.runtime(episode),
                     if (progress != null && progress >= 0.9f) "Watched" else null,

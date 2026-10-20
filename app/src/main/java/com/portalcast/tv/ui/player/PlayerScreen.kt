@@ -284,8 +284,24 @@ private fun BoxScope.VodOverlay(state: PlayerUiState) {
             buffered = if (state.durationMs > 0) state.bufferedMs.toFloat() / state.durationMs else 0f,
         )
         Spacer(Modifier.height(8.dp))
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
             Text(formatTime(state.positionMs), style = MaterialTheme.typography.bodyMedium, color = AppColors.Text)
+            // The remote's Up opens subtitles; say so, with what is on now.
+            Row(
+                Modifier
+                    .clip(RoundedCornerShape(6.dp))
+                    .background(Color.White.copy(alpha = 0.12f))
+                    .padding(horizontal = 12.dp, vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text("▲", style = MaterialTheme.typography.labelMedium, color = AppColors.Text)
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    if (state.externalSubtitles) "Subtitles: On" else "Subtitles",
+                    style = MaterialTheme.typography.labelLarge,
+                    color = AppColors.Text,
+                )
+            }
             Text(
                 if (state.durationMs > 0) "-${formatTime(state.durationMs - state.positionMs)}  ·  ${formatTime(state.durationMs)}" else "",
                 style = MaterialTheme.typography.bodyMedium, color = AppColors.TextMuted,
