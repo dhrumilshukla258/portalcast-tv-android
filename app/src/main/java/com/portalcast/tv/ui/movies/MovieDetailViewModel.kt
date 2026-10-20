@@ -131,6 +131,7 @@ fun MediaItem.mergedWith(file: MediaItem): MediaItem = copy(
     year = year ?: file.year,
     rating = rating ?: file.rating,
     ratingImdb = ratingImdb ?: file.ratingImdb,
+    ratingTmdb = ratingTmdb ?: file.ratingTmdb,
     genresStr = genresStr ?: file.genresStr,
     country = country ?: file.country,
     duration = duration ?: file.duration,

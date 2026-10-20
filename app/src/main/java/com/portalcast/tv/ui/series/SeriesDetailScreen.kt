@@ -177,7 +177,7 @@ fun SeriesDetailScreen(id: String, category: String, onPlay: () -> Unit, modifie
                             )
                         }
                         val details = listOfNotNull(
-                            series.director?.takeIf { it.isNotBlank() && it != "-" }?.let { "Director: $it" },
+                            series.director?.takeIf { it.isNotBlank() && it != "-" }?.let { "Created by: $it" },
                             series.cast?.takeIf { it.isNotBlank() && it != "-" }?.let { "Cast: $it" },
                             series.country?.takeIf { it.isNotBlank() && it != "-" }?.let { "Country: $it" },
                         )

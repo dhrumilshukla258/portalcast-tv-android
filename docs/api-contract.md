@@ -191,7 +191,9 @@ treat 403 on these four routes as "cold".)
 
 - Discover cards (`/discover/browse`, `/recommendations`): `name` is the cleaned title (channel
   prefix, language/quality tags removed), `description`, `network` + `network_logo`
-  (channel/platform badge; logo is an image path, `ImageUrl.resolve` rules apply).
+  (channel/platform badge; logo is an image path, `ImageUrl.resolve` rules apply),
+  `rating_tmdb` ("7.4", TMDB score with 5+ votes, TVmaze for shows TMDB lacks; shown before
+  `rating_imdb`). For a series `director` holds its creators (shown as "Created by").
 - `/discover/facets?type=series`: `networks: [{ value, count, logo? }]` (Channel / Platform
   filter; empty for movies/all). `/discover/browse` takes `network=`.
 - Catalog list items (`/movies`, `/series`): `title_key` (the server's grouping key) and

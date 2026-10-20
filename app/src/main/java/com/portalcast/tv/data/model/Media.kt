@@ -62,6 +62,8 @@ data class MediaItem(
     @SerialName("rating_imdb") val ratingImdb: LenientStr? = null,
     @SerialName("rating_kinopoisk") val ratingKinopoisk: LenientStr? = null,
     @SerialName("rating_mpaa") val ratingMpaa: String? = null,
+    /** Discover only: TMDB user score (TVmaze for shows TMDB lacks), "7.4"; sent when it rests on 5+ votes. */
+    @SerialName("rating_tmdb") val ratingTmdb: LenientStr? = null,
     val age: LenientStr? = null,
     val country: String? = null,
     @SerialName("genres_str") val genresStr: String? = null,
@@ -83,7 +85,10 @@ data class MediaItem(
     val displayTitle: String get() = title?.takeIf { it.isNotBlank() } ?: name ?: ""
     val overview: String? get() = (description ?: plot)?.takeUnless { it.isBlank() || it == "-" || it == "No description available" }
     val displayYear: String? get() = year?.takeUnless { it.isBlank() || it == "-" || it == "0" }
-    val displayRating: String? get() = ratingImdb?.takeUnless { it.isBlank() || it == "-" || it == "0" } ?: rating?.takeUnless { it.isBlank() || it == "-" || it == "0" }
+    /** TMDB's score first (the same source for every title), else the portal's IMDb or own rating. */
+    val displayRating: String? get() = listOf(ratingTmdb, ratingImdb, rating).firstOrNull { r ->
+        r != null && r.isNotBlank() && r != "-" && (r.toDoubleOrNull()?.let { it > 0.0 } ?: true)
+    }
     val displayGenres: String? get() = genresStr?.takeUnless { it.isBlank() || it == "-" }
 
     /** Raw id without the Discover `movie_`/`series_` prefix. */
