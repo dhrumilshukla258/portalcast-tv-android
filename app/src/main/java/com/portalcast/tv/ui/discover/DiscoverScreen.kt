@@ -2,6 +2,9 @@
 
 package com.portalcast.tv.ui.discover
 
+import androidx.compose.ui.input.key.type
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.foundation.lazy.grid.itemsIndexed
 import com.portalcast.tv.ui.components.keepColumn
 import com.portalcast.tv.ui.components.gridItem
@@ -431,9 +434,17 @@ private fun ContinueWatchingRow(
 private fun RemoveContinueDialog(entry: ContinueEntry, onRemove: () -> Unit, onDismiss: () -> Unit) {
     val first = remember { FocusRequester() }
     LaunchedEffect(entry.key) { repeat(10) { withFrameNanos { }; if (runCatching { first.requestFocus() }.isSuccess) return@LaunchedEffect } }
+    // The dialog opens while Center is still held (it is a long press): until that key is
+    // released, every key is swallowed, or the release itself pressed the focused button.
+    var armed by remember { mutableStateOf(false) }
     Dialog(onDismissRequest = onDismiss) {
         Column(
             Modifier
+                .onPreviewKeyEvent { ev ->
+                    if (armed) return@onPreviewKeyEvent false
+                    if (ev.type == KeyEventType.KeyUp) armed = true
+                    true
+                }
                 .width(520.dp)
                 .background(AppColors.Background.copy(alpha = 0.97f), RoundedCornerShape(16.dp))
                 .border(1.dp, AppColors.GlassBorder, RoundedCornerShape(16.dp))
@@ -443,8 +454,9 @@ private fun RemoveContinueDialog(entry: ContinueEntry, onRemove: () -> Unit, onD
             Text(entry.title, style = MaterialTheme.typography.titleLarge, color = AppColors.Text, maxLines = 2)
             Text("Remove it from Continue Watching? Your place in it is forgotten.", style = MaterialTheme.typography.bodyMedium, color = AppColors.TextMuted)
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                TvButton("Remove", onClick = onRemove, style = TvButtonStyle.Primary, modifier = Modifier.focusRequester(first))
-                TvButton("Cancel", onClick = onDismiss)
+                // Cancel is focused first: removing takes a deliberate Left + Center.
+                TvButton("Remove", onClick = onRemove, style = TvButtonStyle.Primary)
+                TvButton("Cancel", onClick = onDismiss, modifier = Modifier.focusRequester(first))
             }
         }
     }
