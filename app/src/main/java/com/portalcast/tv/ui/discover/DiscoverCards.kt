@@ -235,7 +235,7 @@ internal fun VariantPickerDialog(
         }
     }
     val meta = remember(lead) {
-        lead?.let { listOfNotNull(it.displayYear, it.displayRating?.let { r -> "★ $r" }, it.displayGenres).joinToString("  ·  ") }.orEmpty()
+        lead?.let { listOfNotNull(it.displayYear, it.displayRating, it.displayGenres).joinToString("  ·  ") }.orEmpty()
     }
 
     Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {

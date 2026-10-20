@@ -42,10 +42,11 @@ object Formatting {
         minutes(item.runtime) ?: minutes(item.time?.trim()?.toIntOrNull())
             ?: item.duration?.trim()?.takeUnless { it.isEmpty() || it == "0" || it == "-" || it == "00:00:00" }
 
-    /** "2019 · ★ 7.4 · Drama, Action · 1h 52m", skipping whatever is missing. */
+    /** "2019 · ★ 7.8 IMDb · 🍅 94% · Drama, Action · 1h 52m", skipping whatever is missing. */
     fun metaLine(item: MediaItem): String = listOfNotNull(
         item.displayYear,
-        item.displayRating?.let { "★ $it" },
+        item.displayRating,
+        item.criticsRating,
         item.displayGenres,
         runtime(item),
     ).joinToString("  ·  ")

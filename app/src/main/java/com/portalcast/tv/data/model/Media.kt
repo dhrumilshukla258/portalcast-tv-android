@@ -62,8 +62,12 @@ data class MediaItem(
     @SerialName("rating_imdb") val ratingImdb: LenientStr? = null,
     @SerialName("rating_kinopoisk") val ratingKinopoisk: LenientStr? = null,
     @SerialName("rating_mpaa") val ratingMpaa: String? = null,
-    /** Discover only: TMDB user score (TVmaze for shows TMDB lacks), "7.4"; sent when it rests on 5+ votes. */
-    @SerialName("rating_tmdb") val ratingTmdb: LenientStr? = null,
+    /** Discover only: the one rating to show ("7.8") and whose it is ("IMDb", "TMDB", "TVmaze"). */
+    @SerialName("rating_best") val ratingBest: LenientStr? = null,
+    @SerialName("rating_source") val ratingSource: String? = null,
+    /** Discover only: critics' scores from OMDb, "94%" and 0-100, shown on detail pages. */
+    @SerialName("rt_rating") val rtRating: String? = null,
+    val metascore: LenientStr? = null,
     val age: LenientStr? = null,
     val country: String? = null,
     @SerialName("genres_str") val genresStr: String? = null,
@@ -85,10 +89,25 @@ data class MediaItem(
     val displayTitle: String get() = title?.takeIf { it.isNotBlank() } ?: name ?: ""
     val overview: String? get() = (description ?: plot)?.takeUnless { it.isBlank() || it == "-" || it == "No description available" }
     val displayYear: String? get() = year?.takeUnless { it.isBlank() || it == "-" || it == "0" }
-    /** TMDB's score first (the same source for every title), else the portal's IMDb or own rating. */
-    val displayRating: String? get() = listOf(ratingTmdb, ratingImdb, rating).firstOrNull { r ->
-        r != null && r.isNotBlank() && r != "-" && (r.toDoubleOrNull()?.let { it > 0.0 } ?: true)
+    /**
+     * The one rating a title shows, with its source: the server's pick (IMDb, else TMDB, else
+     * TVmaze), else the portal's IMDb field, else its own rating. "★ 7.8 IMDb".
+     */
+    val displayRating: String? get() {
+        fun ok(r: String?) = r != null && r.isNotBlank() && r != "-" && (r.toDoubleOrNull()?.let { it > 0.0 } ?: true)
+        return when {
+            ok(ratingBest) -> "★ $ratingBest" + (ratingSource?.let { " $it" } ?: "")
+            ok(ratingImdb) -> "★ $ratingImdb IMDb"
+            ok(rating) -> "★ $rating"
+            else -> null
+        }
     }
+
+    /** Critics' scores for detail pages: "🍅 94%  ·  Metacritic 74", or null. */
+    val criticsRating: String? get() = listOfNotNull(
+        rtRating?.takeIf { it.isNotBlank() }?.let { "🍅 $it" },
+        metascore?.takeIf { (it.toIntOrNull() ?: 0) > 0 }?.let { "Metacritic $it" },
+    ).joinToString("  ·  ").ifEmpty { null }
     val displayGenres: String? get() = genresStr?.takeUnless { it.isBlank() || it == "-" }
 
     /** Raw id without the Discover `movie_`/`series_` prefix. */

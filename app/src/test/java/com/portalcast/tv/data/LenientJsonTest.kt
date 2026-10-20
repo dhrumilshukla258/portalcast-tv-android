@@ -48,7 +48,7 @@ class LenientJsonTest {
         assertEquals(false, item.isSeries)
         assertEquals(2, item.seriesNumber)
         assertEquals("2019", item.displayYear)
-        assertEquals("7.4", item.displayRating)
+        assertEquals("★ 7.4 IMDb", item.displayRating)
         assertNull("placeholder description must be hidden", item.overview)
         assertEquals("Action, Drama", item.labelCategory)
     }

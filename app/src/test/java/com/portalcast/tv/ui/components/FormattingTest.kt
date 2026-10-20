@@ -39,7 +39,10 @@ class FormattingTest {
     @Test
     fun metaLineSkipsMissingAndPlaceholderValues() {
         val item = MediaItem(year = "2019", ratingImdb = "7.4", genresStr = "Drama", runtime = 112)
-        assertEquals("2019  ·  ★ 7.4  ·  Drama  ·  1h 52m", Formatting.metaLine(item))
+        assertEquals("2019  ·  ★ 7.4 IMDb  ·  Drama  ·  1h 52m", Formatting.metaLine(item))
+        // The server's one rating wins over the portal's, and critics' scores follow it.
+        val best = item.copy(ratingBest = "8.1", ratingSource = "IMDb", rtRating = "94%", metascore = "74")
+        assertEquals("2019  ·  ★ 8.1 IMDb  ·  🍅 94%  ·  Metacritic 74  ·  Drama  ·  1h 52m", Formatting.metaLine(best))
         assertEquals("", Formatting.metaLine(MediaItem(year = "0", rating = "-", genresStr = "-", duration = "00:00:00")))
     }
 
