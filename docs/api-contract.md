@@ -187,6 +187,14 @@ treat 403 on these four routes as "cold".)
   only used to look up the container extension.)
 - 401 if the token is bad; mint a new link on any 401/403 from the stream.
 
+### 3.4c Local library (servers from 2026-10-20)
+
+Local NAS movies come through the same endpoints (server `docs/skill-local-library.md`):
+`movie-groups` lists `{ id: "local", title: "My Library" }` first; `movies?category=local` pages
+titles with ids `L<n>` (`is_local: 1`, `quality`); `movies?movieId=L<n>` returns the files, ids
+`LF<n>`, best first, with `variantLabel`, `audio_tracks`, `subtitle_tracks`; `movie-link?id=LF<n>`
+returns `/api/local/stream?t=` (progressive, range requests). Treat these ids as opaque strings.
+
 ### 3.4b Fields added 2026-10-19/20 (all optional; older servers omit them)
 
 - Discover cards (`/discover/browse`, `/recommendations`): `name` is the cleaned title (channel
