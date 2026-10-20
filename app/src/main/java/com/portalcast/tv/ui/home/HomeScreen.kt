@@ -1,5 +1,6 @@
 package com.portalcast.tv.ui.home
 
+import com.portalcast.tv.ui.components.AmbientBackdrop
 import android.app.Activity
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.core.animateDpAsState
@@ -173,6 +174,9 @@ fun HomeScreen(
     }
 
     Box(Modifier.fillMaxSize()) {
+        // Discover has its own focus-following hero; every other tab gets the rotating
+        // ambient backdrop (the webui's AmbientBackdrop).
+        if (current != HomeTab.DISCOVER) AmbientBackdrop()
         Box(
             Modifier
                 .fillMaxSize()

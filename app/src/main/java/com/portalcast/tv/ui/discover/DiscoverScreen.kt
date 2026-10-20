@@ -2,6 +2,7 @@
 
 package com.portalcast.tv.ui.discover
 
+import com.portalcast.tv.ui.components.FeedAmbient
 import androidx.compose.foundation.border
 import androidx.compose.ui.window.Dialog
 import com.portalcast.tv.ui.components.rememberedIn
@@ -289,6 +290,8 @@ private fun RowsContent(
 ) {
     val rows = state.visibleRows
     val cw = state.continueWatching
+    val ambientItems = remember(rows) { rows.flatMap { it.items.take(12) } }
+    FeedAmbient(serverUrl, ambientItems)
     if (rows.isEmpty() && cw.isEmpty()) {
         Box(modifier.fillMaxSize().padding(48.dp), contentAlignment = Alignment.Center) {
             when {

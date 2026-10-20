@@ -1,5 +1,7 @@
 package com.portalcast.tv.ui.movies
 
+import com.portalcast.tv.ui.components.rememberServerUrl
+import com.portalcast.tv.ui.components.FeedAmbient
 import com.portalcast.tv.ui.components.uniqueKeys
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.input.key.onPreviewKeyEvent
@@ -158,6 +160,7 @@ fun CatalogScreen(
 
             Box(Modifier.fillMaxSize()) {
                 val list = state.list
+                FeedAmbient(rememberServerUrl(), list.items)
                 val pageError = state.pageError
                 when {
                     list.isEmpty && pageError != null -> ErrorPanel(pageError, onRetry = vm::loadMore)
