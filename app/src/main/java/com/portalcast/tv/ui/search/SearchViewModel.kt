@@ -248,10 +248,13 @@ class SearchViewModel(
             for (g in existing) byKey[g.key] = g
             for (item in items) {
                 val raw = item.displayTitle
-                val key = TitleKey.normalize(raw)
+                // The server's key/name when it sends them (one rule for every client), else the
+                // local port of its rules (older servers, pages cached before the fields existed).
+                val key = item.titleKey?.takeIf { it.isNotBlank() } ?: TitleKey.normalize(raw)
                 val g = byKey[key]
                 if (g == null) {
-                    byKey[key] = TitleGroup(key, TitleKey.stripReleaseNoise(raw).ifBlank { raw }, listOf(item))
+                    val title = item.cleanName?.takeIf { it.isNotBlank() } ?: TitleKey.stripReleaseNoise(raw).ifBlank { raw }
+                    byKey[key] = TitleGroup(key, title, listOf(item))
                 } else if (g.variants.none { it.id == item.id }) {
                     byKey[key] = g.copy(variants = g.variants + item)
                 }

@@ -58,13 +58,18 @@ object TitleKey {
     private val QUALITY_RE = Regex("\\b(" + QUALITY_TAGS.sortedByDescending { it.length }.joinToString("|") + ")\\b", RegexOption.IGNORE_CASE)
 
     private val CHANNEL_PREFIX_RE = Regex(
-        "^(Colors(?:\\s+(?:Kannada|Tamil|Gujarati|Bangla|Marathi|Odia|Punjabi|Rishtey|Super|Infinity))?|Zee(?:\\s+(?:TV|Telugu|Tamil|Kannada|Marathi|Bangla|Punjabi|Malayalam|Cafe|Cinema|News|Anmol|Bollywood|Classic|Action|World))?|Star(?:\\s+(?:Plus|Vijay|Jalsha|Pravah|Suvarna|Maa|Bharat|Utsav|Gold|World|Movies|Sports))?|Sony(?:\\s+(?:TV|SAB|Liv|Max|Aath|Rox|Marathi))?|Sun(?:\\s+(?:TV|Bangla|Marathi|Neo|Life))?|Gemini(?:\\s+(?:TV|Music|Movies))?|Maa(?:\\s+(?:TV|Gold|Movies))?|ETV(?:\\s+(?:Telugu|Plus|Andhra))?|Life\\s+OK|Asianet|Vijay\\s*TV|SAB\\s*TV|Rishtey|Big\\s+Magic|Aaj\\s+Tak|Republic\\s*TV|NDTV|CNN|BBC|Discovery|National\\s+Geographic|Nat\\s+Geo|HUM\\s*TV|ARY\\s*Digital|Har\\s*Pal\\s*Geo|MUN\\s*TV|Dangal\\s*TV|And\\s*TV|MTV|Express\\s*Tv|Urdu\\s*Tv\\s*Show|Urdu\\s*1|Untold(?:\\s+UK)?)\\b\\s*[:\\-]?\\s*",
+        "^(Colors(?:\\s+(?:Kannada|Tamil|Gujarati|Bangla|Marathi|Odia|Punjabi|Rishtey|Super|Infinity))?|Zee(?:\\s+(?:TV|Telugu|Tamil|Kannada|Marathi|Bangla|Punjabi|Malayalam|Cafe|Cinema|News|Anmol|Bollywood|Classic|Action|World))?|Star(?:\\s+(?:Plus|Vijay|Jalsha|Pravah|Suvarna|Maa|Bharat|Utsav|Gold|World|Movies|Sports))?|Sony(?:\\s+(?:TV|SAB|Liv|Max|Aath|Rox|Marathi))?|Sun(?:\\s+(?:TV|Bangla|Marathi|Neo|Life))?|Gemini(?:\\s+(?:TV|Music|Movies))?|Maa(?:\\s+(?:TV|Gold|Movies))?|ETV(?:\\s+(?:Telugu|Plus|Andhra))?|Life\\s+OK|Asianet|Vijay\\s*TV|SAB\\s*TV|Rishtey|Big\\s+Magic|Aaj\\s+Tak|Republic\\s*TV|NDTV|CNN|BBC|Discovery|National\\s+Geographic|Nat\\s+Geo|HUM\\s*TV|ARY\\s*Digital|Har\\s*Pal\\s*Geo|MUN\\s*TV|Dangal\\s*TV|And\\s*TV|MTV|Express\\s*Tv|Urdu\\s*Tv\\s*Show|Urdu\\s*1|Untold(?:\\s+UK)?)\\b\\s*([:|\\-])?\\s*",
         RegexOption.IGNORE_CASE,
     )
 
     /** Display title without channel prefixes and language/quality tags (case preserved). */
     fun stripReleaseNoise(name: String): String = name
-        .replace(CHANNEL_PREFIX_RE, "")
+        // Same rule as the server: a one-word channel ("Star", "Colors") only before ":" or "|"
+        // ("Star Wars" kept), a multi-word channel name with or without a separator.
+        .replace(CHANNEL_PREFIX_RE) { m ->
+            val sep = m.groupValues[2]
+            if (sep == ":" || sep == "|" || m.groupValues[1].trim().contains(' ')) "" else m.value
+        }
         .replace(VARIANT_RE, "")
         .replace(Regex("[\\[(]\\s*[\\])]"), " ")
         .replace(Regex("\\s+"), " ")

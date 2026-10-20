@@ -70,6 +70,9 @@ data class MediaItem(
     /** Discover only: the TV channel the title airs on, taken out of its name, and its logo. */
     val network: String? = null,
     @SerialName("network_logo") val networkLogo: String? = null,
+    /** The server's grouping key and cleaned name (Search groups versions by these). */
+    @SerialName("title_key") val titleKey: String? = null,
+    @SerialName("clean_name") val cleanName: String? = null,
     @SerialName("trailer_key") val trailerKey: String? = null,
     /** Discover variants only. */
     val variantLabel: String? = null,

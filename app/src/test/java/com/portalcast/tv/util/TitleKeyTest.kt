@@ -38,4 +38,13 @@ class TitleKeyTest {
         assertEquals("Hindi", TitleKey.variantLabel("ABC South Dub"))
         assertEquals("ABC", TitleKey.variantLabel("ABC"))
     }
+
+    @Test
+    fun `one-word channel needs a separator`() {
+        assertEquals("Star Wars: Visions", TitleKey.stripReleaseNoise("Star Wars: Visions"))
+        assertEquals("Colors of Love", TitleKey.stripReleaseNoise("Colors of Love"))
+        assertEquals("Anupamaa", TitleKey.stripReleaseNoise("Star Plus : Anupamaa"))
+        assertEquals("Swamini", TitleKey.stripReleaseNoise("Colors Marathi Swamini"))
+        assertEquals("Dangal", TitleKey.stripReleaseNoise("Dangal - Telugu"))
+    }
 }
