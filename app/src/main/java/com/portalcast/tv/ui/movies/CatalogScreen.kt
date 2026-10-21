@@ -27,6 +27,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
@@ -103,13 +104,26 @@ fun CatalogScreen(
     var sideVisible by remember { mutableStateOf(true) }
     var revealSide by remember { mutableStateOf(false) }
     var focusedColumn by remember { mutableIntStateOf(0) }
+    // The list leaves composition while hidden, so its focus memory is gone when it comes
+    // back: scroll to the category you are in and focus that one, not the first ("All").
+    val sideListState = rememberLazyListState()
+    val selectedRequester = remember { FocusRequester() }
     LaunchedEffect(revealSide) {
         if (!revealSide) return@LaunchedEffect
         sideVisible = true
+        val selectedIndex = state.groups.indexOfFirst { it.id == state.selectedCategory }
         repeat(10) {
             withFrameNanos { }
-            if (runCatching { sideRequester.requestFocus() }.isSuccess) return@LaunchedEffect
+            if (selectedIndex >= 0) {
+                if (sideListState.layoutInfo.visibleItemsInfo.none { it.index == selectedIndex }) {
+                    runCatching { sideListState.scrollToItem((selectedIndex - 3).coerceAtLeast(0)) }
+                    withFrameNanos { }
+                }
+                if (runCatching { selectedRequester.requestFocus() }.isSuccess) return@LaunchedEffect
+            }
+            if (selectedIndex < 0 && runCatching { sideRequester.requestFocus() }.isSuccess) return@LaunchedEffect
         }
+        runCatching { sideRequester.requestFocus() }
     }
     LaunchedEffect(restoreFocus) {
         if (restoreFocus && vm.lastFocusedId != null) {
@@ -122,6 +136,7 @@ fun CatalogScreen(
     val groupsMemory = rememberFocusMemory()
     Row(modifier.fillMaxSize().padding(top = 32.dp)) {
         if (sideVisible) LazyColumn(
+            state = sideListState,
             modifier = Modifier
                 .width(240.dp)
                 .fillMaxHeight()
@@ -136,7 +151,9 @@ fun CatalogScreen(
                     text = group.displayTitle,
                     selected = group.id == state.selectedCategory,
                     onClick = { vm.selectCategory(group.id) },
-                    modifier = Modifier.rememberedIn(groupsMemory),
+                    modifier = Modifier
+                        .rememberedIn(groupsMemory)
+                        .then(if (group.id == state.selectedCategory) Modifier.focusRequester(selectedRequester) else Modifier),
                 )
             }
         }
