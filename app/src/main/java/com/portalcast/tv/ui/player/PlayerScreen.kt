@@ -32,6 +32,7 @@ import androidx.compose.ui.focus.focusRequester
 import kotlinx.coroutines.delay
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.graphics.Brush
@@ -66,6 +67,12 @@ import com.portalcast.tv.ui.theme.AppColors
  * VOD; Up/Down = previous/next channel in the live playlist (2 s debounce);
  * Info/Menu toggles the overlay; Back flushes progress and pops.
  *
+ * VOD, Jellyfin-style: Up or Down brings up the control row under the progress bar
+ * (play/pause, ±10 s, next episode, subtitles CC, audio) with focus on play/pause;
+ * CC and audio open a popup above the row. Up or Back from the row returns to the
+ * video, and the row hides by itself after [CONTROLS_IDLE_MS] without a key while playing.
+ * The remote's captions key opens the subtitles popup directly.
+ *
  * @param nowNext optional EPG lookup for the live banner (current + next programme).
  * @param refreshLiveChannel optional: on a stream 401/403 for a live channel, refetch the
  *   channel list and return the same channel with a fresh `cmd` (contract §5.1).
@@ -81,6 +88,12 @@ fun PlayerScreen(
     val rootFocus = remember { FocusRequester() }
     val retryFocus = remember { FocusRequester() }
     val nextFocus = remember { FocusRequester() }
+    val controls = remember { PlayerControlFocus() }
+    var controlsFocused by remember { mutableStateOf(false) }
+    var nextFocused by remember { mutableStateOf(false) }
+    var controlsTick by remember { mutableIntStateOf(0) }
+    // Focus to move once the target is composed (the row appears with the overlay).
+    var focusTarget by remember { mutableStateOf<FocusRequester?>(null) }
 
     SideEffect { vm.liveChannelRefresher = refreshLiveChannel }
 
@@ -91,8 +104,47 @@ fun PlayerScreen(
     LaunchedEffect(Unit) { vm.navigateBack.collect { onBack() } }
 
     val exit = { vm.flushForExit(); onBack() }
+    // Focus goes back to the video before the row hides: a hidden focused button leaves the remote dead.
+    val leaveControls = { hide: Boolean ->
+        runCatching { rootFocus.requestFocus() }
+        if (hide) vm.hideOverlay()
+    }
+    val enterControls = {
+        vm.showOverlay(autoHide = false)
+        focusTarget = controls.playPause
+    }
     BackHandler(onBack = exit)
+    BackHandler(enabled = controlsFocused && state.subtitlePanel == null) { leaveControls(true) }
     BackHandler(enabled = state.subtitlePanel != null) { vm.closeSubtitlePanel() }
+
+    LaunchedEffect(focusTarget) {
+        val target = focusTarget ?: return@LaunchedEffect
+        repeat(20) {
+            withFrameNanos { }
+            if (runCatching { target.requestFocus() }.isSuccess) { focusTarget = null; return@LaunchedEffect }
+        }
+        focusTarget = null
+    }
+    // While the row or a popup is in use the overlay stays up; idle for a while (playing) hides it.
+    val popupOpen = state.subtitlePanel != null
+    LaunchedEffect(controlsFocused, popupOpen, controlsTick) {
+        vm.controlsActive = controlsFocused || popupOpen
+        if (controlsFocused && !popupOpen) {
+            delay(CONTROLS_IDLE_MS)
+            if (vm.player.isPlaying) leaveControls(true)
+        }
+    }
+    // A popup closed: focus returns to the button that opened it.
+    var lastPopupAudio by remember { mutableStateOf<Boolean?>(null) }
+    LaunchedEffect(state.subtitlePanel?.audioOnly) {
+        val now = state.subtitlePanel?.audioOnly
+        val was = lastPopupAudio
+        lastPopupAudio = now
+        if (now == null && was != null) {
+            vm.showOverlay(autoHide = false)
+            focusTarget = if (was) controls.audio else controls.subtitles
+        }
+    }
 
     val hasError = state.error != null
     // Request focus after the first frame and retry until it sticks: a request made during the
@@ -124,7 +176,7 @@ fun PlayerScreen(
             // onKeyEvent must sit BEFORE focusable(): modifiers after the focus target are its
             // children and never see key events, which left every remote key dead in the player.
             .onKeyEvent { event ->
-                if (event.type != KeyEventType.KeyDown || hasError || state.subtitlePanel != null) return@onKeyEvent false
+                if (event.type != KeyEventType.KeyDown || hasError || state.subtitlePanel != null || controlsFocused || nextFocused) return@onKeyEvent false
                 val live = state.isLive
                 val held = event.nativeKeyEvent.repeatCount >= 3
                 val step = if (held) PlayerViewModel.SEEK_STEP_FAST_MS else PlayerViewModel.SEEK_STEP_MS
@@ -135,14 +187,15 @@ fun PlayerScreen(
                     Key.MediaStop -> { exit(); true }
                     Key.DirectionLeft, Key.MediaRewind -> { if (live) vm.showOverlay() else vm.seekBy(-step); true }
                     Key.DirectionRight, Key.MediaFastForward -> { if (live) vm.showOverlay() else vm.seekBy(step); true }
-                    // Up opens the subtitles panel for movies/episodes (and shows the info overlay).
-                    Key.DirectionUp -> { if (live) vm.channelStep(-LIVE_DOWN_KEY_DELTA) else { vm.showOverlay(); vm.openSubtitlePanel() }; true }
+                    // Up/Down bring up the control row for movies/episodes (focus on play/pause).
+                    Key.DirectionUp -> { if (live) vm.channelStep(-LIVE_DOWN_KEY_DELTA) else enterControls(); true }
                     Key.Captions -> { if (!live) vm.openSubtitlePanel(); true }
                     Key.DirectionDown -> {
                         when {
                             live -> vm.channelStep(LIVE_DOWN_KEY_DELTA)
-                            state.showNextEpisode -> runCatching { nextFocus.requestFocus() }
-                            else -> vm.showOverlay()
+                            // Near the end with the row hidden, Down picks the floating "Next episode".
+                            state.showNextEpisode && !state.overlayVisible -> runCatching { nextFocus.requestFocus() }
+                            else -> enterControls()
                         }
                         true
                     }
@@ -192,14 +245,27 @@ fun PlayerScreen(
                 }
             }
             session != null -> {
-                if (state.overlayVisible) VodOverlay(state)
-                if (state.showNextEpisode) {
+                if (state.overlayVisible) {
+                    VodOverlay(state) {
+                        PlayerControlRow(
+                            state = state,
+                            vm = vm,
+                            focus = controls,
+                            onFocusChanged = { controlsFocused = it },
+                            onActivity = { controlsTick++ },
+                            onLeave = { leaveControls(false); vm.showOverlay() },
+                        )
+                    }
+                }
+                // With the overlay up, "next episode" is a button in the control row.
+                if (state.showNextEpisode && !state.overlayVisible) {
                     NextEpisodeButton(
                         title = state.nextEpisodeTitle ?: "Next episode",
                         loading = state.nextEpisodeLoading,
                         focusRequester = nextFocus,
                         onClick = vm::playNextEpisode,
                         onLeave = { runCatching { rootFocus.requestFocus() } },
+                        onFocus = { nextFocused = it },
                     )
                 }
             }
@@ -214,6 +280,9 @@ fun PlayerScreen(
 
 /** DPAD_DOWN steps forward through the playlist (like a channel list); flip the sign to invert. */
 private const val LIVE_DOWN_KEY_DELTA = 1
+
+/** The control row hides after this long without a key while playing. */
+private const val CONTROLS_IDLE_MS = 6_000L
 
 // ---- overlays --------------------------------------------------------------------
 
@@ -251,7 +320,7 @@ private fun Pill(text: String, modifier: Modifier = Modifier, color: Color = App
 }
 
 @Composable
-private fun BoxScope.VodOverlay(state: PlayerUiState) {
+private fun BoxScope.VodOverlay(state: PlayerUiState, controlRow: @Composable () -> Unit) {
     val session = state.session ?: return
     val (title, subtitle) = when (session) {
         is PlaybackSession.Movie -> session.item.displayTitle to listOfNotNull(session.item.displayYear, session.item.displayGenres).joinToString(" · ")
@@ -272,7 +341,7 @@ private fun BoxScope.VodOverlay(state: PlayerUiState) {
             .align(Alignment.BottomCenter)
             .fillMaxWidth()
             .background(Brush.verticalGradient(listOf(Color.Transparent, Color.Black.copy(alpha = 0.9f))))
-            .padding(horizontal = 48.dp, vertical = 32.dp),
+            .padding(start = 48.dp, end = 48.dp, top = 32.dp, bottom = 12.dp),
     ) {
         Text(title, style = MaterialTheme.typography.headlineMedium, color = AppColors.Text, fontWeight = FontWeight.SemiBold)
         if (subtitle.isNotBlank()) Text(subtitle, style = MaterialTheme.typography.bodyLarge, color = AppColors.TextMuted)
@@ -286,27 +355,13 @@ private fun BoxScope.VodOverlay(state: PlayerUiState) {
         Spacer(Modifier.height(8.dp))
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
             Text(formatTime(state.positionMs), style = MaterialTheme.typography.bodyMedium, color = AppColors.Text)
-            // The remote's Up opens subtitles; say so, with what is on now.
-            Row(
-                Modifier
-                    .clip(RoundedCornerShape(6.dp))
-                    .background(Color.White.copy(alpha = 0.12f))
-                    .padding(horizontal = 12.dp, vertical = 4.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text("▲", style = MaterialTheme.typography.labelMedium, color = AppColors.Text)
-                Spacer(Modifier.width(8.dp))
-                Text(
-                    if (state.externalSubtitles) "Subtitles: On" else "Audio & subtitles",
-                    style = MaterialTheme.typography.labelLarge,
-                    color = AppColors.Text,
-                )
-            }
             Text(
                 if (state.durationMs > 0) "-${formatTime(state.durationMs - state.positionMs)}  ·  ${formatTime(state.durationMs)}" else "",
                 style = MaterialTheme.typography.bodyMedium, color = AppColors.TextMuted,
             )
         }
+        Spacer(Modifier.height(10.dp))
+        controlRow()
     }
 }
 
@@ -363,6 +418,7 @@ private fun BoxScope.NextEpisodeButton(
     focusRequester: FocusRequester,
     onClick: () -> Unit,
     onLeave: () -> Unit,
+    onFocus: (Boolean) -> Unit,
 ) {
     var focused by remember { mutableStateOf(false) }
     Button(
@@ -375,7 +431,7 @@ private fun BoxScope.NextEpisodeButton(
             .onKeyEvent { e ->
                 if (e.type == KeyEventType.KeyDown && e.key == Key.DirectionUp) { onLeave(); true } else false
             }
-            .onFocusChanged { focused = it.isFocused }
+            .onFocusChanged { focused = it.isFocused; onFocus(it.isFocused) }
             .focusRequester(focusRequester),
     ) {
         Text(

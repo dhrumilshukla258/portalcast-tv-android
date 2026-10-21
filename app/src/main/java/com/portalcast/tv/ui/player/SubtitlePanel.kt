@@ -6,19 +6,21 @@ import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
@@ -39,8 +41,10 @@ import java.util.Locale
 /** One selectable built-in text track. */
 data class TextTrackOption(val id: String, val label: String, val selected: Boolean)
 
-/** State of the subtitles side panel (null in [PlayerUiState] = closed). */
+/** State of the subtitles / audio popup (null in [PlayerUiState] = closed). */
 data class SubtitlePanelState(
+    /** Opened from the audio button: only the audio tracks are listed. */
+    val audioOnly: Boolean = false,
     val embedded: List<TextTrackOption> = emptyList(),
     /** Audio tracks of the file; shown only when there is more than one. */
     val audio: List<TextTrackOption> = emptyList(),
@@ -62,6 +66,11 @@ fun formatDelay(ms: Long): String = when {
     else -> "Earlier by " + String.format(Locale.US, "%.2f s", -ms / 1000.0)
 }
 
+/**
+ * The popup the CC button (subtitles) or the speaker button (audio) opens, Jellyfin-style:
+ * a card just above the control row at the bottom right. Choosing a track closes it; online
+ * results stay so the timing can be adjusted. Back closes it and focus returns to the button.
+ */
 @Composable
 fun BoxScope.SubtitlePanel(
     panel: SubtitlePanelState,
@@ -70,7 +79,7 @@ fun BoxScope.SubtitlePanel(
     vm: PlayerViewModel,
 ) {
     val first = remember { FocusRequester() }
-    LaunchedEffect(Unit) {
+    LaunchedEffect(panel.audioOnly) {
         repeat(20) {
             if (runCatching { first.requestFocus() }.isSuccess) return@LaunchedEffect
             delay(50)
@@ -79,32 +88,33 @@ fun BoxScope.SubtitlePanel(
     val langName = SubtitlePrefs.LANGUAGES.firstOrNull { it.first == panel.language }?.second ?: panel.language
     Column(
         Modifier
-            .align(Alignment.CenterEnd)
-            .fillMaxHeight()
-            .width(460.dp)
+            .align(Alignment.BottomEnd)
+            .padding(end = 40.dp, bottom = POPUP_BOTTOM)
+            .width(440.dp)
+            .heightIn(max = 380.dp)
+            .clip(RoundedCornerShape(14.dp))
             .background(Color(0xF00F172A))
-            .padding(horizontal = 28.dp, vertical = 32.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp),
+            .padding(horizontal = 20.dp, vertical = 18.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        Text(if (panel.audio.size > 1) "Audio and subtitles" else "Subtitles", style = MaterialTheme.typography.headlineSmall, color = AppColors.Text, fontWeight = FontWeight.SemiBold)
-        Text("Now: ${panel.activeLabel}", style = MaterialTheme.typography.bodyMedium, color = AppColors.TextMuted, maxLines = 1, overflow = TextOverflow.Ellipsis)
-        Spacer(Modifier.height(4.dp))
+        Text(if (panel.audioOnly) "Audio" else "Subtitles", style = MaterialTheme.typography.titleLarge, color = AppColors.Text, fontWeight = FontWeight.SemiBold)
+        if (!panel.audioOnly) Text("Now: ${panel.activeLabel}", style = MaterialTheme.typography.bodySmall, color = AppColors.TextMuted, maxLines = 1, overflow = TextOverflow.Ellipsis)
 
-        LazyColumn(Modifier.weight(1f, fill = true), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            // Audio language/format (local files often carry several); the first focus lands
-            // on the selected one.
-            if (panel.audio.size > 1) {
-                item { Text("Audio", style = MaterialTheme.typography.titleSmall, color = AppColors.TextMuted) }
-                items(panel.audio, key = { "aud:" + it.id }) { t ->
-                    val mod = if (t.selected) Modifier.fillMaxWidth().focusRequester(first) else Modifier.fillMaxWidth()
+        LazyColumn(Modifier.weight(1f, fill = false), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            if (panel.audioOnly) {
+                if (panel.audio.isEmpty()) item { Text("No audio tracks reported yet.", style = MaterialTheme.typography.bodyMedium, color = AppColors.TextMuted) }
+                // The first focus lands on the track playing now.
+                val focusIndex = panel.audio.indexOfFirst { it.selected }.coerceAtLeast(0)
+                itemsIndexed(panel.audio, key = { _, t -> "aud:" + t.id }) { i, t ->
+                    val mod = if (i == focusIndex) Modifier.fillMaxWidth().focusRequester(first) else Modifier.fillMaxWidth()
                     TvButton(text = (if (t.selected) "✓ " else "") + t.label, onClick = { vm.selectAudioTrack(t.id) },
                         style = TvButtonStyle.Secondary, modifier = mod)
                 }
-                item { Text("Subtitles", style = MaterialTheme.typography.titleSmall, color = AppColors.TextMuted) }
+                return@LazyColumn
             }
             item {
-                val mod = if (panel.audio.size > 1) Modifier.fillMaxWidth() else Modifier.fillMaxWidth().focusRequester(first)
-                TvButton(text = "Off", onClick = vm::subtitlesOff, style = TvButtonStyle.Secondary, modifier = mod)
+                TvButton(text = (if (panel.activeLabel == "Off") "✓ " else "") + "Off", onClick = vm::subtitlesOff,
+                    style = TvButtonStyle.Secondary, modifier = Modifier.fillMaxWidth().focusRequester(first))
             }
             items(panel.embedded, key = { "emb:" + it.id }) { t ->
                 TvButton(text = (if (t.selected) "✓ " else "") + t.label + " (built-in)", onClick = { vm.selectEmbeddedSubtitle(t.id) },
@@ -131,22 +141,28 @@ fun BoxScope.SubtitlePanel(
                 TvButton(text = label, onClick = { vm.pickOnlineSubtitle(r) }, style = TvButtonStyle.Secondary,
                     enabled = panel.loadingFile == null, modifier = Modifier.fillMaxWidth())
             }
-        }
-
-        Spacer(Modifier.height(6.dp))
-        Text("Timing: ${formatDelay(delayMs)}", style = MaterialTheme.typography.titleSmall, color = AppColors.Text)
-        if (externalActive) {
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                TvButton(text = "− 0.25 s", onClick = { vm.adjustSubtitleDelay(-250) }, style = TvButtonStyle.Secondary)
-                TvButton(text = "+ 0.25 s", onClick = { vm.adjustSubtitleDelay(250) }, style = TvButtonStyle.Secondary)
-                TvButton(text = "Reset", onClick = vm::resetSubtitleDelay, style = TvButtonStyle.Secondary)
+            item {
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Spacer(Modifier.height(2.dp))
+                    Text("Timing: ${formatDelay(delayMs)}", style = MaterialTheme.typography.titleSmall, color = AppColors.Text)
+                    if (externalActive) {
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            TvButton(text = "− 0.25 s", onClick = { vm.adjustSubtitleDelay(-250) }, style = TvButtonStyle.Secondary)
+                            TvButton(text = "+ 0.25 s", onClick = { vm.adjustSubtitleDelay(250) }, style = TvButtonStyle.Secondary)
+                            TvButton(text = "Reset", onClick = vm::resetSubtitleDelay, style = TvButtonStyle.Secondary)
+                        }
+                        Text("− shows them earlier, + later. Saved for this title.", style = MaterialTheme.typography.bodySmall, color = AppColors.TextMuted)
+                    } else {
+                        Text("Timing works with online subtitles.", style = MaterialTheme.typography.bodySmall, color = AppColors.TextMuted)
+                    }
+                }
             }
-            Text("− shows them earlier, + later. Saved for this title.", style = MaterialTheme.typography.bodySmall, color = AppColors.TextMuted)
-        } else {
-            Text("Timing works with online subtitles.", style = MaterialTheme.typography.bodySmall, color = AppColors.TextMuted)
         }
     }
 }
+
+/** The popup sits just above the player's control row. */
+private val POPUP_BOTTOM = 108.dp
 
 /** Downloaded subtitles, drawn by the app (so their timing can be shifted both ways). */
 @Composable

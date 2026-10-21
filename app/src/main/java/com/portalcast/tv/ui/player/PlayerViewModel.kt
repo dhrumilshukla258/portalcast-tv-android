@@ -179,10 +179,33 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch { loadOnlineSubtitle(subId, label = null, remember = false) }
     }
 
-    fun openSubtitlePanel() {
+    /** Opens the subtitles popup (CC button), or the audio one when [audioOnly] (speaker button). */
+    fun openSubtitlePanel(audioOnly: Boolean = false) {
         if (session == null || session is PlaybackSession.Live) return
         hideOverlayJob?.cancel()
-        _state.update { it.copy(subtitlePanel = (it.subtitlePanel ?: SubtitlePanelState(language = subtitlePrefs.language)).copy(embedded = embeddedTracks(), audio = audioTracks(), activeLabel = activeLabel())) }
+        _state.update {
+            it.copy(
+                overlayVisible = true,
+                subtitlePanel = (it.subtitlePanel ?: SubtitlePanelState(language = subtitlePrefs.language))
+                    .copy(audioOnly = audioOnly, embedded = embeddedTracks(), audio = audioTracks(), activeLabel = activeLabel()),
+            )
+        }
+    }
+
+    /**
+     * The control row under the progress bar has focus: the overlay stays up (a hide would take
+     * the focused button away and leave the remote dead) until the screen hands focus back.
+     */
+    var controlsActive = false
+        set(value) {
+            field = value
+            if (value) hideOverlayJob?.cancel() else scheduleOverlayHide()
+        }
+
+    /** Hides the overlay now (the controls timed out; the screen moved focus back first). */
+    fun hideOverlay() {
+        hideOverlayJob?.cancel()
+        if (player.isPlaying) _state.update { it.copy(overlayVisible = false) }
     }
 
     /** "English · 5.1 · DTS" for each audio track. */
@@ -225,7 +248,7 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
             .setTrackTypeDisabled(C.TRACK_TYPE_AUDIO, false)
             .setOverrideForType(androidx.media3.common.TrackSelectionOverride(group.mediaTrackGroup, listOf(ti)))
             .build()
-        viewModelScope.launch { delay(300); refreshPanel() }
+        closeSubtitlePanel()
     }
 
     fun closeSubtitlePanel() {
@@ -253,15 +276,11 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
         else -> embeddedTracks().firstOrNull { it.selected }?.let { "${it.label} (built-in)" } ?: "Off"
     }
 
-    private fun refreshPanel() = _state.update { st ->
-        st.subtitlePanel?.let { st.copy(subtitlePanel = it.copy(embedded = embeddedTracks(), audio = audioTracks(), activeLabel = activeLabel())) } ?: st
-    }
-
     fun subtitlesOff() {
         clearOnline()
         player.trackSelectionParameters = player.trackSelectionParameters.buildUpon()
             .setTrackTypeDisabled(C.TRACK_TYPE_TEXT, true).build()
-        refreshPanel()
+        closeSubtitlePanel()
     }
 
     fun selectEmbeddedSubtitle(id: String) {
@@ -272,7 +291,7 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
             .setTrackTypeDisabled(C.TRACK_TYPE_TEXT, false)
             .setOverrideForType(androidx.media3.common.TrackSelectionOverride(group.mediaTrackGroup, listOf(ti)))
             .build()
-        viewModelScope.launch { delay(300); refreshPanel() }
+        closeSubtitlePanel()
     }
 
     private fun clearOnline() {
@@ -510,7 +529,7 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
         hideOverlayJob?.cancel()
         hideOverlayJob = viewModelScope.launch {
             delay(OVERLAY_HIDE_MS)
-            if (player.isPlaying && _state.value.pendingChannel == null) _state.update { it.copy(overlayVisible = false) }
+            if (player.isPlaying && _state.value.pendingChannel == null && !controlsActive) _state.update { it.copy(overlayVisible = false) }
         }
     }
 
