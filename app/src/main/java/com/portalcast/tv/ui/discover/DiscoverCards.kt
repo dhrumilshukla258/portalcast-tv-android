@@ -181,7 +181,8 @@ internal fun PosterCard(
         }
         Text(
             title,
-            modifier = Modifier.padding(top = 8.dp),
+            // Below the focused (1.08x) poster's bottom edge, so it never covers the title.
+            modifier = Modifier.padding(top = 8.dp + PosterWidth * 1.5f * 0.04f),
             color = if (focused) AppColors.Text else AppColors.TextMuted,
             style = MaterialTheme.typography.bodyMedium,
             maxLines = 1,

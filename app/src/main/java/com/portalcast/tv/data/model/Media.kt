@@ -64,6 +64,8 @@ data class MediaItem(
     @SerialName("rating_mpaa") val ratingMpaa: String? = null,
     /** "1" for a title from the server's local library (NAS); `quality` is its best file ("4K · HDR10"). */
     @SerialName("is_local") val isLocal: LenientStr? = null,
+    /** Search results: the version picker's label (server content/versionLabel.ts). */
+    @SerialName("version_label") val versionLabel: String? = null,
     val quality: String? = null,
     /** Detail fields (servers from 2026-10-21): tagline, studios, collection, writers, title logo. */
     val tagline: String? = null,

@@ -9,6 +9,7 @@ import androidx.compose.foundation.lazy.grid.itemsIndexed
 import com.portalcast.tv.ui.components.keepColumn
 import com.portalcast.tv.ui.components.gridItem
 import com.portalcast.tv.ui.components.rememberGridFocus
+import com.portalcast.tv.ui.components.revealWithTitle
 import com.portalcast.tv.ui.components.FeedAmbient
 import androidx.compose.foundation.border
 import androidx.compose.ui.window.Dialog
@@ -569,12 +570,14 @@ private fun FilterGridContent(
                 val memory = rememberFocusMemory()
                 val gridFocus = rememberGridFocus(gridState)
                 LazyVerticalGrid(
-                    columns = GridCells.Adaptive(PosterWidth + 16.dp),
+                    // Exactly poster-wide columns: Adaptive made cells wider than the fixed-width
+                    // card, which then sat at the left of its cell with uneven gaps.
+                    columns = GridCells.FixedSize(PosterWidth),
                     state = gridState,
                     modifier = Modifier.fillMaxSize().keepColumn(gridFocus, grid.items.size).focusMemory(memory),
                     contentPadding = PaddingValues(horizontal = 48.dp, vertical = 12.dp),
                     horizontalArrangement = Arrangement.spacedBy(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(20.dp),
                 ) {
                     itemsIndexed(grid.items, key = { _, it -> it.id }) { i, item ->
                         PosterCard(
@@ -587,7 +590,7 @@ private fun FilterGridContent(
                             channel = item.network,
                             channelLogo = item.networkLogo,
                             badge = item.localBadge,
-                            modifier = Modifier.rememberedIn(memory).gridItem(gridFocus, i),
+                            modifier = Modifier.rememberedIn(memory).gridItem(gridFocus, i).revealWithTitle(),
                         )
                     }
                 }

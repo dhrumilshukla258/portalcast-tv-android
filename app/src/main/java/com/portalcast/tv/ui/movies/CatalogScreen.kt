@@ -3,6 +3,7 @@ package com.portalcast.tv.ui.movies
 import com.portalcast.tv.ui.components.keepColumn
 import com.portalcast.tv.ui.components.gridItem
 import com.portalcast.tv.ui.components.rememberGridFocus
+import com.portalcast.tv.ui.components.revealWithTitle
 import com.portalcast.tv.ui.components.rememberServerUrl
 import com.portalcast.tv.ui.components.FeedAmbient
 import com.portalcast.tv.ui.components.uniqueKeys
@@ -228,7 +229,8 @@ fun CatalogScreen(
                                         .onFocusChanged { if (it.hasFocus) { vm.lastFocusedId = item.id; focusedColumn = i % GRID_COLUMNS } }
                                         .then(if (item.id == vm.lastFocusedId) Modifier.focusRequester(restoreRequester) else Modifier)
                                         .rememberedIn(memory)
-                                        .gridItem(gridFocus, i),
+                                        .gridItem(gridFocus, i)
+                                        .revealWithTitle(),
                                 )
                             }
                             if (pageError != null) {

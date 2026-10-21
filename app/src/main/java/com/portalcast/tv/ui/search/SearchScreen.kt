@@ -352,7 +352,7 @@ private fun VersionPicker(group: SearchViewModel.TitleGroup, onChoose: (MediaIte
                         ),
                     ) {
                         Column(Modifier.padding(horizontal = 18.dp, vertical = 12.dp)) {
-                            Text(TitleKey.variantLabel(v.displayTitle), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                            Text(v.versionLabel?.takeIf { it.isNotBlank() } ?: TitleKey.variantLabel(v.displayTitle), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
                             Text(v.displayTitle, style = MaterialTheme.typography.bodySmall, color = AppColors.TextMuted, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         }
                     }

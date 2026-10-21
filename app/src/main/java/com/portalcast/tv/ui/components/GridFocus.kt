@@ -1,6 +1,14 @@
+@file:OptIn(ExperimentalFoundationApi::class)
+
 package com.portalcast.tv.ui.components
 
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.gestures.scrollBy
+import androidx.compose.foundation.relocation.BringIntoViewResponder
+import androidx.compose.foundation.relocation.bringIntoViewResponder
+import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.lazy.grid.LazyGridState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Stable
@@ -81,4 +89,24 @@ fun Modifier.keepColumn(grid: GridFocus, itemCount: Int): Modifier {
         }
         true
     }
+}
+
+/**
+ * Bring-into-view for a grid card: the focused node is the poster only, so by default the
+ * grid scrolled just far enough to show the unscaled poster, leaving its focus scale and
+ * the title under it cut off at the screen edge. The rect is widened above and below.
+ */
+private class RevealCardWithTitle(private val topPx: Float, private val bottomPx: Float) : BringIntoViewResponder {
+    override fun calculateRectForParent(localRect: Rect): Rect =
+        Rect(localRect.left, localRect.top - topPx, localRect.right, localRect.bottom + bottomPx)
+
+    override suspend fun bringChildIntoView(localRect: () -> Rect?) = Unit
+}
+
+/** On each card of a poster grid (with [gridItem]): scrolls the whole card and its title into view. */
+@Composable
+fun Modifier.revealWithTitle(): Modifier {
+    val density = LocalDensity.current
+    val responder = remember(density) { with(density) { RevealCardWithTitle(24.dp.toPx(), 72.dp.toPx()) } }
+    return bringIntoViewResponder(responder)
 }

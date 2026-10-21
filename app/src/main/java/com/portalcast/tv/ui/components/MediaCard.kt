@@ -16,6 +16,10 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -34,6 +38,8 @@ import androidx.tv.material3.Text
 import coil.compose.AsyncImage
 import com.portalcast.tv.data.model.MediaItem
 import com.portalcast.tv.ui.theme.AppColors
+
+private const val FOCUSED_SCALE = 1.1f
 
 /** Poster aspect ratio (2:3). */
 const val PosterAspect = 2f / 3f
@@ -70,13 +76,17 @@ fun MediaCard(
     val shape = RoundedCornerShape(10.dp)
     val interaction = remember { MutableInteractionSource() }
     val focused by interaction.collectIsFocusedAsState()
+    // The focused poster grows 5 % past its bottom edge: the title sits below that, so the
+    // enlarged poster never covers it (measured, since grid cells have no fixed width).
+    var cardHeightPx by remember { mutableIntStateOf(0) }
+    val titleGap = 8.dp + with(LocalDensity.current) { (cardHeightPx * (FOCUSED_SCALE - 1f) / 2f).toDp() }
     Column(modifier.then(if (width == Dp.Unspecified) Modifier.fillMaxWidth() else Modifier.width(width)).dimWhenIptvOffline(isLocal = badge != null)) {
         Card(
             onClick = onClick,
             onLongClick = onLongClick,
-            modifier = Modifier.fillMaxWidth().aspectRatio(aspectRatio),
+            modifier = Modifier.fillMaxWidth().aspectRatio(aspectRatio).onSizeChanged { cardHeightPx = it.height },
             shape = CardDefaults.shape(shape = shape),
-            scale = CardDefaults.scale(focusedScale = 1.1f, pressedScale = 1.05f),
+            scale = CardDefaults.scale(focusedScale = FOCUSED_SCALE, pressedScale = 1.05f),
             border = CardDefaults.border(
                 focusedBorder = Border(BorderStroke(3.dp, AppColors.Focus), shape = shape),
                 pressedBorder = Border(BorderStroke(3.dp, AppColors.Focus), shape = shape),
@@ -104,7 +114,7 @@ fun MediaCard(
         }
         Text(
             text = title.ifBlank { " " },
-            modifier = Modifier.padding(top = 8.dp),
+            modifier = Modifier.padding(top = titleGap),
             style = MaterialTheme.typography.bodyMedium,
             fontWeight = if (focused) FontWeight.SemiBold else FontWeight.Normal,
             color = if (focused) AppColors.Text else AppColors.TextMuted,

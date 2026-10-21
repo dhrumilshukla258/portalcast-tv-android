@@ -44,4 +44,10 @@ class VariantLabelsTest {
         assertEquals(VariantLabelParts("Version", emptyList()), VariantLabels.parse(null))
         assertEquals(VariantLabelParts("Version", emptyList()), VariantLabels.parse("  "))
     }
+
+    @Test
+    fun localLibraryLabels() {
+        assertEquals(VariantLabelParts("Local · Malayalam, English", listOf(q("4K"), q("HDR10"))), VariantLabels.parse("Local · Malayalam, English 4K HDR10"))
+        assertEquals(VariantLabelParts("Local", listOf(q("1080p"))), VariantLabels.parse("Local 1080p"))
+    }
 }
