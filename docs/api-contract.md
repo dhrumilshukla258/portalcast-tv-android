@@ -25,6 +25,14 @@ Read this before touching anything under `data/`. The Kotlin models in
   on both OkHttp and the ExoPlayer data source. Those tokens make the server
   ignore `proxy=1` on live streams (S `routes/streaming/live.ts:316-318`).
   Use `PortalcastTV/<version> (Android <sdk>)`.
+- Response headers from servers since 2026-10-21 (S `infra/httpCaching.ts`):
+  every `/api` answer carries `X-IPTV: online|offline` (read in a network
+  interceptor in `AppContainer`, `IptvStatus.report`; `/api/v2/health/iptv` is
+  asked only after 5 quiet minutes). Stable reads (facets, details, Discover
+  rows, catalog pages, groups) carry `ETag`, `Cache-Control: private,
+  max-age=N, must-revalidate` and `Vary: Authorization`; the API OkHttp client
+  has a 50 MB disk cache (`cacheDir/http-api`) that honours them, so an
+  unchanged answer is a bodyless 304 and answers survive app restarts.
 - Keep every model lenient: unknown keys ignored, every field nullable, and
   ids parsed from either string or number (`stream_id` is a number,
   `id` is a string, portal items mix both).
@@ -321,6 +329,8 @@ stream 401/403 means "re-resolve", never "re-login".
 - Response `{ success, preferences }`; server then emits `preferences_changed`.
 
 ### 6.2 Progress (Continue Watching)
+
+Saved at most every 30 s while playing (`DefaultProgressReporter`), and not when the position moved less than 5 s since the last save (a paused player sends nothing).
 
 - `GET /api/user/progress` → `[{ mediaId, progress (seconds), completed, meta, updatedAt }]`
   scoped to the server's active profile.
