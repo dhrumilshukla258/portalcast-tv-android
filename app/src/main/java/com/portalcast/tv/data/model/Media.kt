@@ -65,6 +65,12 @@ data class MediaItem(
     /** "1" for a title from the server's local library (NAS); `quality` is its best file ("4K · HDR10"). */
     @SerialName("is_local") val isLocal: LenientStr? = null,
     val quality: String? = null,
+    /** Detail fields (servers from 2026-10-21): tagline, studios, collection, writers, title logo. */
+    val tagline: String? = null,
+    val studios: String? = null,
+    val collection: String? = null,
+    val writers: String? = null,
+    @SerialName("logo_path") val logoPath: String? = null,
     /** Discover only: the one rating to show ("7.8") and whose it is ("IMDb", "TMDB", "TVmaze"). */
     @SerialName("rating_best") val ratingBest: LenientStr? = null,
     @SerialName("rating_source") val ratingSource: String? = null,

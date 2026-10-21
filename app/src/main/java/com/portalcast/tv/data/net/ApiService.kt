@@ -235,4 +235,12 @@ interface ApiService {
 
     @GET("api/v2/discover/variants")
     suspend fun discoverVariants(@Query("id") prefixedId: String): VariantsResponse
+
+    /** Detail-page data (tagline, age rating, cast with photos...): by content id, or type + raw id. */
+    @GET("api/v2/discover/details")
+    suspend fun titleDetails(
+        @Query("id") id: String?,
+        @Query("type") type: String?,
+        @Query("raw") raw: String?,
+    ): com.portalcast.tv.data.model.TitleDetails
 }

@@ -151,13 +151,8 @@ fun SeriesDetailScreen(id: String, category: String, onPlay: () -> Unit, modifie
                         Spacer(Modifier.width(22.dp))
                     }
                     Column(Modifier.weight(1f)) {
-                        Text(
-                            series.displayTitle.ifBlank { "Series" },
-                            style = MaterialTheme.typography.headlineLarge,
-                            color = AppColors.Text,
-                            maxLines = 3,
-                            overflow = TextOverflow.Ellipsis,
-                        )
+                        val titleDetails = com.portalcast.tv.ui.components.rememberTitleDetails(series, "series")
+                        com.portalcast.tv.ui.components.TitleHeading(series.displayTitle.ifBlank { "Series" }, titleDetails?.logo ?: series.logoPath, maxLines = 3, large = false)
                         val meta = listOfNotNull(
                             Formatting.metaLine(series).takeIf { it.isNotBlank() },
                             state.seasons.size.takeIf { it > 0 }?.let { if (it == 1) "1 season" else "$it seasons" },
@@ -166,6 +161,7 @@ fun SeriesDetailScreen(id: String, category: String, onPlay: () -> Unit, modifie
                         if (meta.isNotBlank()) {
                             Text(meta, style = MaterialTheme.typography.titleSmall, color = AppColors.TextMuted, modifier = Modifier.padding(top = 6.dp))
                         }
+                        com.portalcast.tv.ui.components.DetailFacts(series, titleDetails, series = true)
                         series.overview?.let {
                             Text(
                                 it,
@@ -178,7 +174,9 @@ fun SeriesDetailScreen(id: String, category: String, onPlay: () -> Unit, modifie
                         }
                         val details = listOfNotNull(
                             series.director?.takeIf { it.isNotBlank() && it != "-" }?.let { "Created by: $it" },
-                            series.cast?.takeIf { it.isNotBlank() && it != "-" }?.let { "Cast: $it" },
+                            // Characters too when the server has them: "Andy Samberg (Jake Peralta)".
+                            (titleDetails?.cast?.takeIf { it.isNotEmpty() }?.take(5)?.joinToString(", ") { c -> c.role?.takeIf { r -> r.isNotBlank() }?.let { r -> "${c.name} ($r)" } ?: c.name }
+                                ?: series.cast)?.takeIf { it.isNotBlank() && it != "-" }?.let { "Cast: $it" },
                             series.country?.takeIf { it.isNotBlank() && it != "-" }?.let { "Country: $it" },
                         )
                         if (details.isNotEmpty()) {

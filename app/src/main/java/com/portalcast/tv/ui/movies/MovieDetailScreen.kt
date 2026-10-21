@@ -138,18 +138,14 @@ fun MovieDetailScreen(id: String, category: String, onPlay: () -> Unit, modifier
 
 @Composable
 private fun MovieInfo(item: MediaItem) {
-    Text(
-        item.displayTitle.ifBlank { "Untitled" },
-        style = MaterialTheme.typography.displaySmall,
-        color = AppColors.Text,
-        maxLines = 2,
-        overflow = TextOverflow.Ellipsis,
-    )
+    val details = com.portalcast.tv.ui.components.rememberTitleDetails(item, "movie")
+    com.portalcast.tv.ui.components.TitleHeading(item.displayTitle, details?.logo ?: item.logoPath)
     val meta = Formatting.metaLine(item)
     if (meta.isNotBlank()) {
         Spacer(Modifier.height(10.dp))
         Text(meta, style = MaterialTheme.typography.titleSmall, color = AppColors.TextMuted)
     }
+    com.portalcast.tv.ui.components.DetailFacts(item, details, series = false)
     item.overview?.let {
         Spacer(Modifier.height(18.dp))
         Text(
@@ -162,8 +158,10 @@ private fun MovieInfo(item: MediaItem) {
         )
     }
     Credit("Director", item.director)
-    Credit("Cast", item.actors ?: item.cast)
+    // With photos when the server has them; the plain list otherwise.
+    if (details?.cast.isNullOrEmpty()) Credit("Cast", item.actors ?: item.cast)
     Credit("Country", item.country)
+    com.portalcast.tv.ui.components.CastRow(details?.cast.orEmpty())
 }
 
 @Composable
