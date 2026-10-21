@@ -28,7 +28,7 @@
 - **Search** across all movies, series and live channels; versions of a title are one result.
 - **Series** laid out like Netflix: show and seasons on the left, episodes with stills and descriptions on the right, opening on the episode you are watching.
 - **Live TV** with now/next from the EPG, favourites and recent channels.
-- **Player** — resume, next-episode prompt, subtitles (Up on the remote) with per-title timing, real resolution and frame rate in the overlay.
+- **Player** — resume, next-episode prompt, Jellyfin-style control row (Up/Down) with subtitles (CC) and audio popups and per-title subtitle timing, real resolution and frame rate in the overlay.
 - **Built for the remote** — every screen works with the d-pad only, focus is remembered per row, and grids keep your column however fast you scroll.
 - Sign in with a pairing code from your phone; progress and favourites sync with the web app.
 

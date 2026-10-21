@@ -38,7 +38,8 @@ hardware-keyboard event and behaves differently in text fields (it typed a stray
 - [ ] Series: opens on the episode being watched ("Continue watching" row focused); dates out of episode names.
 - [ ] Continue Watching: hold Center → popup with Cancel focused; releasing the key does not remove.
 - [ ] Movies grid: hold Down, focus stays in its column.
-- [ ] Player: "▲ Subtitles" hint; resolution/fps in the overlay.
+- [ ] Player: Up/Down brings up the control row (play/pause, ±10 s, next episode, CC, audio) with focus on play/pause; CC and audio open a popup above the row; Back/Up returns to the video; the row hides after 6 s idle while playing; resolution/fps in the overlay.
+- [ ] Cast & crew: movie page row / series "Cast & crew" button → person page → a title opens (version picker when needed).
 - [ ] Frames: `adb shell dumpsys gfxinfo com.portalcast.tv reset`, browse Discover 20 s, check janky % and p99.
 
 ## TV-only (focus)
