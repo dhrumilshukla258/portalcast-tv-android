@@ -69,6 +69,24 @@ class DefaultProgressReporterTest {
     }
 
     @Test
+    fun `a paused player is not saved again`() = runTest {
+        val repo = FakeUserRepository()
+        var now = 1_000_000L
+        val reporter = DefaultProgressReporter(repo, { true }, this) { now }
+        reporter.onProgress(movie, 5_000, hour); runCurrent()
+        now += 30_000; reporter.onProgress(movie, 35_000, hour); runCurrent()
+        assertEquals(1, repo.saved.size)
+        // Paused at 35 s: ticks keep coming, the position does not move.
+        now += 30_000; reporter.onProgress(movie, 35_000, hour); runCurrent()
+        now += 30_000; reporter.onProgress(movie, 36_000, hour); runCurrent()
+        assertEquals("no save while paused", 1, repo.saved.size)
+        // Playing again: the next 30 s tick saves.
+        now += 30_000; reporter.onProgress(movie, 66_000, hour); runCurrent()
+        assertEquals(2, repo.saved.size)
+        assertEquals(66.0, repo.saved[1].progress, 0.001)
+    }
+
+    @Test
     fun `skip rules - position under 2 s, no duration, 90 percent or more`() = runTest {
         val repo = FakeUserRepository()
         var now = 0L

@@ -41,6 +41,8 @@ class DefaultProgressReporter(
     private val lock = Any()
     private var activeKey: String? = null
     private var lastSaveAt: Long = 0L
+    /** Position of the last save: a paused player (same position) is not saved again. */
+    private var lastSavedPositionMs: Long = -1L
     @Volatile private var saving = false
 
     override fun onProgress(session: PlaybackSession, positionMs: Long, durationMs: Long) {
@@ -52,11 +54,18 @@ class DefaultProgressReporter(
                 // New title: the 30 s clock starts now (the webui's interval fires 30 s after mount).
                 activeKey = key
                 lastSaveAt = now
+                lastSavedPositionMs = -1L
                 return
             }
             if (now - lastSaveAt < SAVE_INTERVAL_MS) return
             if (!isSavable(positionMs, durationMs) || saving) return
+            // Paused (or barely moved): nothing new to tell the server.
+            if (lastSavedPositionMs >= 0 && kotlin.math.abs(positionMs - lastSavedPositionMs) < MIN_MOVE_MS) {
+                lastSaveAt = now
+                return
+            }
             lastSaveAt = now
+            lastSavedPositionMs = positionMs
         }
         saving = true
         scope.launch {
@@ -188,6 +197,7 @@ class DefaultProgressReporter(
 
     companion object {
         const val SAVE_INTERVAL_MS = 30_000L
+        const val MIN_MOVE_MS = 5_000L
         const val COMPLETION_FRACTION = 0.9
         const val RESUME_MIN_SEC = 2.0
 
