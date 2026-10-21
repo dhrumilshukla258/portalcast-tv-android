@@ -1,5 +1,6 @@
 package com.portalcast.tv.ui.series
 
+import com.portalcast.tv.ui.components.peopleEntries
 import com.portalcast.tv.ui.components.uniqueKeys
 import com.portalcast.tv.ui.components.rememberedIn
 import com.portalcast.tv.ui.components.rememberFocusMemory
@@ -85,7 +86,7 @@ import com.portalcast.tv.ui.theme.AppColors
  */
 @OptIn(ExperimentalComposeUiApi::class)
 @Composable
-fun SeriesDetailScreen(id: String, category: String, onPlay: () -> Unit, modifier: Modifier = Modifier) {
+fun SeriesDetailScreen(id: String, category: String, onPlay: () -> Unit, onOpenPerson: (Int) -> Unit = {}, modifier: Modifier = Modifier) {
     val container = LocalContext.current.appContainer
     val vm: SeriesDetailViewModel = viewModel(
         key = "series-$id-$category",
@@ -129,6 +130,8 @@ fun SeriesDetailScreen(id: String, category: String, onPlay: () -> Unit, modifie
     }
     fun Modifier.initialFocusIf(key: String): Modifier = if (key == focusTarget) this.focusRequester(initialFocus) else this
 
+    // One details request for the page (heading, facts and the cast panel all use it).
+    val titleDetails = com.portalcast.tv.ui.components.rememberTitleDetails(series, "series")
     Box(modifier.fillMaxSize()) {
         val hasBackdrop = series.backdropHdPath != null || series.backdropPath != null
         Backdrop(rememberImageUrl(series.backdropArt), blurred = !hasBackdrop, seed = series.displayTitle)
@@ -151,7 +154,6 @@ fun SeriesDetailScreen(id: String, category: String, onPlay: () -> Unit, modifie
                         Spacer(Modifier.width(22.dp))
                     }
                     Column(Modifier.weight(1f)) {
-                        val titleDetails = com.portalcast.tv.ui.components.rememberTitleDetails(series, "series")
                         com.portalcast.tv.ui.components.TitleHeading(series.displayTitle.ifBlank { "Series" }, titleDetails?.logo ?: series.logoPath, maxLines = 3, large = false)
                         val meta = listOfNotNull(
                             Formatting.metaLine(series).takeIf { it.isNotBlank() },
@@ -207,6 +209,22 @@ fun SeriesDetailScreen(id: String, category: String, onPlay: () -> Unit, modifie
                     )
                 }
                 state.playError?.let { ErrorText(it, textAlign = TextAlign.Start, modifier = Modifier.padding(top = 8.dp)) }
+
+                // Cast and crew: the column has no room for a row, so a button opens them all.
+                val peopleDetails = titleDetails
+                var showPeople by remember { mutableStateOf(false) }
+                if (peopleDetails != null && peopleDetails.peopleEntries().any { it.person.id != null }) {
+                    Spacer(Modifier.height(10.dp))
+                    TvButton(text = "Cast & crew", onClick = { showPeople = true })
+                }
+                if (showPeople && peopleDetails != null) {
+                    com.portalcast.tv.ui.components.CastAndCrewDialog(
+                        series.displayTitle,
+                        peopleDetails,
+                        onOpenPerson = { p -> showPeople = false; p.id?.let(onOpenPerson) },
+                        onDismiss = { showPeople = false },
+                    )
+                }
 
                 if (state.seasons.isNotEmpty()) {
                     Spacer(Modifier.height(22.dp))

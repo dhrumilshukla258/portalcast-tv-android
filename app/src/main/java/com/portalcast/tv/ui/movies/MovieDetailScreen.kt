@@ -55,7 +55,7 @@ import com.portalcast.tv.ui.theme.AppColors
  * @param onPlay called after `PlaybackHolder.start`; navigate to the player.
  */
 @Composable
-fun MovieDetailScreen(id: String, category: String, onPlay: () -> Unit, modifier: Modifier = Modifier) {
+fun MovieDetailScreen(id: String, category: String, onPlay: () -> Unit, onOpenPerson: (Int) -> Unit = {}, modifier: Modifier = Modifier) {
     val container = LocalContext.current.appContainer
     val vm: MovieDetailViewModel = viewModel(
         key = "movie-$id-$category",
@@ -75,6 +75,8 @@ fun MovieDetailScreen(id: String, category: String, onPlay: () -> Unit, modifier
         return
     }
 
+    // One details request for the page (info and people both use it).
+    val details = com.portalcast.tv.ui.components.rememberTitleDetails(item, "movie")
     val primaryFocus = remember { FocusRequester() }
     LaunchedEffect(state.progressLoaded) {
         if (state.progressLoaded) {
@@ -93,7 +95,7 @@ fun MovieDetailScreen(id: String, category: String, onPlay: () -> Unit, modifier
             )
             Spacer(Modifier.width(40.dp))
             Column(Modifier.weight(1f).verticalScroll(rememberScrollState())) {
-                MovieInfo(item)
+                MovieInfo(item, details)
                 Spacer(Modifier.height(28.dp))
                 if (state.progressLoaded) {
                     // Padding gives the focused button's scale + ring room inside the scrolling column,
@@ -131,14 +133,18 @@ fun MovieDetailScreen(id: String, category: String, onPlay: () -> Unit, modifier
                     Spacer(Modifier.height(16.dp))
                     ErrorText(it, textAlign = androidx.compose.ui.text.style.TextAlign.Start)
                 }
+                // Cast and crew, focusable: each opens the person's page with all their titles.
+                com.portalcast.tv.ui.components.PeopleRow(
+                    details,
+                    onOpenPerson = { p -> p.id?.let(onOpenPerson) },
+                )
             }
         }
     }
 }
 
 @Composable
-private fun MovieInfo(item: MediaItem) {
-    val details = com.portalcast.tv.ui.components.rememberTitleDetails(item, "movie")
+private fun MovieInfo(item: MediaItem, details: com.portalcast.tv.data.model.TitleDetails?) {
     com.portalcast.tv.ui.components.TitleHeading(item.displayTitle, details?.logo ?: item.logoPath)
     val meta = Formatting.metaLine(item)
     if (meta.isNotBlank()) {
@@ -161,7 +167,6 @@ private fun MovieInfo(item: MediaItem) {
     // With photos when the server has them; the plain list otherwise.
     if (details?.cast.isNullOrEmpty()) Credit("Cast", item.actors ?: item.cast)
     Credit("Country", item.country)
-    com.portalcast.tv.ui.components.CastRow(details?.cast.orEmpty())
 }
 
 @Composable

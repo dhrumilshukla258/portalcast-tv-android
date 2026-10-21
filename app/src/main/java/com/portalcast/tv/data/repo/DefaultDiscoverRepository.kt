@@ -69,6 +69,9 @@ class DefaultDiscoverRepository(
      * - series: the lookup only proves existence (`data` is the season list), so the Discover
      *   item itself comes back with the raw id, `is_series`, `category_id` and `catalogId`.
      */
+    override suspend fun person(id: Int): Result<com.portalcast.tv.data.model.PersonPage> =
+        apiCall(ApiPaths.PERSON) { api.person(id) }
+
     override suspend fun openItem(item: MediaItem): Result<MediaItem> {
         val isSeries = item.discoverType == "series"
         return apiCall(if (isSeries) ApiPaths.SERIES else ApiPaths.MOVIES) {

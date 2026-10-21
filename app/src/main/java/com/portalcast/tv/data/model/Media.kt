@@ -93,6 +93,8 @@ data class MediaItem(
     @SerialName("trailer_key") val trailerKey: String? = null,
     /** Discover variants only. */
     val variantLabel: String? = null,
+    /** Person pages only: how the person worked on this title. */
+    val roles: List<CreditRole> = emptyList(),
     /** Measured video quality from the server (servers from 2026-10-19), when someone has played it. */
     val video: VideoInfo? = null,
     val isPortal: Boolean? = null,

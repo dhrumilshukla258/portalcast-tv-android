@@ -113,6 +113,7 @@ fun AppNavHost(container: AppContainer) {
                 id = entry.arguments?.getString("id").orEmpty(),
                 category = entry.arguments?.getString("category") ?: "*",
                 onPlay = { nav.navigate(Routes.PLAYER) { launchSingleTop = true } },
+                onOpenPerson = { id -> nav.navigate(Routes.person(id)) },
             )
         }
 
@@ -127,6 +128,15 @@ fun AppNavHost(container: AppContainer) {
                 id = entry.arguments?.getString("id").orEmpty(),
                 category = entry.arguments?.getString("category") ?: "*",
                 onPlay = { nav.navigate(Routes.PLAYER) { launchSingleTop = true } },
+                onOpenPerson = { id -> nav.navigate(Routes.person(id)) },
+            )
+        }
+
+        composable(Routes.PERSON, arguments = listOf(navArgument("id") { type = NavType.IntType })) { entry ->
+            com.portalcast.tv.ui.person.PersonScreen(
+                id = entry.arguments?.getInt("id") ?: 0,
+                onOpenMovie = { item -> nav.navigate(Routes.movieDetail(item.id, item.categoryId)) },
+                onOpenSeries = { item -> nav.navigate(Routes.seriesDetail(item.id, item.categoryId)) },
             )
         }
 

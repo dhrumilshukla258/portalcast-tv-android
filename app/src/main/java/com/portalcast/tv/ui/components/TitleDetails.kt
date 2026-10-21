@@ -99,33 +99,3 @@ fun DetailFacts(item: MediaItem, details: TitleDetails?, series: Boolean) {
     }
 }
 
-/** Up to ten cast members with photo, name and character. Not focusable: it is information. */
-@Composable
-fun CastRow(cast: List<PersonCredit>) {
-    if (cast.isEmpty()) return
-    Spacer(Modifier.height(18.dp))
-    Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-        cast.take(10).forEach { p -> CastMember(p) }
-    }
-}
-
-@Composable
-private fun CastMember(p: PersonCredit) {
-    val photo = rememberImageUrl(p.photo)
-    Column(Modifier.width(92.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-        Box(
-            Modifier.size(72.dp).clip(CircleShape).background(AppColors.Surface),
-            contentAlignment = Alignment.Center,
-        ) {
-            if (photo != null) {
-                AsyncImage(model = photo, contentDescription = p.name, contentScale = ContentScale.Crop, modifier = Modifier.size(72.dp))
-            } else {
-                Text(p.name.split(" ").mapNotNull { it.firstOrNull()?.uppercase() }.take(2).joinToString(""), color = AppColors.TextMuted, style = MaterialTheme.typography.titleMedium)
-            }
-        }
-        Text(p.name, style = MaterialTheme.typography.labelMedium, color = AppColors.Text, maxLines = 1, overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center, modifier = Modifier.padding(top = 6.dp))
-        p.role?.takeIf { it.isNotBlank() }?.let {
-            Text(it, style = MaterialTheme.typography.labelSmall, color = AppColors.TextMuted, maxLines = 1, overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center)
-        }
-    }
-}

@@ -93,4 +93,8 @@ interface DiscoverRepository {
      * the detail screens expect, keeping Discover's title and stamping `category_id`.
      */
     suspend fun openItem(item: MediaItem): Result<MediaItem>
+
+    /** A person's page (`GET /api/v2/people/{id}`). */
+    suspend fun person(id: Int): Result<com.portalcast.tv.data.model.PersonPage> =
+        Result.failure(UnsupportedOperationException("person pages"))
 }

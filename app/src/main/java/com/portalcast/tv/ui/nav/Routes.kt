@@ -16,6 +16,9 @@ object Routes {
     const val SERIES_DETAIL = "series/{id}?category={category}"
     fun seriesDetail(id: String, category: String?) = "series/${enc(id)}?category=${enc(category ?: "*")}"
 
+    const val PERSON = "person/{id}"
+    fun person(id: Int) = "person/$id"
+
     /** The session comes from PlaybackHolder, not from the route. */
     const val PLAYER = "player"
     const val SETTINGS = "settings"

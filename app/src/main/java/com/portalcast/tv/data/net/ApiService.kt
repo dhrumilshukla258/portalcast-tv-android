@@ -240,6 +240,10 @@ interface ApiService {
     @GET("api/v2/health/iptv")
     suspend fun iptvHealth(): com.portalcast.tv.ui.components.IptvHealth
 
+    /** A person's page: details and every title of theirs in the catalog (servers from 2026-10-21). */
+    @GET("api/v2/people/{id}")
+    suspend fun person(@Path("id") id: Int): com.portalcast.tv.data.model.PersonPage
+
     /** Detail-page data (tagline, age rating, cast with photos...): by content id, or type + raw id. */
     @GET("api/v2/discover/details")
     suspend fun titleDetails(
