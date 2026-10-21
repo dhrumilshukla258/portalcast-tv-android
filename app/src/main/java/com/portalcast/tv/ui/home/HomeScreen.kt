@@ -96,6 +96,7 @@ fun HomeScreen(
     onOpenMovie: (MediaItem) -> Unit,
     onOpenSeries: (MediaItem) -> Unit,
     onPlay: () -> Unit,
+    onOpenPerson: (Int) -> Unit = {},
     onOpenSettings: () -> Unit,
 ) {
     val context = LocalContext.current
@@ -194,7 +195,7 @@ fun HomeScreen(
                 .focusGroup(),
         ) {
             when (current) {
-                HomeTab.SEARCH -> SearchScreen(onOpenMovie = openMovie, onOpenSeries = openSeries, onPlay = onPlay, restoreFocus = restorePending)
+                HomeTab.SEARCH -> SearchScreen(onOpenMovie = openMovie, onOpenSeries = openSeries, onPlay = onPlay, onOpenPerson = onOpenPerson, restoreFocus = restorePending)
                 HomeTab.DISCOVER -> DiscoverScreen(onOpenMovie = openMovie, onOpenSeries = openSeries, onOpenSearch = { select(HomeTab.SEARCH) }, restoreFocus = restorePending)
                 HomeTab.LIVE -> LiveScreen(onPlay = onPlay, restoreFocus = restorePending)
                 HomeTab.MOVIES -> MoviesScreen(onOpenMovie = openMovie, restoreFocus = restorePending)

@@ -2,6 +2,11 @@
 
 package com.portalcast.tv.ui.search
 
+import com.portalcast.tv.ui.components.PersonTile
+import com.portalcast.tv.ui.components.PersonEntry
+import com.portalcast.tv.data.model.PersonCredit
+import com.portalcast.tv.data.model.PersonHit
+import androidx.compose.foundation.lazy.LazyListScope
 import com.portalcast.tv.ui.components.keepColumn
 import com.portalcast.tv.ui.components.gridItem
 import com.portalcast.tv.ui.components.rememberGridFocus
@@ -76,15 +81,17 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.delay
 
 /**
- * Global search across every category: movies and series (server, `category=*`) and live
- * channels. Versions of the same title are grouped like Discover; a filter narrows the
- * results. There is no per-category search anywhere else in the app.
+ * Global search across every category: movies and series (server, `category=*`), people
+ * (cast and crew by name) and live channels. Versions of the same title are grouped like
+ * Discover; a filter narrows the results. When the query clearly names a person, People and
+ * "Movies & series with X" come first. There is no per-category search anywhere else.
  */
 @Composable
 fun SearchScreen(
     onOpenMovie: (MediaItem) -> Unit,
     onOpenSeries: (MediaItem) -> Unit,
     onPlay: () -> Unit,
+    onOpenPerson: (Int) -> Unit = {},
     modifier: Modifier = Modifier,
     /** True when coming back from a detail/player: focus the result that was opened. */
     restoreFocus: Boolean = false,
@@ -94,7 +101,11 @@ fun SearchScreen(
     val vm: SearchViewModel = viewModel(
         factory = viewModelFactory {
             initializer {
-                SearchViewModel(container.vodRepository, container.seriesRepository, container.liveRepository, container.userRepository)
+                SearchViewModel(
+                    container.vodRepository, container.seriesRepository, container.liveRepository, container.userRepository,
+                    discover = container.discoverRepository,
+                    prefs = context.getSharedPreferences("search", android.content.Context.MODE_PRIVATE),
+                )
             }
         },
     )
@@ -120,6 +131,7 @@ fun SearchScreen(
         when (val o = state.open ?: return@LaunchedEffect) {
             is SearchViewModel.Open.Movie -> onOpenMovie(o.item)
             is SearchViewModel.Open.Series -> onOpenSeries(o.item)
+            is SearchViewModel.Open.Person -> onOpenPerson(o.id)
         }
         vm.onOpenHandled()
     }
@@ -129,7 +141,7 @@ fun SearchScreen(
             value = state.query,
             onValueChange = vm::setQuery,
             label = "Search",
-            hint = "Movies, series, channels…",
+            hint = "Movies, series, actors, channels…",
             imeAction = ImeAction.Search,
             onImeAction = { vm.submit() },
             modifier = Modifier.width(640.dp),
@@ -156,9 +168,15 @@ fun SearchScreen(
                 SearchViewModel.Filter.ALL -> AllResults(state, vm, onPlay, cardModifier)
                 SearchViewModel.Filter.MOVIES -> PosterGrid(state.movies, "No movies found.", { vm.openGroup(it, isSeries = false) }, vm::loadMoreMovies, { cardModifier("m|$it") })
                 SearchViewModel.Filter.SERIES -> PosterGrid(state.series, "No series found.", { vm.openGroup(it, isSeries = true) }, vm::loadMoreSeries, { cardModifier("s|$it") })
+                SearchViewModel.Filter.PEOPLE -> PeopleGrid(state.people, vm::openPerson) { cardModifier("p|$it") }
                 SearchViewModel.Filter.LIVE -> ChannelList(state, vm, onPlay)
             }
         }
+    }
+
+    state.discoverVariants?.let { v ->
+        val serverUrl by container.sessionStore.serverUrl.collectAsStateWithLifecycle()
+        com.portalcast.tv.ui.discover.VariantPickerDialog(v, serverUrl, onChoose = vm::chooseDiscoverVariant, onDismiss = vm::dismissDiscoverVariants)
     }
 
     state.picker?.let { (group, _) ->
@@ -172,6 +190,7 @@ private fun filterLabel(f: SearchViewModel.Filter, s: SearchViewModel.State): St
         SearchViewModel.Filter.ALL -> null
         SearchViewModel.Filter.MOVIES -> s.movies.groups.size
         SearchViewModel.Filter.SERIES -> s.series.groups.size
+        SearchViewModel.Filter.PEOPLE -> s.people.size
         SearchViewModel.Filter.LIVE -> s.channels.size
     }
     val more = when (f) {
@@ -209,17 +228,38 @@ private fun AllResults(state: SearchViewModel.State, vm: SearchViewModel, onPlay
     val now = remember(state.searched) { System.currentTimeMillis() }
     val use24h = rememberIs24h()
     val memory = rememberFocusMemory()
+    // People lead when the query names someone ("shah rukh") or nothing else matched;
+    // otherwise they follow the titles.
+    val peopleFirst = state.featured != null || (state.movies.groups.isEmpty() && state.series.groups.isEmpty())
+    val people: LazyListScope.() -> Unit = {
+        if (state.people.isNotEmpty()) item(key = "people") {
+            PeopleResultRow(state.people, vm::openPerson, Modifier.rememberedIn(memory)) { cardModifier("p|$it") }
+        }
+        state.featured?.let { f ->
+            item(key = "featured") {
+                PosterRow(
+                    title = "Movies & series with ${f.name}",
+                    items = f.credits,
+                    onItemClick = vm::openDiscoverTitle,
+                    modifier = Modifier.rememberedIn(memory),
+                    itemModifier = { _, item -> cardModifier("f|${item.id}") },
+                )
+            }
+        }
+    }
     LazyColumn(
         Modifier.fillMaxSize().focusMemory(memory),
         contentPadding = PaddingValues(bottom = 40.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
+        if (peopleFirst) people()
         if (state.movies.groups.isNotEmpty()) item(key = "movies") {
             GroupRow("Movies", state.movies, { vm.openGroup(it, isSeries = false) }, vm::loadMoreMovies, Modifier.rememberedIn(memory)) { cardModifier("m|$it") }
         }
         if (state.series.groups.isNotEmpty()) item(key = "series") {
             GroupRow("Series", state.series, { vm.openGroup(it, isSeries = true) }, vm::loadMoreSeries, Modifier.rememberedIn(memory)) { cardModifier("s|$it") }
         }
+        if (!peopleFirst) people()
         if (state.channels.isNotEmpty()) {
             item(key = "live-title") {
                 Text("Live TV · ${state.channels.size}", style = MaterialTheme.typography.titleMedium, color = AppColors.Text, modifier = Modifier.padding(start = 4.dp, top = 8.dp))
@@ -237,6 +277,45 @@ private fun AllResults(state: SearchViewModel.State, vm: SearchViewModel, onPlay
 }
 
 private const val ALL_TAB_CHANNELS = 5
+
+private fun PersonHit.entry() = PersonEntry(
+    PersonCredit(name = name, photo = photo, id = id),
+    listOfNotNull(knownFor, titles.takeIf { it > 0 }?.let { "$it ${if (it == 1) "title" else "titles"}" }).joinToString(" · ").ifBlank { null },
+)
+
+/** People found by name; each opens their page. */
+@Composable
+private fun PeopleResultRow(people: List<PersonHit>, onOpen: (Int) -> Unit, modifier: Modifier, tileModifier: (Int) -> Modifier) {
+    Column(modifier) {
+        Text("People · ${people.size}", style = MaterialTheme.typography.titleMedium, color = AppColors.Text, modifier = Modifier.padding(start = 4.dp, top = 8.dp))
+        LazyRow(
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            contentPadding = PaddingValues(vertical = 10.dp, horizontal = 6.dp),
+        ) {
+            itemsIndexed(people, key = { _, p -> p.id }) { _, p ->
+                PersonTile(p.entry(), onClick = { onOpen(p.id) }, modifier = tileModifier(p.id))
+            }
+        }
+    }
+}
+
+/** The People filter: everyone found, as a grid. */
+@Composable
+private fun PeopleGrid(people: List<PersonHit>, onOpen: (Int) -> Unit, tileModifier: (Int) -> Modifier) {
+    if (people.isEmpty()) { EmptyPanel("No people found."); return }
+    val memory = rememberFocusMemory()
+    LazyVerticalGrid(
+        columns = GridCells.Adaptive(118.dp),
+        modifier = Modifier.fillMaxSize().focusMemory(memory),
+        contentPadding = PaddingValues(top = 8.dp, bottom = 40.dp, start = 4.dp, end = 4.dp),
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        itemsIndexed(people, key = { _, p -> p.id }) { _, p ->
+            PersonTile(p.entry(), onClick = { onOpen(p.id) }, modifier = tileModifier(p.id).rememberedIn(memory))
+        }
+    }
+}
 
 @Composable
 private fun GroupRow(

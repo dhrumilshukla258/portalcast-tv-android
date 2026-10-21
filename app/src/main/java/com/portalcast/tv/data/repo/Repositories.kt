@@ -97,4 +97,8 @@ interface DiscoverRepository {
     /** A person's page (`GET /api/v2/people/{id}`). */
     suspend fun person(id: Int): Result<com.portalcast.tv.data.model.PersonPage> =
         Result.failure(UnsupportedOperationException("person pages"))
+
+    /** People by name (`GET /api/v2/search/people`). */
+    suspend fun searchPeople(query: String): Result<com.portalcast.tv.data.model.PeopleSearchResult> =
+        Result.failure(UnsupportedOperationException("people search"))
 }

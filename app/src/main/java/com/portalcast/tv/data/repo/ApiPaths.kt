@@ -26,4 +26,5 @@ internal object ApiPaths {
     const val DISCOVER_RECOMMENDATIONS = "/api/v2/discover/recommendations"
     const val DISCOVER_VARIANTS = "/api/v2/discover/variants"
     const val PERSON = "/api/v2/people"
+    const val PEOPLE_SEARCH = "/api/v2/search/people"
 }

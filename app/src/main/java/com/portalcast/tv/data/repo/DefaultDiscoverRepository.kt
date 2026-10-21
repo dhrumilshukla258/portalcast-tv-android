@@ -72,6 +72,9 @@ class DefaultDiscoverRepository(
     override suspend fun person(id: Int): Result<com.portalcast.tv.data.model.PersonPage> =
         apiCall(ApiPaths.PERSON) { api.person(id) }
 
+    override suspend fun searchPeople(query: String): Result<com.portalcast.tv.data.model.PeopleSearchResult> =
+        apiCall(ApiPaths.PEOPLE_SEARCH) { api.searchPeople(query) }
+
     override suspend fun openItem(item: MediaItem): Result<MediaItem> {
         val isSeries = item.discoverType == "series"
         return apiCall(if (isSeries) ApiPaths.SERIES else ApiPaths.MOVIES) {

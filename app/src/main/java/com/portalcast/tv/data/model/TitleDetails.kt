@@ -52,3 +52,27 @@ data class TitleDetails(
     val creators: List<PersonCredit> = emptyList(),
     val writersPeople: List<PersonCredit> = emptyList(),
 )
+
+/** `GET /api/v2/search/people`: one person found by name. */
+@Serializable
+data class PersonHit(
+    val id: Int,
+    val name: String,
+    val photo: String? = null,
+    /** "Actor", "Director", "Actor · Director"... */
+    val knownFor: String? = null,
+    /** Titles they lead in the catalog. */
+    val titles: Int = 0,
+)
+
+/** The person a query clearly names, with their best-known titles ("Movies & series with X"). */
+@Serializable
+data class FeaturedPerson(val id: Int, val name: String, val credits: List<MediaItem> = emptyList(), val total: Int = 0)
+
+@Serializable
+data class PeopleSearchResult(
+    val people: List<PersonHit> = emptyList(),
+    val featured: FeaturedPerson? = null,
+    /** False for a few seconds after a server start, while the index is built. */
+    val ready: Boolean = true,
+)

@@ -1,5 +1,9 @@
 package com.portalcast.tv.ui.search
 
+import com.portalcast.tv.data.repo.DiscoverRepository
+import com.portalcast.tv.data.model.PeopleSearchResult
+import com.portalcast.tv.data.model.FeaturedPerson
+import com.portalcast.tv.data.model.PersonHit
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.portalcast.tv.data.model.Channel
@@ -27,8 +31,13 @@ import kotlinx.coroutines.withContext
 
 /**
  * Global search: one query across ALL categories of movies and series (server-side,
- * `category=*&search=`, served from the server's cache so it never hits the portal) plus
- * live channels (client-side over the session's cached channel list).
+ * `category=*&search=`, served from the server's cache so it never hits the portal),
+ * people by name (`/api/v2/search/people`, from the server's memory) and live channels
+ * (client-side over the session's cached channel list). All run in parallel.
+ *
+ * People: a People row, and when the query clearly names one person ("shah rukh") their
+ * best-known titles right under it; selecting a person opens their page. The chosen
+ * filter chip is remembered on the device.
  *
  * Movies/series are grouped like Discover: every language/quality version of a title
  * ("ABC Hindi", "ABC Tamil 4K") collapses into ONE result (same key as the server's
@@ -39,10 +48,13 @@ class SearchViewModel(
     private val series: SeriesRepository,
     private val live: LiveRepository,
     private val users: UserRepository,
+    private val discover: DiscoverRepository? = null,
+    /** Remembers the filter chip between visits; null in tests. */
+    private val prefs: android.content.SharedPreferences? = null,
     private val compute: CoroutineDispatcher = Dispatchers.Default,
 ) : ViewModel() {
 
-    enum class Filter(val label: String) { ALL("All"), MOVIES("Movies"), SERIES("Series"), LIVE("Live TV") }
+    enum class Filter(val label: String) { ALL("All"), MOVIES("Movies"), SERIES("Series"), PEOPLE("People"), LIVE("Live TV") }
 
     /** One title and all of its versions, in first-seen order. */
     data class TitleGroup(val key: String, val title: String, val variants: List<MediaItem>) {
@@ -65,6 +77,7 @@ class SearchViewModel(
     sealed class Open {
         data class Movie(val item: MediaItem) : Open()
         data class Series(val item: MediaItem) : Open()
+        data class Person(val id: Int) : Open()
     }
 
     data class State(
@@ -75,6 +88,11 @@ class SearchViewModel(
         val movies: Section = Section(),
         val series: Section = Section(),
         val channels: List<Channel> = emptyList(),
+        val people: List<PersonHit> = emptyList(),
+        /** The person the query clearly names, with their best-known titles. */
+        val featured: FeaturedPerson? = null,
+        /** Versions of a featured title while its picker is open. */
+        val discoverVariants: List<MediaItem>? = null,
         /** Guide for channel results (sorted per channel), loaded lazily; empty if unavailable. */
         val epgIndex: Map<String, List<com.portalcast.tv.data.model.EpgProgramme>> = emptyMap(),
         val error: Throwable? = null,
@@ -85,13 +103,15 @@ class SearchViewModel(
         val open: Open? = null,
     ) {
         val isEmptyResult: Boolean
-            get() = searched != null && !loading && movies.groups.isEmpty() && series.groups.isEmpty() && channels.isEmpty()
+            get() = searched != null && !loading && movies.groups.isEmpty() && series.groups.isEmpty() && channels.isEmpty() && people.isEmpty()
     }
 
     /** Last focused result card key, so Back from a detail/player lands on it again. */
     var lastFocusedKey: String? = null
 
-    private val _state = MutableStateFlow(State())
+    private val _state = MutableStateFlow(
+        State(filter = prefs?.getString(PREF_FILTER, null)?.let { f -> Filter.entries.firstOrNull { it.name == f } } ?: Filter.ALL),
+    )
     val state: StateFlow<State> = _state
 
     private var searchJob: Job? = null
@@ -106,7 +126,7 @@ class SearchViewModel(
         _state.update { it.copy(query = q) }
         searchJob?.cancel()
         if (q.trim().length < MIN_CHARS) {
-            _state.update { it.copy(loading = false, searched = null, movies = Section(), series = Section(), channels = emptyList(), error = null) }
+            _state.update { it.copy(loading = false, searched = null, movies = Section(), series = Section(), channels = emptyList(), people = emptyList(), featured = null, error = null) }
             return
         }
         searchJob = viewModelScope.launch {
@@ -125,7 +145,38 @@ class SearchViewModel(
         rememberQuery(query)
     }
 
-    fun setFilter(f: Filter) = _state.update { it.copy(filter = f) }
+    fun setFilter(f: Filter) {
+        _state.update { it.copy(filter = f) }
+        prefs?.edit()?.putString(PREF_FILTER, f.name)?.apply()
+    }
+
+    fun openPerson(id: Int) {
+        rememberQuery(_state.value.query.trim())
+        _state.update { it.copy(open = Open.Person(id)) }
+    }
+
+    /** A featured person's title (a Discover card): version picker when needed, then its page. */
+    fun openDiscoverTitle(item: MediaItem) {
+        val repo = discover ?: return
+        rememberQuery(_state.value.query.trim())
+        viewModelScope.launch {
+            val variants = repo.variants(item.id).getOrNull().orEmpty()
+            if (variants.size > 1) _state.update { it.copy(discoverVariants = variants) } else resolveDiscover(item)
+        }
+    }
+
+    fun chooseDiscoverVariant(v: MediaItem) {
+        _state.update { it.copy(discoverVariants = null) }
+        viewModelScope.launch { resolveDiscover(v) }
+    }
+
+    fun dismissDiscoverVariants() = _state.update { it.copy(discoverVariants = null) }
+
+    private suspend fun resolveDiscover(item: MediaItem) {
+        val r = discover?.openItem(item)?.getOrNull() ?: return
+        val isSeries = (r.discoverType ?: item.discoverType) == "series"
+        _state.update { it.copy(open = if (isSeries) Open.Series(r) else Open.Movie(r)) }
+    }
 
     /** A grouped result was chosen: one version opens directly, several open the picker. */
     fun openGroup(group: TitleGroup, isSeries: Boolean) {
@@ -158,10 +209,13 @@ class SearchViewModel(
 
     private suspend fun run(query: String) {
         _state.update { it.copy(loading = true, error = null) }
+        var people: PeopleSearchResult? = null
         val (m, s, c) = coroutineScope {
             val m = async { vod.movies(ALL, page = 1, search = query) }
             val s = async { series.series(ALL, page = 1, search = query) }
             val c = async { matchChannels(query) }
+            val p = async { discover?.searchPeople(query)?.getOrNull() }
+            people = p.await()
             Triple(m.await(), s.await(), c.await())
         }
         if (c.isNotEmpty() && _state.value.epgIndex.isEmpty()) loadEpg()
@@ -175,7 +229,9 @@ class SearchViewModel(
                 movies = movies,
                 series = seriesSec,
                 channels = c,
-                error = if (m.isFailure && s.isFailure) m.exceptionOrNull() else null,
+                people = people?.people.orEmpty(),
+                featured = people?.featured?.takeIf { f -> f.credits.isNotEmpty() },
+                error = if (m.isFailure && s.isFailure && people == null) m.exceptionOrNull() else null,
             )
         }
     }
@@ -237,6 +293,7 @@ class SearchViewModel(
         const val DEBOUNCE_MS = 400L
         const val MAX_CHANNELS = 60
         const val MAX_RECENT = 6
+        private const val PREF_FILTER = "filter"
         private const val ALL = "*"
 
         /**

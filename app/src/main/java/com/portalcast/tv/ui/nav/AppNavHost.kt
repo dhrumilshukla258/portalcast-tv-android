@@ -99,6 +99,7 @@ fun AppNavHost(container: AppContainer) {
                 onOpenSeries = { item -> nav.navigate(Routes.seriesDetail(item.id, item.categoryId)) },
                 onPlay = { nav.navigate(Routes.PLAYER) { launchSingleTop = true } },
                 onOpenSettings = { nav.navigate(Routes.SETTINGS) { launchSingleTop = true } },
+                onOpenPerson = { id -> nav.navigate(Routes.person(id)) },
             )
         }
 
