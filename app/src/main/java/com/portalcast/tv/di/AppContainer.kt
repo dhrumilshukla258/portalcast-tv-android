@@ -1,5 +1,8 @@
 package com.portalcast.tv.di
 
+import com.portalcast.tv.ui.components.IptvStatus
+import java.io.File
+import okhttp3.Cache
 import android.app.Application
 import com.portalcast.tv.BuildConfig
 import com.portalcast.tv.data.net.ApiService
@@ -62,6 +65,16 @@ class AppContainer(app: Application) {
      * print the Bearer token and BODY would print credentials.
      */
     val apiClient: OkHttpClient = bareClient.newBuilder()
+        // Answers the server marks cacheable (ETag + max-age: categories, filters, details,
+        // Discover rows) are kept on disk: reused without asking within max-age, then
+        // revalidated (an unchanged answer is a bodyless 304), and kept across app restarts.
+        .cache(Cache(File(app.cacheDir, "http-api"), 50L * 1024 * 1024))
+        // The IPTV status rides on every network answer (X-IPTV): no polling while in use.
+        .addNetworkInterceptor { chain ->
+            val response = chain.proceed(chain.request())
+            response.header("X-IPTV")?.let { IptvStatus.report(it) }
+            response
+        }
         .followRedirects(false)
         .followSslRedirects(false)
         .addInterceptor(DynamicBaseUrlInterceptor(sessionStore))

@@ -24,19 +24,40 @@ data class IptvHealth(val iptv: String = "online", val since: String? = null)
 /**
  * Whether the server can reach the IPTV portal. While it cannot (internet down), IPTV cards
  * are dimmed and a banner says so; local-library titles stay bright and keep playing.
+ *
+ * Every server answer carries the status (`X-IPTV` header, read by an interceptor in
+ * AppContainer), so while the app is in use no request of its own is needed.
  */
 object IptvStatus {
     val offline = mutableStateOf(false)
+
+    @Volatile
+    var lastHeardAt = 0L
+        private set
+
+    /** From an answer's `X-IPTV` header ("online" / "offline"). */
+    fun report(value: String) {
+        lastHeardAt = System.currentTimeMillis()
+        val next = value.equals("offline", ignoreCase = true)
+        if (offline.value != next) offline.value = next
+    }
 }
 
-/** Asks the server once a minute while the home screen is up. Older servers: always online. */
+private const val QUIET_MS = 5 * 60_000L
+
+/**
+ * Asks the server only after 5 minutes without any answer (was every minute) while the
+ * home screen is up. Older servers (no header, no endpoint): always online.
+ */
 @Composable
 fun IptvStatusPoller() {
     val api = LocalContext.current.appContainer.api
     LaunchedEffect(Unit) {
         while (true) {
-            val h = runCatching { api.iptvHealth() }.getOrNull()
-            IptvStatus.offline.value = h?.iptv == "offline"
+            if (System.currentTimeMillis() - IptvStatus.lastHeardAt >= QUIET_MS) {
+                val h = runCatching { api.iptvHealth() }.getOrNull()
+                IptvStatus.report(h?.iptv ?: "online")
+            }
             delay(60_000)
         }
     }
