@@ -2,6 +2,7 @@
 
 package com.portalcast.tv.ui.discover
 
+import com.portalcast.tv.ui.components.LocalBadge
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -99,6 +100,7 @@ internal fun PosterCard(
     onLongClick: (() -> Unit)? = null,
     channel: String? = null,
     channelLogo: String? = null,
+    badge: String? = null,
 ) {
     var focused by remember { mutableStateOf(false) }
     val context = LocalContext.current
@@ -154,6 +156,9 @@ internal fun PosterCard(
                 }
                 if (channel != null) {
                     ChannelBadge(channel, channelLogo, serverUrl, Modifier.align(Alignment.TopStart).padding(6.dp))
+                }
+                if (badge != null) {
+                    LocalBadge(badge, Modifier.align(Alignment.TopEnd).padding(6.dp))
                 }
                 if (progressPercent != null) {
                     Box(

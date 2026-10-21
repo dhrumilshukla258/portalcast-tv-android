@@ -506,6 +506,7 @@ private fun MediaRow(
                     onFocused = { onFocusItem(item) },
                     channel = item.network,
                     channelLogo = item.networkLogo,
+                    badge = item.localBadge,
                     modifier = cardModifier("${row.key}|${item.id}").rememberedIn(memory).bringIntoViewResponder(cardPad),
                 )
             }
@@ -585,6 +586,7 @@ private fun FilterGridContent(
                             onFocused = { hero.item = item },
                             channel = item.network,
                             channelLogo = item.networkLogo,
+                            badge = item.localBadge,
                             modifier = Modifier.rememberedIn(memory).gridItem(gridFocus, i),
                         )
                     }

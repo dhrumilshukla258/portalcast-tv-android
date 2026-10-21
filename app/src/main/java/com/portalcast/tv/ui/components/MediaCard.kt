@@ -65,6 +65,7 @@ fun MediaCard(
     width: Dp = 150.dp,
     aspectRatio: Float = PosterAspect,
     onLongClick: (() -> Unit)? = null,
+    badge: String? = null,
 ) {
     val shape = RoundedCornerShape(10.dp)
     val interaction = remember { MutableInteractionSource() }
@@ -89,6 +90,7 @@ fun MediaCard(
         ) {
             Box(Modifier.fillMaxSize()) {
                 ArtImage(url = imageUrl, fallbackText = title, modifier = Modifier.fillMaxSize())
+                if (badge != null) LocalBadge(badge, Modifier.align(Alignment.TopEnd).padding(6.dp))
                 if (progress != null && progress > 0f) {
                     ProgressLine(
                         fraction = progress,
@@ -141,6 +143,7 @@ fun MediaCard(
         progress = progress,
         width = width,
         onLongClick = onLongClick,
+        badge = item.localBadge,
     )
 }
 

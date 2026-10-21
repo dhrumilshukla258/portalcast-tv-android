@@ -62,6 +62,9 @@ data class MediaItem(
     @SerialName("rating_imdb") val ratingImdb: LenientStr? = null,
     @SerialName("rating_kinopoisk") val ratingKinopoisk: LenientStr? = null,
     @SerialName("rating_mpaa") val ratingMpaa: String? = null,
+    /** "1" for a title from the server's local library (NAS); `quality` is its best file ("4K · HDR10"). */
+    @SerialName("is_local") val isLocal: LenientStr? = null,
+    val quality: String? = null,
     /** Discover only: the one rating to show ("7.8") and whose it is ("IMDb", "TMDB", "TVmaze"). */
     @SerialName("rating_best") val ratingBest: LenientStr? = null,
     @SerialName("rating_source") val ratingSource: String? = null,
@@ -109,6 +112,11 @@ data class MediaItem(
         metascore?.takeIf { (it.toIntOrNull() ?: 0) > 0 }?.let { "Metacritic $it" },
     ).joinToString("  ·  ").ifEmpty { null }
     val displayGenres: String? get() = genresStr?.takeUnless { it.isBlank() || it == "-" }
+
+    /** Card badge for a local-library title: "Local", or "Local · 4K" when its best file is 4K. */
+    val localBadge: String? get() = if (isLocal == "1") {
+        if (quality?.contains("4K") == true) "Local · 4K" else "Local"
+    } else null
 
     /** Raw id without the Discover `movie_`/`series_` prefix. */
     val rawId: String get() = id.removePrefix("movie_").removePrefix("series_")
