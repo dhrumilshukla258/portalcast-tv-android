@@ -236,6 +236,10 @@ interface ApiService {
     @GET("api/v2/discover/variants")
     suspend fun discoverVariants(@Query("id") prefixedId: String): VariantsResponse
 
+    /** Whether the server can reach the IPTV portal (offline mode). */
+    @GET("api/v2/health/iptv")
+    suspend fun iptvHealth(): com.portalcast.tv.ui.components.IptvHealth
+
     /** Detail-page data (tagline, age rating, cast with photos...): by content id, or type + raw id. */
     @GET("api/v2/discover/details")
     suspend fun titleDetails(

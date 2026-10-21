@@ -173,6 +173,7 @@ fun HomeScreen(
         scope.launch { runCatching { prefs.setLastTab(t.route) } }
     }
 
+    com.portalcast.tv.ui.components.IptvStatusPoller()
     Box(Modifier.fillMaxSize()) {
         // Discover has its own focus-following hero; every other tab gets the rotating
         // ambient backdrop (the webui's AmbientBackdrop).
@@ -200,6 +201,11 @@ fun HomeScreen(
                 HomeTab.SERIES -> SeriesScreen(onOpenSeries = openSeries, restoreFocus = restorePending)
             }
         }
+
+        // Internet down: IPTV cards are dimmed, local titles keep playing.
+        com.portalcast.tv.ui.components.IptvOfflineBanner(
+            Modifier.align(androidx.compose.ui.Alignment.TopCenter).padding(top = 12.dp),
+        )
 
         // While the rail is open it overlays the content: dim everything behind it so text cut
         // off by the rail's edge doesn't read as broken layout (found on the emulator).

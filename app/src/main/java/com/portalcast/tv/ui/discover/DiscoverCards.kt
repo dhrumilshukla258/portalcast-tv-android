@@ -2,6 +2,7 @@
 
 package com.portalcast.tv.ui.discover
 
+import com.portalcast.tv.ui.components.dimWhenIptvOffline
 import com.portalcast.tv.ui.components.LocalBadge
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -111,7 +112,7 @@ internal fun PosterCard(
             ImageRequest.Builder(context).data(url).size(w, w * 3 / 2).build()
         }
     }
-    Column(modifier.width(PosterWidth)) {
+    Column(modifier.width(PosterWidth).dimWhenIptvOffline(isLocal = badge != null)) {
         Card(
             onClick = onClick,
             onLongClick = onLongClick,

@@ -70,7 +70,7 @@ fun MediaCard(
     val shape = RoundedCornerShape(10.dp)
     val interaction = remember { MutableInteractionSource() }
     val focused by interaction.collectIsFocusedAsState()
-    Column(modifier.then(if (width == Dp.Unspecified) Modifier.fillMaxWidth() else Modifier.width(width))) {
+    Column(modifier.then(if (width == Dp.Unspecified) Modifier.fillMaxWidth() else Modifier.width(width)).dimWhenIptvOffline(isLocal = badge != null)) {
         Card(
             onClick = onClick,
             onLongClick = onLongClick,
