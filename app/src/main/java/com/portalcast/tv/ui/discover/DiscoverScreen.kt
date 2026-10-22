@@ -130,6 +130,8 @@ fun DiscoverScreen(
     onOpenCategories: (() -> Unit)? = null,
     /** Home's Movies · Series · People chips (HomeScreen), first in the one row under the tabs. */
     sectionChips: (@Composable () -> Unit)? = null,
+    /** Movies / Series: the NAS library's titles (from the Filters panel). */
+    onOpenMyLibrary: (() -> Unit)? = null,
 ) {
     val container = LocalContext.current.appContainer
     val vm: DiscoverViewModel = viewModel(
@@ -243,8 +245,9 @@ fun DiscoverScreen(
                 topPx = topBarHeightPx,
                 onOpen = { openFilter = it },
                 onClear = vm::clearFilter,
-                browseLabel = when (fixedType) { "movie" -> "Browse movies by category"; "series" -> "Browse series by category"; else -> null },
+                browseLabel = if (fixedType != null) "IPTV categories" else null,
                 onBrowse = onOpenCategories?.let { open -> { filtersOpen = false; open() } },
+                onMyLibrary = onOpenMyLibrary?.let { open -> { filtersOpen = false; open() } },
                 onDismiss = { filtersOpen = false; refocusFilters = true },
             )
         }

@@ -138,6 +138,8 @@ fun HomeScreen(
     var tabsFocused by remember { mutableStateOf(false) }
     /** The Movies or Series tab showing its per-category browse instead of its rows. */
     var categories by rememberSaveable { mutableStateOf<HomeTab?>(null) }
+    /** With [categories]: My library (the NAS files) instead of the IPTV categories. */
+    var library by rememberSaveable { mutableStateOf(false) }
     /** Sports' "Find channel": a Live TV search handed to the Search tab once. */
     var searchFor by remember { mutableStateOf<String?>(null) }
     var contentFocused by remember { mutableStateOf(false) }
@@ -291,15 +293,25 @@ fun HomeScreen(
                     // browse, Back returns (design-system.md, Screens).
                     HomeTab.MOVIES -> if (categories == HomeTab.MOVIES) {
                         BackHandler { categories = null }
-                        MoviesScreen(onOpenMovie = openMovie, restoreFocus = restorePending)
+                        MoviesScreen(onOpenMovie = openMovie, restoreFocus = restorePending, library = library)
                     } else {
-                        DiscoverScreen(onOpenMovie = openMovie, onOpenSeries = openSeries, restoreFocus = restorePending, fixedType = "movie", onOpenCategories = { categories = HomeTab.MOVIES }, sectionChips = sectionChips)
+                        DiscoverScreen(
+                            onOpenMovie = openMovie, onOpenSeries = openSeries, restoreFocus = restorePending, fixedType = "movie",
+                            onOpenCategories = { library = false; categories = HomeTab.MOVIES },
+                            onOpenMyLibrary = { library = true; categories = HomeTab.MOVIES },
+                            sectionChips = sectionChips,
+                        )
                     }
                     HomeTab.SERIES -> if (categories == HomeTab.SERIES) {
                         BackHandler { categories = null }
-                        SeriesScreen(onOpenSeries = openSeries, restoreFocus = restorePending)
+                        SeriesScreen(onOpenSeries = openSeries, restoreFocus = restorePending, library = library)
                     } else {
-                        DiscoverScreen(onOpenMovie = openMovie, onOpenSeries = openSeries, restoreFocus = restorePending, fixedType = "series", onOpenCategories = { categories = HomeTab.SERIES }, sectionChips = sectionChips)
+                        DiscoverScreen(
+                            onOpenMovie = openMovie, onOpenSeries = openSeries, restoreFocus = restorePending, fixedType = "series",
+                            onOpenCategories = { library = false; categories = HomeTab.SERIES },
+                            onOpenMyLibrary = { library = true; categories = HomeTab.SERIES },
+                            sectionChips = sectionChips,
+                        )
                     }
                 }
             }

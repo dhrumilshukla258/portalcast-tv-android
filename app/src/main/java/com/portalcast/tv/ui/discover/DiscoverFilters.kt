@@ -215,6 +215,8 @@ internal fun BoxScope.FilterMenu(
     browseLabel: String?,
     onBrowse: (() -> Unit)?,
     onDismiss: () -> Unit,
+    /** Movies / Series: the NAS library's titles of that type. */
+    onMyLibrary: (() -> Unit)? = null,
 ) {
     val dims = FilterDim.entries.filter { facets.optionsFor(it).isNotEmpty() }
     val first = remember { FocusRequester() }
@@ -251,6 +253,9 @@ internal fun BoxScope.FilterMenu(
                 style = if (value != null) TvButtonStyle.Primary else TvButtonStyle.Subtle,
                 modifier = Modifier.fillMaxWidth().focusRequester(focus.getValue(dim)).let { if (i == 0) it.focusRequester(first) else it },
             )
+        }
+        if (onMyLibrary != null) {
+            TvButton(text = "My library (NAS files)   ›", onClick = onMyLibrary, style = TvButtonStyle.Subtle, modifier = Modifier.fillMaxWidth())
         }
         if (onBrowse != null && browseLabel != null) {
             TvButton(text = "$browseLabel   ›", onClick = onBrowse, style = TvButtonStyle.Subtle, modifier = Modifier.fillMaxWidth())

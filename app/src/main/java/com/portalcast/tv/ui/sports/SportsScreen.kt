@@ -111,7 +111,7 @@ class SportsViewModel(private val live: LiveRepository, private val users: com.p
             val byId = channels.getOrNull()?.associateBy { it.id } ?: _state.value.channelsById
             sports.fold(
                 { answer ->
-                    _state.update { s -> s.copy(loading = false, answer = answer, channelsById = byId, sport = s.sport?.takeIf { it in SportsLayout.sportsOf(answer.games) }) }
+                    _state.update { s -> s.copy(loading = false, answer = answer, channelsById = byId, sport = s.sport?.takeIf { sp -> sp in SportsLayout.sportsOf(answer.games) || answer.leagues.any { it.sport == sp } }) }
                     if (answer.loading && retries++ < 3) { delay(4000); load(fresh = true) }
                 },
                 // A failed refresh keeps what is shown.
@@ -206,7 +206,8 @@ fun SportsScreen(
     }
     val zone = remember { ZoneId.systemDefault() }
     val use24h = remember { android.text.format.DateFormat.is24HourFormat(context) }
-    val sports = remember(answer) { SportsLayout.sportsOf(answer.games) }
+    // A chip per chosen league's sport, even one with no game this month (its next games show).
+    val sports = remember(answer) { (answer.leagues.map { it.sport }.filter { it.isNotBlank() } + SportsLayout.sportsOf(answer.games)).distinct() }
     val days = remember(answer, state.sport) { SportsLayout.days(answer.games, state.sport, zone, LocalDate.now(zone)) }
 
     state.choosing?.let { c ->

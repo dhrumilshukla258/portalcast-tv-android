@@ -14,11 +14,12 @@ import com.portalcast.tv.ui.movies.CatalogViewModel
 
 /** Series tab: same layout as Movies over the series routes. Center → [onOpenSeries]. */
 @Composable
-fun SeriesScreen(onOpenSeries: (MediaItem) -> Unit, modifier: Modifier = Modifier, restoreFocus: Boolean = false) {
+fun SeriesScreen(onOpenSeries: (MediaItem) -> Unit, modifier: Modifier = Modifier, restoreFocus: Boolean = false, library: Boolean = false) {
     val container = LocalContext.current.appContainer
+    // library: only the NAS files; otherwise the IPTV provider's categories.
     val vm: CatalogViewModel = viewModel(
-        key = "catalog-series",
-        factory = viewModelFactory { initializer { CatalogViewModel(CatalogSource.Series(container.seriesRepository)) } },
+        key = if (library) "catalog-series-library" else "catalog-series",
+        factory = viewModelFactory { initializer { CatalogViewModel(CatalogSource.Series(container.seriesRepository), if (library) com.portalcast.tv.ui.movies.LOCAL_CATEGORY else null) } },
     )
-    CatalogScreen(vm = vm, title = "Series", onOpen = onOpenSeries, modifier = modifier, restoreFocus = restoreFocus)
+    CatalogScreen(vm = vm, title = if (library) "My library · Series" else "IPTV categories · Series", onOpen = onOpenSeries, modifier = modifier, restoreFocus = restoreFocus)
 }

@@ -44,7 +44,11 @@ interface CatalogSource {
  * Every reset (category, sort, search) bumps a generation so a late page from the
  * previous query is dropped.
  */
-class CatalogViewModel(private val source: CatalogSource) : ViewModel() {
+/**
+ * @param only show just this category (My library: "local", the NAS files); null: the IPTV
+ *   provider's categories, without the library (it has its own filter).
+ */
+class CatalogViewModel(private val source: CatalogSource, private val only: String? = null) : ViewModel() {
 
     data class State(
         val groupsLoading: Boolean = true,
@@ -77,13 +81,18 @@ class CatalogViewModel(private val source: CatalogSource) : ViewModel() {
         _state.update { it.copy(groupsLoading = true, groupsError = null) }
         viewModelScope.launch {
             source.groups().fold(
-                onSuccess = { groups ->
+                onSuccess = { all ->
+                    val groups = if (only != null) {
+                        all.filter { it.id == only }.ifEmpty { listOf(ChannelGroup.synthetic(only, "My library")) }
+                    } else {
+                        all.filterNot { it.id == LOCAL_CATEGORY || it.displayTitle.trim().equals("My Library", ignoreCase = true) }
+                    }
                     val list = groups.ifEmpty { listOf(ChannelGroup.synthetic(ChannelGroup.ALL_ID, "All")) }
                     _state.update { s ->
                         s.copy(
                             groupsLoading = false,
                             groups = list,
-                            selectedCategory = s.selectedCategory.takeIf { c -> list.any { it.id == c } } ?: ChannelGroup.ALL_ID,
+                            selectedCategory = only ?: s.selectedCategory.takeIf { c -> list.any { it.id == c } } ?: ChannelGroup.ALL_ID,
                         )
                     }
                     resetList()
@@ -153,3 +162,6 @@ class CatalogViewModel(private val source: CatalogSource) : ViewModel() {
         fun itemKey(item: MediaItem): String = item.id.ifBlank { item.displayTitle }
     }
 }
+
+/** The catalog category of NAS library titles (server: LOCAL_CATEGORY). */
+const val LOCAL_CATEGORY = "local"
