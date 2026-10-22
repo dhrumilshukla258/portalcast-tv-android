@@ -145,7 +145,8 @@ fun MediaCard(
     subtitle: String? = item.displayYear,
     progress: Float? = null,
     width: Dp = 150.dp,
-    onLongClick: (() -> Unit)? = null,
+    // Default: the title menu (hold Center), where one is provided.
+    onLongClick: (() -> Unit)? = LocalTitleMenu.current?.let { open -> { open(TitleMenuTarget(item)) } },
 ) {
     MediaCard(
         title = item.displayTitle,

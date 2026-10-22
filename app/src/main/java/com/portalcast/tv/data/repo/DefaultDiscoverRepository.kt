@@ -72,6 +72,15 @@ class DefaultDiscoverRepository(
         if (inList) api.addToList(contentId).close() else api.removeFromList(contentId).close()
     }
 
+    // The title menu: both change Home's rows, so the cached ones go.
+    override suspend fun setWatched(contentId: String, watched: Boolean): Result<Unit> = apiCall(ApiPaths.MY_LIST) {
+        if (watched) api.markWatched(contentId).close() else api.unmarkWatched(contentId).close()
+    }.onSuccess { clearCaches() }
+
+    override suspend fun setNotInterested(contentId: String, hidden: Boolean): Result<Unit> = apiCall(ApiPaths.MY_LIST) {
+        if (hidden) api.hideTitle(contentId).close() else api.unhideTitle(contentId).close()
+    }.onSuccess { clearCaches() }
+
     override suspend fun home(type: String?): Result<HomeResponse> =
         homeCache.get(type.orEmpty()) { apiCall(ApiPaths.HOME) { api.home(type) } }
 

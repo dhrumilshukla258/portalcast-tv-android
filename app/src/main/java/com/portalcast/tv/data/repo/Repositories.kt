@@ -102,6 +102,9 @@ interface DiscoverRepository {
     suspend fun myList(): Result<List<MediaItem>> = Result.success(emptyList())
     suspend fun myListIds(): Result<Set<String>> = Result.failure(UnsupportedOperationException("my list"))
     suspend fun setInList(contentId: String, inList: Boolean): Result<Unit> = Result.failure(UnsupportedOperationException("my list"))
+    /** The title menu (server 2026-10-22). Defaults: unsupported (older servers). */
+    suspend fun setWatched(contentId: String, watched: Boolean): Result<Unit> = Result.failure(UnsupportedOperationException("watched"))
+    suspend fun setNotInterested(contentId: String, hidden: Boolean): Result<Unit> = Result.failure(UnsupportedOperationException("not interested"))
     suspend fun variants(prefixedId: String): Result<List<MediaItem>>
     /**
      * Resolve a Discover item (`movie_<id>` / `series_<id>`) into the regular list item

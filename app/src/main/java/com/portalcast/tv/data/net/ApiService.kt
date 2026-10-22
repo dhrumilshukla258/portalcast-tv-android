@@ -254,6 +254,19 @@ interface ApiService {
     @DELETE("api/user/list/{id}")
     suspend fun removeFromList(@Path("id") id: String): okhttp3.ResponseBody
 
+    /** The title menu (servers from 2026-10-22): watched, not interested. */
+    @PUT("api/user/watched/{id}")
+    suspend fun markWatched(@Path("id") id: String): okhttp3.ResponseBody
+
+    @DELETE("api/user/watched/{id}")
+    suspend fun unmarkWatched(@Path("id") id: String): okhttp3.ResponseBody
+
+    @PUT("api/user/hidden/{id}")
+    suspend fun hideTitle(@Path("id") id: String): okhttp3.ResponseBody
+
+    @DELETE("api/user/hidden/{id}")
+    suspend fun unhideTitle(@Path("id") id: String): okhttp3.ResponseBody
+
     /** Sports schedule with guide-matched channels (servers from 2026-10-22). */
     @GET("api/v2/sports")
     suspend fun sports(@Query("days") days: Int, @Query("t") fresh: Long? = null): com.portalcast.tv.data.model.SportsResponse

@@ -431,7 +431,8 @@ private fun ContinueWatchingRow(
     modifier: Modifier,
 ) {
     val memory = rememberFocusMemory()
-    // Hold Center on a card: confirm, then remove it from Continue Watching.
+    // Hold Center on a card: the title menu (with Remove); without one, confirm then remove.
+    val titleMenu = com.portalcast.tv.ui.components.LocalTitleMenu.current
     var confirm by remember { mutableStateOf<ContinueEntry?>(null) }
     confirm?.let { entry ->
         RemoveContinueDialog(entry, onRemove = { confirm = null; onRemove(entry) }, onDismiss = { confirm = null })
@@ -452,7 +453,7 @@ private fun ContinueWatchingRow(
                     serverUrl = serverUrl,
                     progressPercent = e.progressPercent,
                     onClick = { onOpen(e) },
-                    onLongClick = { confirm = e },
+                    onLongClick = titleMenu?.let { open -> { open(com.portalcast.tv.ui.components.TitleMenuTarget(e.target) { onRemove(e) }) } } ?: { confirm = e },
                     onFocused = { onFocusEntry(e) },
                     modifier = cardModifier("cw|${e.key}").rememberedIn(memory).bringIntoViewResponder(cardPad),
                 )
@@ -505,6 +506,7 @@ private fun MediaRow(
     modifier: Modifier,
 ) {
     val listState = rememberLazyListState()
+    val titleMenu = com.portalcast.tv.ui.components.LocalTitleMenu.current
     val nearEnd by rememberUpdatedState(onRowNearEnd)
     LaunchedEffect(listState, row.key) {
         snapshotFlow {
@@ -535,6 +537,7 @@ private fun MediaRow(
                     serverUrl = serverUrl,
                     onClick = { onOpen(item) },
                     onFocused = { onFocusItem(item) },
+                    onLongClick = titleMenu?.let { open -> { open(com.portalcast.tv.ui.components.TitleMenuTarget(item)) } },
                     channel = item.network,
                     channelLogo = item.networkLogo,
                     badge = item.localBadge,
@@ -618,6 +621,7 @@ private fun FilterGridContent(
                             serverUrl = serverUrl,
                             onClick = { onOpen(item) },
                             onFocused = { hero.item = item },
+                            onLongClick = com.portalcast.tv.ui.components.LocalTitleMenu.current?.let { open -> { open(com.portalcast.tv.ui.components.TitleMenuTarget(item)) } },
                             channel = item.network,
                             channelLogo = item.networkLogo,
                             badge = item.localBadge,

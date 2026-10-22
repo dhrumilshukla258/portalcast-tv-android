@@ -135,6 +135,11 @@ class DiscoverViewModel(
     private var gridJob: Job? = null
     private var openJob: Job? = null
 
+    init {
+        // Watched / Not interested / My List from the title menu: Home's rows change.
+        viewModelScope.launch { com.portalcast.tv.ui.components.TitleChanges.events.collect { if (started) reload() } }
+    }
+
     /** Screen entered composition: first time loads everything, later only refreshes Continue Watching. */
     fun onScreenShown() {
         if (!started) {

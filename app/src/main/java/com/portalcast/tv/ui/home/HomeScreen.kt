@@ -145,6 +145,18 @@ fun HomeScreen(
     var contentFocused by remember { mutableStateOf(false) }
     val tabRequesters = remember { HomeTab.entries.associateWith { FocusRequester() } }
     val settingsRequester = remember { FocusRequester() }
+    // The chip just chosen (Movies / Series / Cast): focus returns to it on the next screen.
+    val chipRequesters = remember { SectionTabs.associateWith { FocusRequester() } }
+    var chipFocus by remember { mutableStateOf<HomeTab?>(null) }
+    LaunchedEffect(chipFocus, tab) {
+        val t = chipFocus ?: return@LaunchedEffect
+        repeat(20) {
+            withFrameNanos { }
+            if (runCatching { chipRequesters.getValue(t).requestFocus() }.isSuccess) { chipFocus = null; return@LaunchedEffect }
+            delay(40)
+        }
+        chipFocus = null
+    }
 
     val current = tab
     fun focusTabs() {
@@ -259,7 +271,14 @@ fun HomeScreen(
                     SectionChip(
                         label = t.title,
                         selected = t == current,
-                        onClick = { pendingSwitch[0]?.cancel(); select(if (t == current) HomeTab.DISCOVER else t) },
+                        onClick = {
+                            pendingSwitch[0]?.cancel()
+                            val next = if (t == current) HomeTab.DISCOVER else t
+                            // The next screen draws its own chips: focus goes back onto this one.
+                            chipFocus = t
+                            select(next)
+                        },
+                        modifier = Modifier.focusRequester(chipRequesters.getValue(t)),
                     )
                 }
             }

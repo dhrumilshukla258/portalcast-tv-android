@@ -4,6 +4,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
@@ -74,6 +76,10 @@ fun AppNavHost(container: AppContainer) {
         com.portalcast.tv.ui.SelectedItemHolder.put(item); nav.navigate(Routes.seriesDetail(item.id, item.categoryId))
     }
 
+    // The title menu (hold Center on a title card), for every screen.
+    var titleMenu by remember { mutableStateOf<com.portalcast.tv.ui.components.TitleMenuTarget?>(null) }
+    titleMenu?.let { t -> com.portalcast.tv.ui.components.TitleMenuDialog(t, onDismiss = { titleMenu = null }) }
+    androidx.compose.runtime.CompositionLocalProvider(com.portalcast.tv.ui.components.LocalTitleMenu provides { titleMenu = it }) {
     NavHost(navController = nav, startDestination = start) {
         composable(Routes.SERVER) {
             ServerUrlScreen(onConnected = {
@@ -170,6 +176,7 @@ fun AppNavHost(container: AppContainer) {
             )
         }
         composable(Routes.SETTINGS) { SettingsScreen(onBack = { nav.popBackStack() }) }
+    }
     }
 }
 
