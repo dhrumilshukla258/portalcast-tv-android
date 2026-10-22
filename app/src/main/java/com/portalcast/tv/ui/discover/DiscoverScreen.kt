@@ -166,12 +166,16 @@ fun DiscoverScreen(
     }
     BackHandler(enabled = state.grid != null) { vm.clearFilter() }
 
-    // Until a card is focused the hero shows the first item of the first row.
+    // Until a card is focused the hero shows what the viewer was last watching, with how far in
+    // they are (design-system.md, Home), else the first item of the first row.
+    val lastWatched = state.continueWatching.firstOrNull()
     val firstItem = remember(state.rows, state.continueWatching) {
-        state.visibleRows.firstOrNull { it.items.isNotEmpty() }?.items?.firstOrNull()
-            ?: state.continueWatching.firstOrNull()?.target
+        lastWatched?.target ?: state.visibleRows.firstOrNull { it.items.isNotEmpty() }?.items?.firstOrNull()
     }
-    LaunchedEffect(firstItem) { hero.fallback = firstItem }
+    LaunchedEffect(firstItem) {
+        hero.fallback = firstItem
+        hero.fallbackProgress = lastWatched?.let { HeroProgress(it.detail, it.progressPercent) }
+    }
     // A type switch reloads every row: drop the stale focused item.
     LaunchedEffect(state.type) { hero.item = null }
 
@@ -348,7 +352,10 @@ private fun RowsContent(
     val pivot = remember(listState) { PivotRowToTop { listState.layoutInfo.viewportSize.height } }
     val cardPad = with(LocalDensity.current) { remember { PadRectHorizontally(40.dp.toPx()) } }
     // Stable per-screen lambdas: cards get the same instances every recomposition.
-    val onFocusItem: (MediaItem) -> Unit = remember(hero) { { item -> hero.item = item } }
+    val onFocusItem: (MediaItem) -> Unit = remember(hero) { { item -> hero.item = item; hero.progress = null } }
+    val onFocusContinue: (ContinueEntry) -> Unit = remember(hero) {
+        { e -> hero.item = e.target; hero.progress = HeroProgress(e.detail, e.progressPercent) }
+    }
     val onOpen: (MediaItem) -> Unit = remember(vm) { vm::open }
     val onRowNearEnd: (String) -> Unit = remember(vm) { vm::onRowNearEnd }
     // Back from a title opened here: focus the card it was opened from (Home otherwise fell back
@@ -381,7 +388,7 @@ private fun RowsContent(
                     serverUrl,
                     onOpen = vm::openContinueWatching,
                     onRemove = vm::removeContinue,
-                    onFocusItem = onFocusItem,
+                    onFocusEntry = onFocusContinue,
                     cardPad = cardPad,
                     cardModifier = cardModifier,
                     modifier = Modifier.bringIntoViewResponder(pivot),
@@ -426,7 +433,7 @@ private fun ContinueWatchingRow(
     serverUrl: String?,
     onOpen: (ContinueEntry) -> Unit,
     onRemove: (ContinueEntry) -> Unit,
-    onFocusItem: (MediaItem) -> Unit,
+    onFocusEntry: (ContinueEntry) -> Unit,
     cardPad: PadRectHorizontally,
     cardModifier: (String) -> Modifier,
     modifier: Modifier,
@@ -454,7 +461,7 @@ private fun ContinueWatchingRow(
                     progressPercent = e.progressPercent,
                     onClick = { onOpen(e) },
                     onLongClick = { confirm = e },
-                    onFocused = { onFocusItem(e.target) },
+                    onFocused = { onFocusEntry(e) },
                     modifier = cardModifier("cw|${e.key}").rememberedIn(memory).bringIntoViewResponder(cardPad),
                 )
             }

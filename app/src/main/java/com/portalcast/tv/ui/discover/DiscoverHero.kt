@@ -22,6 +22,10 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Rect
@@ -64,7 +68,15 @@ internal class HeroFocus {
     var item by mutableStateOf<MediaItem?>(null)
     var fallback by mutableStateOf<MediaItem?>(null)
     val shown: MediaItem? get() = item ?: fallback
+    /** Set with [item] when a Continue Watching card is focused; null for other cards. */
+    var progress by mutableStateOf<HeroProgress?>(null)
+    var fallbackProgress by mutableStateOf<HeroProgress?>(null)
+    val shownProgress: HeroProgress? get() = if (item != null) progress else fallbackProgress
 }
+
+/** Where the viewer is in the shown title: "S1 · Pilot · 23 min left" and how far in. */
+@androidx.compose.runtime.Immutable
+internal data class HeroProgress(val detail: String?, val percent: Int)
 
 /** Hero art: the TMDB backdrop (regular before HD: cheaper to decode), else the poster. */
 internal val MediaItem.heroArtPath: String?
@@ -176,13 +188,32 @@ internal fun HeroInfo(focus: HeroFocus, modifier: Modifier = Modifier, serverUrl
                         )
                     }
                 }
+                // Resuming (design-system.md, Home): a progress bar and the episode with time left,
+                // in place of the overview's first line so the hero keeps its height.
+                val progress = focus.shownProgress
+                if (progress != null) {
+                    Spacer(Modifier.height(10.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Box(Modifier.width(220.dp).height(4.dp).background(Color.White.copy(alpha = 0.2f), RoundedCornerShape(2.dp))) {
+                            Box(
+                                Modifier.fillMaxHeight().fillMaxWidth(progress.percent.coerceIn(0, 100) / 100f)
+                                    .background(AppColors.Primary, RoundedCornerShape(2.dp)),
+                            )
+                        }
+                        if (progress.detail != null) {
+                            Spacer(Modifier.width(12.dp))
+                            Text(progress.detail, style = MaterialTheme.typography.titleSmall, color = AppColors.Text, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        }
+                    }
+                }
                 Spacer(Modifier.height(10.dp))
+                val lines = if (progress != null) 2 else 3
                 Text(
                     item.overview.orEmpty(),
                     style = MaterialTheme.typography.bodyMedium,
                     color = AppColors.Text.copy(alpha = 0.85f),
-                    maxLines = 3,
-                    minLines = 3, // fixed height, so nothing below moves as the overview length changes
+                    maxLines = lines,
+                    minLines = lines, // fixed height, so nothing below moves as the overview length changes
                     overflow = TextOverflow.Ellipsis,
                 )
             }
