@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
@@ -145,15 +146,17 @@ internal fun BoxScope.FilterDropdown(
         }
     }
 
+    // A full-height panel along the left edge, from under the top bar to the bottom of the
+    // screen (owner: no small floating windows). Solid: it sits over the hero image.
     Column(
         Modifier
             .align(Alignment.TopStart)
-            .padding(start = with(LocalDensity.current) { leftPx.toDp() }, top = with(LocalDensity.current) { topPx.toDp() } + 4.dp)
-            .width(380.dp)
-            // Near-solid: the list sits over the hero image and must stay readable.
-            .background(AppColors.Background.copy(alpha = 0.97f), RoundedCornerShape(14.dp))
-            .border(1.dp, AppColors.GlassBorder, RoundedCornerShape(14.dp))
-            .padding(10.dp),
+            .padding(top = with(LocalDensity.current) { topPx.toDp() })
+            .fillMaxHeight()
+            .width(460.dp)
+            .background(AppColors.Background)
+            .border(1.dp, AppColors.GlassBorder)
+            .padding(start = 32.dp, end = 16.dp, top = 12.dp, bottom = 12.dp),
     ) {
         Text(
             dim.label,
@@ -162,7 +165,7 @@ internal fun BoxScope.FilterDropdown(
             fontWeight = FontWeight.SemiBold,
             modifier = Modifier.padding(start = 10.dp, top = 4.dp, bottom = 8.dp),
         )
-        LazyColumn(state = listState, modifier = Modifier.heightIn(max = 520.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        LazyColumn(state = listState, modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             itemsIndexed(listOf<FacetValue?>(null) + options, key = { i, o -> o?.value ?: "any-$i" }) { i, o ->
                 val selected = (o == null && current == null) || (o != null && o.value == current)
                 Option(

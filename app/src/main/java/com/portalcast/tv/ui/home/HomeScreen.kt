@@ -1,6 +1,5 @@
 package com.portalcast.tv.ui.home
 
-import com.portalcast.tv.ui.components.AmbientBackdrop
 import android.app.Activity
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.core.animateDpAsState
@@ -199,9 +198,7 @@ fun HomeScreen(
 
     com.portalcast.tv.ui.components.IptvStatusPoller()
     Box(Modifier.fillMaxSize()) {
-        // Discover has its own focus-following hero; every other tab gets the rotating
-        // ambient backdrop (the webui's AmbientBackdrop).
-        if (current != HomeTab.DISCOVER && !(current == HomeTab.MOVIES && categories == null) && !(current == HomeTab.SERIES && categories == null)) AmbientBackdrop()
+        // No rotating backdrop behind the tabs (owner, 2026-10-22: a plain black-blue page).
         Column(Modifier.fillMaxSize()) {
             Row(
                 Modifier

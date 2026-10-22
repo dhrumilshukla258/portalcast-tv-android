@@ -10,7 +10,7 @@ logo and accent colour.
 
 | Token | Value | Use |
 | --- | --- | --- |
-| `background` | `#0A0F1C` | Page background, behind everything |
+| `background` | `#05080F` | Page background, behind everything: black with a blue cast, no pictures (the rotating backdrop was removed 2026-10-22, owner: it did not sit well with the UI); the web adds a faint blue light from the top |
 | `surface` | `#121A2B` | Cards without art, rail, panels |
 | `surfaceRaised` | `#1E293B` | Chips, buttons at rest, the active rail item |
 | `surfaceHigh` | `#334155` | Hover / pressed |
@@ -35,6 +35,8 @@ logo and accent colour.
 | `caption` | 12 / medium | Card labels, cast roles |
 
 ## Spacing and shape
+
+- Edge to edge (owner, 2026-10-22): the header, the filter bar and panels run the full width or height of the screen; no small floating rounded boxes for them. TV filter lists are a full-height panel along the left edge; the phone's filters and category list fill the screen.
 
 - Spacing steps: 4, 8, 12, 16, 24, 32, 48. Screen side padding 48 (web: 48 on desktop, 16 on a phone).
 - Rows: 24 between rows, 12 between a row title and its cards, 16 between cards.

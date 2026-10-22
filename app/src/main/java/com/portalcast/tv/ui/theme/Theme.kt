@@ -14,7 +14,7 @@ import androidx.tv.material3.darkColorScheme
  * the colour the webui's pairing QR uses). Always dark: this is a TV app.
  */
 object AppColors {
-    val Background = Color(0xFF0A0F1C)  // design-system.md: background
+    val Background = Color(0xFF05080F)  // design-system.md: background (black with a blue cast)
     val Surface = Color(0xFF121A2B)     // surface
     val SurfaceVariant = Color(0xFF1E293B)  // surfaceRaised
     val Rating = Color(0xFFFBBF24)      // the star before a rating
