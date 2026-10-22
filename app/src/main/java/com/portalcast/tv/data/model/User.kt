@@ -37,6 +37,8 @@ data class Preferences(
     val pinnedCategories: Map<String, List<String>>? = null,
     val categoryOrder: Map<String, List<String>>? = null,
     val recentSearches: List<String>? = null,
+    /** The Sports tab's leagues (servers from 2026-10-22). */
+    val sportsLeagues: List<String>? = null,
 ) {
     /** Encodes only the non-null fields, which is exactly what a partial PUT needs. */
     fun toPatch(): JsonObject = AppJson.encodeToJsonElement(this).jsonObject

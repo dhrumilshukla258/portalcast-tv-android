@@ -143,8 +143,6 @@ fun HomeScreen(
     var contentFocused by remember { mutableStateOf(false) }
     val tabRequesters = remember { HomeTab.entries.associateWith { FocusRequester() } }
     val settingsRequester = remember { FocusRequester() }
-    val chipRequesters = remember { SectionTabs.associateWith { FocusRequester() } }
-    var chipsFocused by remember { mutableStateOf(false) }
 
     val current = tab
     fun focusTabs() {
@@ -250,36 +248,15 @@ fun HomeScreen(
                     modifier = Modifier.focusRequester(settingsRequester),
                 )
             }
-            // Home and its sections: the chips row Movies · Series · People under the tabs. The
-            // chosen one is filled; Center on it again goes back to Home.
-            val showChips = topTabOf(current) == HomeTab.DISCOVER && categories == null
-            if (showChips) {
-                Row(
-                    Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 48.dp, vertical = 6.dp)
-                        .onFocusChanged { chipsFocused = it.hasFocus }
-                        .focusProperties {
-                            enter = { chipRequesters[current] ?: chipRequesters.getValue(HomeTab.MOVIES) }
-                            exit = { dir ->
-                                when (dir) {
-                                    FocusDirection.Up -> tabRequesters.getValue(HomeTab.DISCOVER)
-                                    FocusDirection.Down -> FocusRequester.Default
-                                    else -> FocusRequester.Cancel
-                                }
-                            }
-                        }
-                        .focusGroup(),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp),
-                ) {
-                    for (t in SectionTabs) {
-                        SectionChip(
-                            label = t.title,
-                            selected = t == current,
-                            onClick = { pendingSwitch[0]?.cancel(); select(if (t == current) HomeTab.DISCOVER else t) },
-                            modifier = Modifier.focusRequester(chipRequesters.getValue(t)),
-                        )
-                    }
+            // Home and its sections: the chips Movies · Series · People open the row of the
+            // screen itself (with its Filters), so there is one row under the tabs.
+            val sectionChips: @Composable () -> Unit = {
+                for (t in SectionTabs) {
+                    SectionChip(
+                        label = t.title,
+                        selected = t == current,
+                        onClick = { pendingSwitch[0]?.cancel(); select(if (t == current) HomeTab.DISCOVER else t) },
+                    )
                 }
             }
             Box(
@@ -288,16 +265,11 @@ fun HomeScreen(
                     .weight(1f)
                     .onFocusChanged { contentFocused = it.hasFocus }
                     .focusRequester(contentRequester)
-                    // Focus leaves the content only Up: onto the chips row on Home and its sections,
-                    // else onto the CURRENT tab. Without this, Up from the top landed on whichever tab
-                    // was nearest above, and Down on the last row (or Left/Right at an edge) had
-                    // nowhere sensible to go.
+                    // Focus leaves the content only Up, and then always onto the CURRENT tab. Without
+                    // this, Up from the top landed on whichever tab was nearest above, and Down on the
+                    // last row (or Left/Right at an edge) had nowhere sensible to go.
                     .focusProperties {
-                        exit = { dir ->
-                            if (dir != FocusDirection.Up) FocusRequester.Cancel
-                            else if (showChips) chipRequesters[current] ?: chipRequesters.getValue(HomeTab.MOVIES)
-                            else tabRequesters.getValue(topTabOf(current))
-                        }
+                        exit = { dir -> if (dir == FocusDirection.Up) tabRequesters.getValue(topTabOf(current)) else FocusRequester.Cancel }
                     }
                     .focusGroup(),
             ) {
@@ -311,9 +283,9 @@ fun HomeScreen(
                         onFindChannel = { q -> searchFor = q; select(HomeTab.SEARCH) },
                         restoreFocus = restorePending,
                     )
-                    HomeTab.DISCOVER -> DiscoverScreen(onOpenMovie = openMovie, onOpenSeries = openSeries, onOpenSearch = { select(HomeTab.SEARCH) }, restoreFocus = restorePending)
+                    HomeTab.DISCOVER -> DiscoverScreen(onOpenMovie = openMovie, onOpenSeries = openSeries, onOpenSearch = { select(HomeTab.SEARCH) }, restoreFocus = restorePending, sectionChips = sectionChips)
                     HomeTab.LIVE -> LiveScreen(onPlay = onPlay, restoreFocus = restorePending)
-                    HomeTab.PEOPLE -> com.portalcast.tv.ui.people.PeopleScreen(onOpenPerson = onOpenPerson, restoreFocus = restorePending)
+                    HomeTab.PEOPLE -> com.portalcast.tv.ui.people.PeopleScreen(onOpenPerson = onOpenPerson, restoreFocus = restorePending, sectionChips = sectionChips)
                     HomeTab.MY_LIST -> com.portalcast.tv.ui.mylist.MyListScreen(onOpenMovie = openMovie, onOpenSeries = openSeries, restoreFocus = restorePending)
                     // Movies / Series: Home's layout for one type; Categories opens the per-category
                     // browse, Back returns (design-system.md, Screens).
@@ -321,13 +293,13 @@ fun HomeScreen(
                         BackHandler { categories = null }
                         MoviesScreen(onOpenMovie = openMovie, restoreFocus = restorePending)
                     } else {
-                        DiscoverScreen(onOpenMovie = openMovie, onOpenSeries = openSeries, restoreFocus = restorePending, fixedType = "movie", onOpenCategories = { categories = HomeTab.MOVIES })
+                        DiscoverScreen(onOpenMovie = openMovie, onOpenSeries = openSeries, restoreFocus = restorePending, fixedType = "movie", onOpenCategories = { categories = HomeTab.MOVIES }, sectionChips = sectionChips)
                     }
                     HomeTab.SERIES -> if (categories == HomeTab.SERIES) {
                         BackHandler { categories = null }
                         SeriesScreen(onOpenSeries = openSeries, restoreFocus = restorePending)
                     } else {
-                        DiscoverScreen(onOpenMovie = openMovie, onOpenSeries = openSeries, restoreFocus = restorePending, fixedType = "series", onOpenCategories = { categories = HomeTab.SERIES })
+                        DiscoverScreen(onOpenMovie = openMovie, onOpenSeries = openSeries, restoreFocus = restorePending, fixedType = "series", onOpenCategories = { categories = HomeTab.SERIES }, sectionChips = sectionChips)
                     }
                 }
             }

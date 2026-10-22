@@ -10,6 +10,8 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.grid.GridCells
@@ -135,7 +137,13 @@ private const val COLUMNS = 7
  * played. Searching by name is in Search.
  */
 @Composable
-fun PeopleScreen(onOpenPerson: (Int) -> Unit, restoreFocus: Boolean = false, modifier: Modifier = Modifier) {
+fun PeopleScreen(
+    onOpenPerson: (Int) -> Unit,
+    restoreFocus: Boolean = false,
+    modifier: Modifier = Modifier,
+    /** Home's Movies · Series · People chips (HomeScreen), first in the top row. */
+    sectionChips: (@Composable () -> Unit)? = null,
+) {
     val container = LocalContext.current.appContainer
     val vm: PeopleViewModel = viewModel(key = "people", factory = viewModelFactory { initializer { PeopleViewModel(container.discoverRepository) } })
     val state by vm.state.collectAsStateWithLifecycle()
@@ -149,13 +157,13 @@ fun PeopleScreen(onOpenPerson: (Int) -> Unit, restoreFocus: Boolean = false, mod
         if (state.people.isEmpty()) return
     }
 
-    Column(modifier.fillMaxSize().padding(start = 48.dp, end = 32.dp, top = 20.dp)) {
-        Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            Text("People", style = MaterialTheme.typography.headlineSmall, color = AppColors.Text)
-            Text("%,d".format(state.total), style = MaterialTheme.typography.bodyMedium, color = AppColors.TextMuted)
-        }
-        LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp), contentPadding = PaddingValues(vertical = 12.dp)) {
+    Column(modifier.fillMaxSize().padding(start = 48.dp, end = 32.dp, top = 14.dp)) {
+        // One row: the sections chips, then the roles (People's filter), then how many.
+        LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp), contentPadding = PaddingValues(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+            if (sectionChips != null) item(key = "sections") { Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) { sectionChips() } }
+            item(key = "divider") { Box(Modifier.padding(horizontal = 6.dp).width(1.dp).height(28.dp).background(AppColors.GlassBorder)) }
             items(state.roles, key = { it.id }) { r -> RoleChip(r.label, r == state.role) { vm.selectRole(r) } }
+            item(key = "count") { Text("%,d".format(state.total), style = MaterialTheme.typography.bodyMedium, color = AppColors.TextMuted, modifier = Modifier.padding(start = 8.dp)) }
         }
         val firstFocus = remember { FocusRequester() }
         // Back from a person's page: focus the person it was opened from.

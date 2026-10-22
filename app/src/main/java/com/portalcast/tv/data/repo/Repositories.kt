@@ -61,7 +61,10 @@ interface LiveRepository {
     /** Whole channel list, cached per session. Force-refresh on a stream 401/403. */
     suspend fun channels(forceRefresh: Boolean = false): Result<List<Channel>>
     /** The Sports tab's games (server Phase 6.7). Default: unsupported (older servers). */
-    suspend fun sports(days: Int = 7): Result<com.portalcast.tv.data.model.SportsResponse> =
+    suspend fun sports(days: Int = 30, fresh: Boolean = false): Result<com.portalcast.tv.data.model.SportsResponse> =
+        Result.failure(UnsupportedOperationException("sports"))
+    /** Every league and the viewer's choice (`GET /api/v2/sports/leagues`). */
+    suspend fun sportsLeagues(): Result<com.portalcast.tv.data.model.SportsLeagues> =
         Result.failure(UnsupportedOperationException("sports"))
     /** null when the server has no EPG yet. Cached; refresh every 30 min while Live is visible. */
     suspend fun epg(forceRefresh: Boolean = false): Result<EpgData?>

@@ -128,6 +128,8 @@ fun DiscoverScreen(
     fixedType: String? = null,
     /** Opens the per-category browse (Movies / Series tabs). */
     onOpenCategories: (() -> Unit)? = null,
+    /** Home's Movies · Series · People chips (HomeScreen), first in the one row under the tabs. */
+    sectionChips: (@Composable () -> Unit)? = null,
 ) {
     val container = LocalContext.current.appContainer
     val vm: DiscoverViewModel = viewModel(
@@ -139,6 +141,15 @@ fun DiscoverScreen(
     // Letterboxd-style selectors (DiscoverFilters.kt): which one is open, and where focus
     // goes back to when it closes.
     var openFilter by remember { mutableStateOf<FilterDim?>(null) }
+    // The Filters panel; focus goes back to the Filters button when it closes.
+    var filtersOpen by remember { mutableStateOf(false) }
+    val filtersButton = remember { FocusRequester() }
+    var refocusFilters by remember { mutableStateOf(false) }
+    LaunchedEffect(refocusFilters) {
+        if (!refocusFilters) return@LaunchedEffect
+        repeat(20) { if (runCatching { filtersButton.requestFocus() }.isSuccess) { refocusFilters = false; return@LaunchedEffect }; delay(40) }
+        refocusFilters = false
+    }
     var returnFocusTo by remember { mutableStateOf<FilterDim?>(null) }
     val selectorFocus = remember { FilterDim.entries.associateWith { FocusRequester() } }
     // Measured height of the top bar: the open selector list is drawn right under it.
@@ -190,34 +201,20 @@ fun DiscoverScreen(
             val grid = state.grid
             if (grid != null) {
                 TopBar(
-                    fixedType = fixedType,
-                    totalTitles = state.totalTitles,
-                    onOpenCategories = onOpenCategories,
-                    type = state.type,
-                    facets = state.facets,
-                    query = grid.query,
-                    selectorFocus = selectorFocus,
-                    onType = vm::setType,
-                    onOpenFilter = { openFilter = it },
-                    onClear = vm::clearFilter,
-                    onSelectorPositioned = { dim, x -> selectorX[dim] = x },
+                    sectionChips = sectionChips,
+                    activeFilters = FilterDim.entries.count { grid.query.valueOf(it) != null },
+                    filtersFocus = filtersButton,
+                    onOpenFilters = { filtersOpen = true },
                     modifier = Modifier.onSizeChanged { topBarHeightPx = it.height },
                 )
                 FilterGridContent(grid, serverUrl, hero, onOpen = vm::open, onNearEnd = vm::onGridNearEnd)
             } else {
                 Column(Modifier.fillMaxWidth().fillMaxHeight(HERO_FRACTION)) {
                     TopBar(
-                        fixedType = fixedType,
-                        totalTitles = state.totalTitles,
-                        onOpenCategories = onOpenCategories,
-                        type = state.type,
-                        facets = state.facets,
-                        query = null,
-                        selectorFocus = selectorFocus,
-                        onType = vm::setType,
-                        onOpenFilter = { openFilter = it },
-                        onClear = vm::clearFilter,
-                        onSelectorPositioned = { dim, x -> selectorX[dim] = x },
+                        sectionChips = sectionChips,
+                        activeFilters = FilterDim.entries.count { state.grid?.query.valueOf(it) != null },
+                        filtersFocus = filtersButton,
+                        onOpenFilters = { filtersOpen = true },
                         modifier = Modifier.onSizeChanged { topBarHeightPx = it.height },
                     )
                     HeroInfo(hero, Modifier.fillMaxWidth().weight(1f), serverUrl)
@@ -236,6 +233,19 @@ fun DiscoverScreen(
                     .padding(horizontal = 16.dp, vertical = 8.dp),
                 color = AppColors.Text,
                 style = MaterialTheme.typography.bodyLarge,
+            )
+        }
+        if (filtersOpen && openFilter == null) {
+            FilterMenu(
+                facets = state.facets,
+                query = state.grid?.query,
+                focus = selectorFocus,
+                topPx = topBarHeightPx,
+                onOpen = { openFilter = it },
+                onClear = vm::clearFilter,
+                browseLabel = when (fixedType) { "movie" -> "Browse movies by category"; "series" -> "Browse series by category"; else -> null },
+                onBrowse = onOpenCategories?.let { open -> { filtersOpen = false; open() } },
+                onDismiss = { filtersOpen = false; refocusFilters = true },
             )
         }
         openFilter?.let { dim ->
@@ -270,52 +280,31 @@ fun DiscoverScreen(
     }
 }
 
+/**
+ * The one row under the tabs (owner, 2026-10-22; the same as the phone): Home's Movies ·
+ * Series · People chips on the left, the Filters button on the right ("Filters · 2" when set).
+ */
 @Composable
 private fun TopBar(
-    fixedType: String?,
-    totalTitles: Int?,
-    onOpenCategories: (() -> Unit)?,
-    type: String?,
-    facets: DiscoverFacets,
-    query: DiscoverQuery?,
-    selectorFocus: Map<FilterDim, FocusRequester>,
-    onType: (String?) -> Unit,
-    onOpenFilter: (FilterDim) -> Unit,
-    onClear: () -> Unit,
-    onSelectorPositioned: (FilterDim, Float) -> Unit,
+    sectionChips: (@Composable () -> Unit)?,
+    activeFilters: Int,
+    filtersFocus: FocusRequester,
+    onOpenFilters: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    Column(
-        modifier.fillMaxWidth().padding(start = 48.dp, end = 48.dp, top = 20.dp, bottom = 4.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
+    Row(
+        modifier.fillMaxWidth().padding(start = 48.dp, end = 48.dp, top = 14.dp, bottom = 4.dp),
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
-        Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
-            // Home: a type switch. Movies / Series tabs: their name, how many titles, Categories.
-            val heading = when (fixedType) { "movie" -> "Movies"; "series" -> "Series"; else -> "Home" }
-            Text(heading, style = MaterialTheme.typography.headlineSmall, color = AppColors.Text)
-            if (fixedType != null && totalTitles != null && totalTitles > 0) {
-                Text(
-                    "%,d %s".format(totalTitles, if (fixedType == "movie") "films" else "series"),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = AppColors.TextMuted,
-                )
-            }
-            Spacer(Modifier.width(24.dp))
-            if (fixedType == null) {
-                listOf<Pair<String?, String>>(null to "All", "movie" to "Movies", "series" to "Series").forEach { (value, label) ->
-                    TvButton(
-                        text = label,
-                        onClick = { onType(value) },
-                        style = if (type == value) TvButtonStyle.Primary else TvButtonStyle.Subtle,
-                    )
-                }
-            } else if (onOpenCategories != null) {
-                TvButton(text = "Categories", onClick = onOpenCategories, style = TvButtonStyle.Subtle)
-            }
-        }
-        // Letterboxd's "Browse by" line: the selectors on a row of their own, so a long
-        // value ("United States ▾") never squeezes the row above into wrapped letters.
-        FilterSelectors(facets = facets, query = query, focus = selectorFocus, onOpen = onOpenFilter, onClear = onClear, onPositioned = onSelectorPositioned)
+        sectionChips?.invoke()
+        Spacer(Modifier.weight(1f))
+        TvButton(
+            text = if (activeFilters > 0) "Filters · $activeFilters" else "Filters",
+            onClick = onOpenFilters,
+            style = if (activeFilters > 0) TvButtonStyle.Primary else TvButtonStyle.Subtle,
+            modifier = Modifier.focusRequester(filtersFocus),
+        )
     }
 }
 

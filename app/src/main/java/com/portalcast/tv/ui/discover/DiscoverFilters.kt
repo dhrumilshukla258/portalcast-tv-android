@@ -196,3 +196,67 @@ private fun Option(label: String, count: String?, selected: Boolean, onClick: ()
     }
     Spacer(Modifier.width(0.dp))
 }
+
+/**
+ * The Filters panel (owner, 2026-10-22: one row under the tabs, the same as the phone): a
+ * full-height panel along the left edge listing each selector with its value, then "Browse
+ * by category" (Movies / Series) and "Clear filters". A selector opens its values
+ * ([FilterDropdown]); Back closes the panel. [focus] holds one requester per selector, so
+ * focus comes back to the one whose values were just closed.
+ */
+@Composable
+internal fun BoxScope.FilterMenu(
+    facets: DiscoverFacets,
+    query: DiscoverQuery?,
+    focus: Map<FilterDim, FocusRequester>,
+    topPx: Int,
+    onOpen: (FilterDim) -> Unit,
+    onClear: () -> Unit,
+    browseLabel: String?,
+    onBrowse: (() -> Unit)?,
+    onDismiss: () -> Unit,
+) {
+    val dims = FilterDim.entries.filter { facets.optionsFor(it).isNotEmpty() }
+    val first = remember { FocusRequester() }
+    BackHandler(onBack = onDismiss)
+    LaunchedEffect(Unit) {
+        repeat(20) {
+            if (runCatching { first.requestFocus() }.isSuccess) return@LaunchedEffect
+            delay(40)
+        }
+    }
+    Column(
+        Modifier
+            .align(Alignment.TopStart)
+            .padding(top = with(LocalDensity.current) { topPx.toDp() })
+            .fillMaxHeight()
+            .width(460.dp)
+            .background(AppColors.Background)
+            .border(1.dp, AppColors.GlassBorder)
+            .padding(start = 32.dp, end = 16.dp, top = 12.dp, bottom = 12.dp),
+        verticalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        Text(
+            "Filters",
+            style = MaterialTheme.typography.titleMedium,
+            color = AppColors.TextMuted,
+            fontWeight = FontWeight.SemiBold,
+            modifier = Modifier.padding(start = 10.dp, top = 4.dp, bottom = 6.dp),
+        )
+        dims.forEachIndexed { i, dim ->
+            val value = query.valueOf(dim)
+            TvButton(
+                text = dim.label + "   ·   " + (value?.let { displayValue(dim, it) } ?: "Any") + "   ›",
+                onClick = { onOpen(dim) },
+                style = if (value != null) TvButtonStyle.Primary else TvButtonStyle.Subtle,
+                modifier = Modifier.fillMaxWidth().focusRequester(focus.getValue(dim)).let { if (i == 0) it.focusRequester(first) else it },
+            )
+        }
+        if (onBrowse != null && browseLabel != null) {
+            TvButton(text = "$browseLabel   ›", onClick = onBrowse, style = TvButtonStyle.Subtle, modifier = Modifier.fillMaxWidth())
+        }
+        if (FilterDim.entries.any { query.valueOf(it) != null }) {
+            TvButton(text = "Clear filters", onClick = onClear, style = TvButtonStyle.Subtle, modifier = Modifier.fillMaxWidth())
+        }
+    }
+}

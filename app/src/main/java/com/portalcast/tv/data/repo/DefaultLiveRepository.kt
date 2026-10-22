@@ -72,8 +72,11 @@ class DefaultLiveRepository(
     }
 
     // Not cached: the "Live" badges and guide matches move with the clock (the server caches).
-    override suspend fun sports(days: Int): Result<com.portalcast.tv.data.model.SportsResponse> =
-        apiCall(ApiPaths.SPORTS) { api.sports(days) }
+    override suspend fun sports(days: Int, fresh: Boolean): Result<com.portalcast.tv.data.model.SportsResponse> =
+        apiCall(ApiPaths.SPORTS) { api.sports(days, if (fresh) System.currentTimeMillis() else null) }
+
+    override suspend fun sportsLeagues(): Result<com.portalcast.tv.data.model.SportsLeagues> =
+        apiCall(ApiPaths.SPORTS) { api.sportsLeagues() }
 
     override suspend fun favorites(): Result<List<String>> = users.preferences().map { it.favorites.orEmpty() }
 

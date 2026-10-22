@@ -55,6 +55,7 @@ import com.portalcast.tv.playback.PlaybackSession
 import com.portalcast.tv.ui.components.ErrorPanel
 import com.portalcast.tv.ui.components.LoadingPanel
 import com.portalcast.tv.ui.components.TvButton
+import com.portalcast.tv.ui.components.TvButtonStyle
 import com.portalcast.tv.ui.theme.AppColors
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
@@ -77,22 +78,33 @@ data class SportsUiState(
     val sport: String? = null,
     /** A game with several matched channels, while its picker is open. */
     val picking: SportsGame? = null,
-)
+    /** "Choose sports" while open: every league and the ticked ones. */
+    val choosing: Chooser? = null,
+) {
+    data class Chooser(
+        val leagues: List<com.portalcast.tv.data.model.SportsLeagueInfo> = emptyList(),
+        val chosen: List<String> = emptyList(),
+        val max: Int = 20,
+        val loading: Boolean = true,
+        val saving: Boolean = false,
+        val error: String? = null,
+    )
+}
 
 /**
  * `GET /api/v2/sports` plus the cached channel list. While the server's first fetch is still
  * running (`loading`), asks again a few times. Reloaded each time the tab shows.
  */
-class SportsViewModel(private val live: LiveRepository) : ViewModel() {
+class SportsViewModel(private val live: LiveRepository, private val users: com.portalcast.tv.data.repo.UserRepository) : ViewModel() {
     private val _state = MutableStateFlow(SportsUiState())
     val state: StateFlow<SportsUiState> = _state.asStateFlow()
     var lastFocusedGameId: String? = null
 
-    fun load() {
+    fun load(fresh: Boolean = false) {
         _state.update { it.copy(loading = true, error = null) }
         viewModelScope.launch {
             val (sports, channels) = coroutineScope {
-                val s = async { live.sports(DAYS) }
+                val s = async { live.sports(DAYS, fresh) }
                 val c = async { live.channels() }
                 s.await() to c.await()
             }
@@ -100,7 +112,7 @@ class SportsViewModel(private val live: LiveRepository) : ViewModel() {
             sports.fold(
                 { answer ->
                     _state.update { s -> s.copy(loading = false, answer = answer, channelsById = byId, sport = s.sport?.takeIf { it in SportsLayout.sportsOf(answer.games) }) }
-                    if (answer.loading && retries++ < 3) { delay(4000); load() }
+                    if (answer.loading && retries++ < 3) { delay(4000); load(fresh = true) }
                 },
                 // A failed refresh keeps what is shown.
                 { e -> _state.update { it.copy(loading = false, error = e.takeIf { _ -> it.answer == null }) } },
@@ -132,11 +144,44 @@ class SportsViewModel(private val live: LiveRepository) : ViewModel() {
 
     fun dismissPicker() = _state.update { it.copy(picking = null) }
 
-    companion object { const val DAYS = 7 }
+    // ---- Choose sports: every league, saved in the viewer's preferences (all devices) ----
+    fun openChooser() {
+        _state.update { it.copy(choosing = SportsUiState.Chooser()) }
+        viewModelScope.launch {
+            live.sportsLeagues().fold(
+                { l -> _state.update { it.copy(choosing = it.choosing?.copy(leagues = l.leagues, chosen = l.chosen, max = l.max, loading = false)) } },
+                { e -> _state.update { it.copy(choosing = it.choosing?.copy(loading = false, error = e.message ?: "Couldn't load the list.")) } },
+            )
+        }
+    }
+
+    fun toggleLeague(id: String) = _state.update { s ->
+        val c = s.choosing ?: return@update s
+        val next = if (id in c.chosen) c.chosen - id else if (c.chosen.size >= c.max) c.chosen else c.chosen + id
+        s.copy(choosing = c.copy(chosen = next))
+    }
+
+    fun closeChooser() = _state.update { it.copy(choosing = null) }
+
+    fun saveChooser() {
+        val c = _state.value.choosing ?: return
+        if (c.chosen.isEmpty()) return
+        _state.update { it.copy(choosing = c.copy(saving = true, error = null)) }
+        viewModelScope.launch {
+            users.updatePreferences(com.portalcast.tv.data.model.Preferences(sportsLeagues = c.chosen)).fold(
+                { _state.update { it.copy(choosing = null, sport = null) }; retries = 0; load(fresh = true) },
+                { e -> _state.update { it.copy(choosing = it.choosing?.copy(saving = false, error = "Couldn't save: ${e.message ?: "try again"}")) } },
+            )
+        }
+    }
+
+    // A month: some sports (cricket) have a game every few weeks in the source.
+    companion object { const val DAYS = 30 }
 }
 
 /**
- * The Sports tab (plan Phase 6.7): games of the admin's leagues for the next 7 days by day, a
+ * The Sports tab (plan Phase 6.7): games of the viewer's leagues (Choose sports; none chosen:
+ * the admin's) for the next 30 days by day, a
  * chip per sport. A game the guide shows plays its channel; otherwise "Find channel" searches
  * Live TV for the broadcaster the schedule names. Credit: "Schedule: sporting-events.org".
  */
@@ -149,7 +194,7 @@ fun SportsScreen(
 ) {
     val context = LocalContext.current
     val container = context.appContainer
-    val vm: SportsViewModel = viewModel(key = "sports", factory = viewModelFactory { initializer { SportsViewModel(container.liveRepository) } })
+    val vm: SportsViewModel = viewModel(key = "sports", factory = viewModelFactory { initializer { SportsViewModel(container.liveRepository, container.userRepository) } })
     val state by vm.state.collectAsStateWithLifecycle()
     LaunchedEffect(Unit) { vm.load() }
 
@@ -164,6 +209,9 @@ fun SportsScreen(
     val sports = remember(answer) { SportsLayout.sportsOf(answer.games) }
     val days = remember(answer, state.sport) { SportsLayout.days(answer.games, state.sport, zone, LocalDate.now(zone)) }
 
+    state.choosing?.let { c ->
+        ChooseSportsPanel(c, onToggle = vm::toggleLeague, onSave = vm::saveChooser, onDismiss = vm::closeChooser)
+    }
     state.picking?.let { game ->
         val channels = SportsLayout.channelsOf(game, state.channelsById)
         ChannelPicker(game, channels, onPick = { vm.play(it, channels); onPlay() }, onDismiss = vm::dismissPicker)
@@ -173,7 +221,8 @@ fun SportsScreen(
         Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             Text("Sports", style = MaterialTheme.typography.headlineSmall, color = AppColors.Text)
             val count = days.sumOf { it.games.size }
-            Text("$count ${if (count == 1) "game" else "games"} this week", style = MaterialTheme.typography.bodyMedium, color = AppColors.TextMuted)
+            Text("$count ${if (count == 1) "game" else "games"} in the next 30 days", style = MaterialTheme.typography.bodyMedium, color = AppColors.TextMuted)
+            TvButton(text = "Choose sports", onClick = vm::openChooser, style = TvButtonStyle.Subtle)
             Spacer(Modifier.weight(1f))
             Text("Schedule: ${answer.source.name}", style = MaterialTheme.typography.bodySmall, color = AppColors.TextMuted)
         }
@@ -190,7 +239,7 @@ fun SportsScreen(
         }
         if (days.isEmpty()) {
             Text(
-                if (answer.loading) "Fetching the schedule…" else "No games in the next 7 days for the chosen leagues.",
+                if (answer.loading) "Fetching the schedule…" else "No games in the next 30 days for your leagues. Choose sports to add more.",
                 color = AppColors.TextMuted,
                 style = MaterialTheme.typography.bodyLarge,
                 modifier = Modifier.padding(top = 24.dp),
@@ -341,6 +390,65 @@ private fun ChannelPicker(game: SportsGame, channels: List<Channel>, onPick: (Ch
                         onClick = { onPick(ch) },
                         modifier = (if (i == 0) Modifier.focusRequester(first) else Modifier).fillMaxWidth(),
                     )
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Choose sports: every league by sport, the viewer's ticked (at most 20), full screen. Center
+ * ticks; Save shows them; Back leaves without saving.
+ */
+@Composable
+private fun ChooseSportsPanel(c: SportsUiState.Chooser, onToggle: (String) -> Unit, onSave: () -> Unit, onDismiss: () -> Unit) {
+    Dialog(onDismissRequest = onDismiss, properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false)) {
+        val first = remember { FocusRequester() }
+        LaunchedEffect(c.loading) { if (!c.loading) repeat(10) { withFrameNanos { }; if (runCatching { first.requestFocus() }.isSuccess) return@LaunchedEffect } }
+        Column(Modifier.fillMaxSize().background(AppColors.Background).padding(horizontal = 48.dp, vertical = 24.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                Text("Choose sports", style = MaterialTheme.typography.headlineSmall, color = AppColors.Text)
+                Text("${c.chosen.size} / ${c.max}", style = MaterialTheme.typography.bodyMedium, color = AppColors.TextMuted)
+                Spacer(Modifier.weight(1f))
+                TvButton(
+                    text = if (c.saving) "Saving…" else "Save",
+                    onClick = onSave,
+                    enabled = !c.saving && c.chosen.isNotEmpty(),
+                    style = com.portalcast.tv.ui.components.TvButtonStyle.Primary,
+                )
+                TvButton(text = "Cancel", onClick = onDismiss)
+            }
+            c.error?.let { Text(it, color = AppColors.Error, modifier = Modifier.padding(top = 8.dp)) }
+            if (c.loading) {
+                LoadingPanel(Modifier.fillMaxWidth().weight(1f))
+                return@Column
+            }
+            val bySport = c.leagues.groupBy { it.sport }.toList()
+            androidx.compose.foundation.lazy.grid.LazyVerticalGrid(
+                columns = androidx.compose.foundation.lazy.grid.GridCells.Fixed(4),
+                modifier = Modifier.fillMaxWidth().weight(1f).padding(top = 12.dp),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+                contentPadding = PaddingValues(bottom = 24.dp),
+            ) {
+                var firstDone = false
+                for ((sport, leagues) in bySport) {
+                    item(key = "h:$sport", span = { androidx.compose.foundation.lazy.grid.GridItemSpan(maxLineSpan) }) {
+                        Text(sport, style = MaterialTheme.typography.titleMedium, color = AppColors.Text, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(top = 10.dp))
+                    }
+                    for (l in leagues) {
+                        val isFirst = !firstDone
+                        firstDone = true
+                        item(key = l.id) {
+                            val on = l.id in c.chosen
+                            TvButton(
+                                text = (if (on) "✓  " else "") + l.name,
+                                onClick = { onToggle(l.id) },
+                                style = if (on) com.portalcast.tv.ui.components.TvButtonStyle.Primary else TvButtonStyle.Subtle,
+                                modifier = (if (isFirst) Modifier.focusRequester(first) else Modifier).fillMaxWidth(),
+                            )
+                        }
+                    }
                 }
             }
         }

@@ -47,5 +47,17 @@ data class SportsGame(
     val channels: List<SportsChannel> = emptyList(),
 )
 
+/** `GET /api/v2/sports/leagues`: every league there is, and the viewer's choice. */
+@Serializable
+data class SportsLeagues(
+    val leagues: List<SportsLeagueInfo> = emptyList(),
+    val chosen: List<String> = emptyList(),
+    val defaults: List<String> = emptyList(),
+    val max: Int = 20,
+)
+
+@Serializable
+data class SportsLeagueInfo(val id: String = "", val name: String = "", val sport: String = "")
+
 @Serializable
 data class SportsChannel(val channelId: String = "", val programme: String = "")
