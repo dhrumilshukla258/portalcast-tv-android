@@ -24,13 +24,17 @@
 
 ## Features
 
-- **Discover** — a hero that follows focus, rows by genre and recommendation, Genre / Language / Country / Channel / Mood selectors, channel badges, Continue Watching (hold Center to remove a title).
-- **Search** across all movies, series and live channels; versions of a title are one result.
+- **The same app as the web** — Home, Live TV, Sports, Search and My List along the top, Movies · Series · Cast under it, in the black-blue PortalCast look.
+- **Home made for each viewer** — the title to resume, Continue Watching, "Because you watched", top picks and trending, built from what this profile watched; one card per title across its language and quality versions. It opens at once on the Home it showed last.
+- **Filters** — genre, language, country, channel or platform and mood, plus the provider's **IPTV categories** and **My library** (your own files).
+- **Hold OK on a title** to add it to My List, mark it watched, say "Not interested" (it leaves every Home row) or remove it from Continue Watching. **My List** keeps My List, Watched, Not interested and favourite channels, so anything can be undone.
+- **Cast** — actors, actresses, directors, creators and writers with photos, ranked by what the profile watches, each with every title of theirs you have.
+- **Sports** — the next 30 days of the sports each viewer picks, with the channel showing each match from the TV guide; OK on a match tunes in.
 - **Series** laid out like Netflix: show and seasons on the left, episodes with stills and descriptions on the right, opening on the episode you are watching.
-- **Live TV** with now/next from the EPG, favourites and recent channels.
+- **Live TV** with now/next from the guide, favourites and recent channels.
 - **Player** — resume, next-episode prompt, Jellyfin-style control row (Up/Down) with subtitles (CC) and audio popups and per-title subtitle timing, real resolution and frame rate in the overlay.
 - **Built for the remote** — every screen works with the d-pad only, focus is remembered per row, and grids keep your column however fast you scroll.
-- Sign in with a pairing code from your phone; progress and favourites sync with the web app.
+- Sign in with a pairing code from your phone; progress, My List and favourites sync with the web app.
 
 ## Install
 
