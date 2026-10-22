@@ -49,6 +49,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
@@ -367,8 +368,10 @@ private fun RowsContent(
                 Text(state.emptyHint, color = AppColors.TextMuted, modifier = Modifier.padding(horizontal = 48.dp))
             }
         }
-        items(rows, key = { it.key }) { row ->
+        itemsIndexed(rows, key = { _, it -> it.key }) { i, row ->
             LaunchedEffect(row.key) { vm.onRowVisible(row.key) }
+            // The next row's first posters, so they are drawn at once when it scrolls in.
+            rows.getOrNull(i + 1)?.let { next -> PrefetchPosters(next.items, serverUrl) }
             MediaRow(
                 row = row,
                 serverUrl = serverUrl,

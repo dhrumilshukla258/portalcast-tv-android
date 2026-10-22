@@ -60,6 +60,8 @@ import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Surface
 import androidx.tv.material3.Text
 import coil.compose.AsyncImage
+import coil.imageLoader
+import androidx.compose.runtime.DisposableEffect
 import coil.request.ImageRequest
 import com.portalcast.tv.data.model.DiscoverFacets
 import com.portalcast.tv.data.model.DiscoverQuery
@@ -77,6 +79,30 @@ import com.portalcast.tv.util.CARD_POSTER
  */
 
 internal val PosterWidth: Dp = 130.dp
+
+/** How many of the next row's posters are fetched ahead (plan Phase 4). */
+private const val PREFETCH_POSTERS = 8
+
+/**
+ * Fetches the first posters of [items] into Coil's caches with the same request a card makes
+ * (same URL and decode size), so they are drawn at once when their row scrolls into view.
+ * Cancelled when this leaves the screen; only items already loaded are fetched.
+ */
+@Composable
+internal fun PrefetchPosters(items: List<MediaItem>, serverUrl: String?) {
+    val context = LocalContext.current
+    val density = LocalDensity.current
+    val urls = remember(items, serverUrl) {
+        items.asSequence().take(PREFETCH_POSTERS)
+            .mapNotNull { ImageUrl.downsize(ImageUrl.resolve(serverUrl, it.screenshotUri), CARD_POSTER) }.toList()
+    }
+    DisposableEffect(urls) {
+        val w = with(density) { PosterWidth.roundToPx() }
+        val loader = context.imageLoader
+        val jobs = urls.map { loader.enqueue(ImageRequest.Builder(context).data(it).size(w, w * 3 / 2).build()) }
+        onDispose { jobs.forEach { it.dispose() } }
+    }
+}
 
 internal fun Modifier.posterAspect(): Modifier = aspectRatio(2f / 3f)
 
