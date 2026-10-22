@@ -204,7 +204,9 @@ fun HomeScreen(
     val pendingSwitch = remember { arrayOfNulls<Job>(1) }
     fun focusOnTab(t: HomeTab) {
         pendingSwitch[0]?.cancel()
-        if (t == tab) return
+        // Resting on the tab the screen belongs to does nothing: focus lands on Home while
+        // Movies / Series / Cast are open (they are Home's), and that used to switch to Home.
+        if (t == tab || t == tab?.let(::topTabOf)) return
         pendingSwitch[0] = scope.launch { delay(TAB_SWITCH_DELAY_MS); select(t) }
     }
 
