@@ -79,7 +79,7 @@ private const val COLUMNS = 6
 
 /** The My List tab (design-system.md, Screens): a grid of saved titles; Add / Remove is on each detail page. */
 @Composable
-fun MyListScreen(onOpenMovie: (MediaItem) -> Unit, onOpenSeries: (MediaItem) -> Unit, modifier: Modifier = Modifier) {
+fun MyListScreen(onOpenMovie: (MediaItem) -> Unit, onOpenSeries: (MediaItem) -> Unit, restoreFocus: Boolean = false, modifier: Modifier = Modifier) {
     val container = LocalContext.current.appContainer
     val vm: MyListViewModel = viewModel(key = "my-list", factory = viewModelFactory { initializer { MyListViewModel(container.discoverRepository) } })
     val state by vm.state.collectAsStateWithLifecycle()
@@ -109,7 +109,8 @@ fun MyListScreen(onOpenMovie: (MediaItem) -> Unit, onOpenSeries: (MediaItem) -> 
             return@Column
         }
         val firstFocus = remember { FocusRequester() }
-        LaunchedEffect(items) { repeat(10) { withFrameNanos { }; if (runCatching { firstFocus.requestFocus() }.isSuccess) return@LaunchedEffect } }
+        // Back from a title opened here: focus its card. Otherwise focus stays where it is (on the tabs).
+        LaunchedEffect(items) { if (restoreFocus) repeat(10) { withFrameNanos { }; if (runCatching { firstFocus.requestFocus() }.isSuccess) return@LaunchedEffect } }
         val gridState = rememberLazyGridState()
         val gridFocus = rememberGridFocus(gridState)
         LazyVerticalGrid(

@@ -43,7 +43,7 @@ logo and accent colour.
 ## Navigation (top tabs)
 
 - Text tabs across the top, left to right: Home, Live TV, Movies, Series, Search, My List, Settings; the PortalCast logo on the left. The current tab in `text` with a 2 high `primary` underline, the others `textMuted`. Same on the TV and desktop web (the owner's reference: Fjord's TV and iPad layout).
-- TV: Up from the first row reaches the tabs; moving across tabs switches the screen (the last tab is remembered). Web: the header already works this way.
+- TV: Up from the first row reaches the tabs, Down goes back in; resting on a tab for 350 ms shows its screen, Center at once (the last tab is remembered). Back goes to the tabs, then out of the app. Web: the header already works this way.
 - Web on a phone (under 768 wide): a bottom bar: Home, Live TV, Browse (Movies and Series), Search, My List; Settings from the profile button.
 - Order of work: the content tweaks first (cards, hero, rows, detail), then the TV's move from its left rail to top tabs, as a step of its own (it changes how the remote moves).
 

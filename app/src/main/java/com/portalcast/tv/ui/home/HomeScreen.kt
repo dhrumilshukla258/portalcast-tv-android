@@ -39,6 +39,9 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
+import kotlinx.coroutines.Job
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusDirection
@@ -76,15 +79,21 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
-private val RailCompact = 76.dp
-private val RailExpanded = 232.dp
+/** Height of the tab bar along the top. */
+private val TabBarHeight = 72.dp
+
+/** How long focus rests on a tab before the screen follows it (Center switches at once). */
+private const val TAB_SWITCH_DELAY_MS = 350L
+
+/** The tabs left to right (design-system.md, Navigation); Settings follows them. */
+private val TopTabs = listOf(HomeTab.DISCOVER, HomeTab.LIVE, HomeTab.MOVIES, HomeTab.SERIES, HomeTab.SEARCH, HomeTab.MY_LIST)
 
 /**
- * Home: a left nav rail (Discover, Live TV, Movies, Series, Settings) over the selected
- * tab's content. The rail is compact (icons) while content has focus and expands with
- * labels when it has focus; moving focus onto a tab swaps the content and remembers the
- * tab in `LocalPrefs.lastTab`. D-pad Left from the content's leftmost column reaches the
- * rail. Back: first to the rail, then out of the app.
+ * Home: text tabs along the top (Home, Live TV, Movies, Series, Search, My List, Settings; the
+ * design system's Fjord-style layout) over the selected tab's content. Up from the content's
+ * top reaches the tabs, Down goes back in. Resting on a tab for [TAB_SWITCH_DELAY_MS] shows its
+ * screen (Center at once) and remembers it in `LocalPrefs.lastTab`. Back: first to the tabs,
+ * then out of the app.
  *
  * @param initialTab the route's tab; the default (Discover) yields to the remembered tab.
  * @param onOpenMovie / [onOpenSeries] navigate to the detail routes (the item is already in [SelectedItemHolder]).
@@ -117,7 +126,7 @@ fun HomeScreen(
     // screen and the content should restore its own focus.
     var visited by rememberSaveable { mutableStateOf(false) }
     var restorePending by remember { mutableStateOf(visited) }
-    var railFocused by remember { mutableStateOf(false) }
+    var tabsFocused by remember { mutableStateOf(false) }
     /** The Movies or Series tab showing its per-category browse instead of its rows. */
     var categories by rememberSaveable { mutableStateOf<HomeTab?>(null) }
     var contentFocused by remember { mutableStateOf(false) }
@@ -125,7 +134,7 @@ fun HomeScreen(
     val settingsRequester = remember { FocusRequester() }
 
     val current = tab
-    fun focusRail() {
+    fun focusTabs() {
         val target = current?.let { tabRequesters[it] } ?: return
         runCatching { target.requestFocus() }
     }
@@ -138,14 +147,14 @@ fun HomeScreen(
             restorePending = false
             // Back from a child screen: the tab should have restored its own focus. If it didn't,
             // go into the content, not the rail (opening the rail on Back looked like a bug).
-            if (!contentFocused && !railFocused) {
+            if (!contentFocused && !tabsFocused) {
                 runCatching { contentRequester.requestFocus() }
                 withFrameNanos { }
-                if (!contentFocused && !railFocused) focusRail()
+                if (!contentFocused && !tabsFocused) focusTabs()
             }
         } else {
             withFrameNanos { }
-            focusRail()
+            focusTabs()
         }
         visited = true
     }
@@ -153,16 +162,16 @@ fun HomeScreen(
     // Focus recovery: when the focused element disappears (e.g. a Retry button replaced by the
     // content it loaded) nothing on screen has focus and the remote does nothing visible.
     // Move focus into the content (first focusable child), falling back to the rail.
-    LaunchedEffect(contentFocused, railFocused, restorePending) {
-        if (current == null || contentFocused || railFocused || restorePending) return@LaunchedEffect
+    LaunchedEffect(contentFocused, tabsFocused, restorePending) {
+        if (current == null || contentFocused || tabsFocused || restorePending) return@LaunchedEffect
         delay(250)
         runCatching { contentRequester.requestFocus() }
         withFrameNanos { }
-        if (!contentFocused && !railFocused) focusRail()
+        if (!contentFocused && !tabsFocused) focusTabs()
     }
 
     BackHandler {
-        if (railFocused) (context as? Activity)?.finish() else focusRail()
+        if (tabsFocused) (context as? Activity)?.finish() else focusTabs()
     }
 
     if (current == null) return
@@ -177,146 +186,138 @@ fun HomeScreen(
         scope.launch { runCatching { prefs.setLastTab(t.route) } }
     }
 
+    // A tab switch follows focus once it rests; a newer focus cancels the pending one.
+    var pendingSwitch by remember { mutableStateOf<Job?>(null) }
+    fun focusOnTab(t: HomeTab) {
+        pendingSwitch?.cancel()
+        if (t == tab) return
+        pendingSwitch = scope.launch { delay(TAB_SWITCH_DELAY_MS); select(t) }
+    }
+
     com.portalcast.tv.ui.components.IptvStatusPoller()
     Box(Modifier.fillMaxSize()) {
         // Discover has its own focus-following hero; every other tab gets the rotating
         // ambient backdrop (the webui's AmbientBackdrop).
-        if (current != HomeTab.DISCOVER) AmbientBackdrop()
-        Box(
-            Modifier
-                .fillMaxSize()
-                .padding(start = RailCompact)
-                .onFocusChanged { contentFocused = it.hasFocus }
-                .focusRequester(contentRequester)
-                // Focus may leave the content only to the Left, and then always onto the CURRENT
-                // tab. Without this, Down on the last row (or Up on the first) found no target
-                // inside and jumped to the geometrically nearest rail item, usually Settings, and
-                // Left from low on the screen landed on Settings too.
-                .focusProperties {
-                    exit = { dir -> if (dir == FocusDirection.Left) tabRequesters.getValue(current) else FocusRequester.Cancel }
+        if (current != HomeTab.DISCOVER && !(current == HomeTab.MOVIES && categories == null) && !(current == HomeTab.SERIES && categories == null)) AmbientBackdrop()
+        Column(Modifier.fillMaxSize()) {
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .height(TabBarHeight)
+                    .background(Brush.verticalGradient(0f to AppColors.Background, 1f to AppColors.Background.copy(alpha = 0.6f)))
+                    .onFocusChanged { tabsFocused = it.hasFocus }
+                    // Entering the tabs (Up from the content) always lands on the CURRENT tab.
+                    .focusProperties {
+                        enter = { tabRequesters.getValue(current) }
+                        exit = { dir -> if (dir == FocusDirection.Down) FocusRequester.Default else FocusRequester.Cancel }
+                    }
+                    .focusGroup()
+                    .padding(horizontal = 48.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                PortalcastLogo(height = 26.dp)
+                Spacer(Modifier.width(28.dp))
+                for (t in TopTabs) {
+                    TopTab(
+                        label = t.title,
+                        selected = t == current,
+                        // Center switches at once; resting on a tab switches after a moment.
+                        onClick = { pendingSwitch?.cancel(); select(t) },
+                        onFocused = { focusOnTab(t) },
+                        modifier = Modifier.focusRequester(tabRequesters.getValue(t)),
+                    )
                 }
-                .focusGroup(),
-        ) {
-            when (current) {
-                HomeTab.SEARCH -> SearchScreen(onOpenMovie = openMovie, onOpenSeries = openSeries, onPlay = onPlay, onOpenPerson = onOpenPerson, restoreFocus = restorePending)
-                HomeTab.DISCOVER -> DiscoverScreen(onOpenMovie = openMovie, onOpenSeries = openSeries, onOpenSearch = { select(HomeTab.SEARCH) }, restoreFocus = restorePending)
-                HomeTab.LIVE -> LiveScreen(onPlay = onPlay, restoreFocus = restorePending)
-                HomeTab.MY_LIST -> com.portalcast.tv.ui.mylist.MyListScreen(onOpenMovie = openMovie, onOpenSeries = openSeries)
-                // Movies / Series: Home's layout for one type; Categories opens the per-category
-                // browse, Back returns (design-system.md, Screens).
-                HomeTab.MOVIES -> if (categories == HomeTab.MOVIES) {
-                    BackHandler { categories = null }
-                    MoviesScreen(onOpenMovie = openMovie, restoreFocus = restorePending)
-                } else {
-                    DiscoverScreen(onOpenMovie = openMovie, onOpenSeries = openSeries, restoreFocus = restorePending, fixedType = "movie", onOpenCategories = { categories = HomeTab.MOVIES })
-                }
-                HomeTab.SERIES -> if (categories == HomeTab.SERIES) {
-                    BackHandler { categories = null }
-                    SeriesScreen(onOpenSeries = openSeries, restoreFocus = restorePending)
-                } else {
-                    DiscoverScreen(onOpenMovie = openMovie, onOpenSeries = openSeries, restoreFocus = restorePending, fixedType = "series", onOpenCategories = { categories = HomeTab.SERIES })
+                Spacer(Modifier.weight(1f))
+                TopTab(
+                    label = "Settings",
+                    selected = false,
+                    onClick = onOpenSettings,
+                    onFocused = { pendingSwitch?.cancel() },
+                    modifier = Modifier.focusRequester(settingsRequester),
+                )
+            }
+            Box(
+                Modifier
+                    .fillMaxWidth()
+                    .weight(1f)
+                    .onFocusChanged { contentFocused = it.hasFocus }
+                    .focusRequester(contentRequester)
+                    // Focus leaves the content only Up, and then always onto the CURRENT tab. Without
+                    // this, Up from the top landed on whichever tab was nearest above, and Down on the
+                    // last row (or Left/Right at an edge) had nowhere sensible to go.
+                    .focusProperties {
+                        exit = { dir -> if (dir == FocusDirection.Up) tabRequesters.getValue(current) else FocusRequester.Cancel }
+                    }
+                    .focusGroup(),
+            ) {
+                when (current) {
+                    HomeTab.SEARCH -> SearchScreen(onOpenMovie = openMovie, onOpenSeries = openSeries, onPlay = onPlay, onOpenPerson = onOpenPerson, restoreFocus = restorePending)
+                    HomeTab.DISCOVER -> DiscoverScreen(onOpenMovie = openMovie, onOpenSeries = openSeries, onOpenSearch = { select(HomeTab.SEARCH) }, restoreFocus = restorePending)
+                    HomeTab.LIVE -> LiveScreen(onPlay = onPlay, restoreFocus = restorePending)
+                    HomeTab.MY_LIST -> com.portalcast.tv.ui.mylist.MyListScreen(onOpenMovie = openMovie, onOpenSeries = openSeries, restoreFocus = restorePending)
+                    // Movies / Series: Home's layout for one type; Categories opens the per-category
+                    // browse, Back returns (design-system.md, Screens).
+                    HomeTab.MOVIES -> if (categories == HomeTab.MOVIES) {
+                        BackHandler { categories = null }
+                        MoviesScreen(onOpenMovie = openMovie, restoreFocus = restorePending)
+                    } else {
+                        DiscoverScreen(onOpenMovie = openMovie, onOpenSeries = openSeries, restoreFocus = restorePending, fixedType = "movie", onOpenCategories = { categories = HomeTab.MOVIES })
+                    }
+                    HomeTab.SERIES -> if (categories == HomeTab.SERIES) {
+                        BackHandler { categories = null }
+                        SeriesScreen(onOpenSeries = openSeries, restoreFocus = restorePending)
+                    } else {
+                        DiscoverScreen(onOpenMovie = openMovie, onOpenSeries = openSeries, restoreFocus = restorePending, fixedType = "series", onOpenCategories = { categories = HomeTab.SERIES })
+                    }
                 }
             }
         }
 
         // Internet down: IPTV cards are dimmed, local titles keep playing.
         com.portalcast.tv.ui.components.IptvOfflineBanner(
-            Modifier.align(androidx.compose.ui.Alignment.TopCenter).padding(top = 12.dp),
+            Modifier.align(androidx.compose.ui.Alignment.TopCenter).padding(top = TabBarHeight + 8.dp),
         )
-
-        // While the rail is open it overlays the content: dim everything behind it so text cut
-        // off by the rail's edge doesn't read as broken layout (found on the emulator).
-        val scrim by animateFloatAsState(if (railFocused) 0.55f else 0f, label = "railScrim")
-        if (scrim > 0f) Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = scrim)))
-
-        val railWidth by animateDpAsState(if (railFocused) RailExpanded else RailCompact, label = "rail")
-        Column(
-            Modifier
-                .width(railWidth)
-                .fillMaxHeight()
-                .background(
-                    if (railFocused) Brush.horizontalGradient(0f to AppColors.Background, 1f to AppColors.Background)
-                    else Brush.horizontalGradient(0f to AppColors.Background, 1f to AppColors.Background.copy(alpha = 0.85f)),
-                )
-                .onFocusChanged { railFocused = it.hasFocus }
-                // Entering the rail (Left from content) always lands on the CURRENT tab, never on
-                // whichever item is geometrically nearest.
-                .focusProperties { enter = { tabRequesters.getValue(current) } }
-                .padding(horizontal = 12.dp, vertical = 28.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            // Brand mark: the symbol when the rail is collapsed, symbol + wordmark when expanded.
-            // Fixed height so the tabs below don't shift when the rail opens.
-            Box(Modifier.height(36.dp).padding(start = 10.dp), contentAlignment = Alignment.CenterStart) {
-                if (railFocused) PortalcastLogo(height = 30.dp) else PortalcastSymbol(height = 32.dp)
-            }
-            Spacer(Modifier.height(16.dp))
-            for (t in HomeTab.entries) {
-                RailItem(
-                    icon = t.icon,
-                    label = t.title,
-                    selected = t == current,
-                    expanded = railFocused,
-                    onClick = { select(t) },
-                    // Tabs switch on Center only. Switching on focus made Up/Down (or a Left that
-                    // landed on another item) change tabs by itself, which felt like the UI jumping.
-                    modifier = Modifier.focusRequester(tabRequesters.getValue(t)),
-                )
-            }
-            Spacer(Modifier.weight(1f))
-            RailItem(
-                icon = Icons.Filled.Settings,
-                label = "Settings",
-                selected = false,
-                expanded = railFocused,
-                onClick = onOpenSettings,
-                modifier = Modifier.focusRequester(settingsRequester),
-            )
-        }
     }
 }
 
-private val HomeTab.icon: ImageVector
-    get() = when (this) {
-        HomeTab.SEARCH -> Icons.Filled.Search
-        HomeTab.DISCOVER -> Icons.Filled.Home
-        HomeTab.LIVE -> Icons.Filled.PlayArrow
-        HomeTab.MOVIES -> Icons.Filled.Star
-        HomeTab.SERIES -> Icons.AutoMirrored.Filled.List
-        HomeTab.MY_LIST -> Icons.Filled.Favorite
-    }
-
+/**
+ * One tab: its name in `titleMedium`, the current one in `text` with a 2 high `primary` line
+ * under it, the others `textMuted`; focus adds a light fill and the white ring.
+ */
 @Composable
-private fun RailItem(
-    icon: ImageVector,
+private fun TopTab(
     label: String,
     selected: Boolean,
-    expanded: Boolean,
     onClick: () -> Unit,
+    onFocused: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val shape = RoundedCornerShape(10.dp)
     Surface(
         onClick = onClick,
-        modifier = modifier.fillMaxWidth().height(48.dp),
+        modifier = modifier.onFocusChanged { if (it.isFocused) onFocused() },
         shape = ClickableSurfaceDefaults.shape(shape = shape),
         scale = ClickableSurfaceDefaults.scale(focusedScale = 1.04f),
         border = ClickableSurfaceDefaults.border(focusedBorder = Border(BorderStroke(2.dp, AppColors.Focus), shape = shape)),
         colors = ClickableSurfaceDefaults.colors(
-            containerColor = if (selected) AppColors.Primary.copy(alpha = 0.18f) else Color.Transparent,
-            contentColor = if (selected) AppColors.Primary else AppColors.TextMuted,
-            focusedContainerColor = AppColors.Primary,
-            focusedContentColor = AppColors.OnPrimary,
-            pressedContainerColor = AppColors.Primary,
-            pressedContentColor = AppColors.OnPrimary,
+            containerColor = Color.Transparent,
+            contentColor = if (selected) AppColors.Text else AppColors.TextMuted,
+            focusedContainerColor = Color.White.copy(alpha = 0.12f),
+            focusedContentColor = AppColors.Text,
+            pressedContainerColor = Color.White.copy(alpha = 0.12f),
+            pressedContentColor = AppColors.Text,
         ),
     ) {
-        Row(Modifier.fillMaxSize().padding(horizontal = 14.dp), verticalAlignment = Alignment.CenterVertically) {
-            Icon(icon, contentDescription = label, modifier = Modifier.size(22.dp))
-            if (expanded) {
-                Spacer(Modifier.width(14.dp))
-                Text(label, style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Clip)
-            }
+        Column(Modifier.width(IntrinsicSize.Max).padding(horizontal = 14.dp, vertical = 8.dp)) {
+            Text(
+                label,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium,
+                maxLines = 1,
+            )
+            Spacer(Modifier.height(4.dp))
+            Box(Modifier.fillMaxWidth().height(2.dp).background(if (selected) AppColors.Primary else Color.Transparent))
         }
     }
 }
