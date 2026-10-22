@@ -44,7 +44,7 @@ logo and accent colour.
 
 - Text tabs across the top, left to right: Home, Live TV, Movies, Series, Sports, Search, My List, Settings; the PortalCast logo on the left. The current tab in `text` with a 2 high `primary` underline, the others `textMuted`. Same on the TV and desktop web (the owner's reference: Fjord's TV and iPad layout).
 - TV: Up from the first row reaches the tabs, Down goes back in; resting on a tab for 350 ms shows its screen, Center at once (the last tab is remembered). Back goes to the tabs, then out of the app. Web: the header already works this way.
-- Web on a phone (under 640 wide): a bottom bar with every tab (icon over label); Settings from the profile button. Discover's filters are one "All Categories" button opening a full-screen picker (the five selectors, then a selector's values); the row of selectors is for wider screens.
+- Web on a phone (under 640 wide): a bottom bar with every tab (icon over label); Settings from the profile button. Under 768 wide, Discover's filters are one "Filters" button beside the page title opening a full-screen picker (the five selectors, then a selector's values), and Movies / Series put "Browse by category" on a full row under it; the row of selectors is for wider screens.
 - Order of work: the content tweaks first (cards, hero, rows, detail), then the TV's move from its left rail to top tabs, as a step of its own (it changes how the remote moves).
 
 ## Cards
