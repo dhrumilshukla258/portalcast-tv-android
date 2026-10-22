@@ -60,6 +60,10 @@ logo and accent colour.
 - No art: `surface` tile with the title's first letter.
 - Images at card size: w342 (web w500 at 2x), see the image sizes in the plan (Phase 4).
 
+## Title menu
+
+- Every title card opens one menu (owner, 2026-10-22): hold Center on the TV, hold on a phone, right-click or the ⋯ button (on hover) on a PC. Items: Add to / Remove from My List, Mark as watched (leaves Continue Watching and suggestions, feeds Because you watched), Not interested (kept off that viewer's Home rows, so new things show), and on Continue Watching cards Remove from Continue Watching. Home's rows and Continue Watching refresh after an action.
+
 ## Hero (Home, Movies, Series)
 
 - Height 56 % of the screen. The backdrop sits right, faded into `background` from the left (to 60 % width) and from the bottom.
