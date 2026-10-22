@@ -118,6 +118,8 @@ class DiscoverViewModel(
     private val user: UserRepository,
     /** The Movies / Series tabs: this screen shows one type only. */
     initialType: String? = null,
+    /** The last Home seen, shown at once on a cold start (null in tests). */
+    private val snapshots: HomeSnapshotStore? = null,
 ) : ViewModel() {
 
     /** Last focused card ("cw|key" or "rowKey|itemId"), so Back from a detail lands on it again. */
@@ -169,7 +171,15 @@ class DiscoverViewModel(
         rowsJob = null
         val gen = ++generation
         val type = _state.value.type
-        _state.update { it.copy(loading = true, error = null, emptyHint = null, rows = emptyList()) }
+        // Cold start: the last Home seen, at once, while the fresh one loads (replaced below).
+        val snap = if (_state.value.rows.isEmpty()) snapshots?.read(type ?: "all") else null
+        val snapRows = snap?.let { rowsFrom(it.home, null, it.whatsNew, it.totalTitles, null) }.orEmpty()
+        _state.update {
+            it.copy(
+                loading = snapRows.isEmpty(), error = null, emptyHint = null, rows = snapRows,
+                continueWatching = if (it.continueWatching.isEmpty() && snap != null) continueEntries(snap.continueWatching, type) else it.continueWatching,
+            )
+        }
         val scope = rowsScope()
         scope.launch { loadContinueWatching() }
         scope.launch {
@@ -184,22 +194,14 @@ class DiscoverViewModel(
             val fac = facD.await()
             if (gen != generation) return@launch
 
-            val rows = buildList {
-                home.getOrNull()?.rows?.forEach { r ->
-                    add(DiscoverRow(homeKey(r.key), RowKind.Recommended, r.title, items = r.data, page = 1, requested = true))
-                }
-                rec?.getOrNull()?.let { r ->
-                    val title = r.basedOnTitle?.takeIf { it.isNotBlank() }?.let { "Because you watched $it" } ?: "Recommended for you"
-                    add(DiscoverRow(KEY_RECOMMENDED, RowKind.Recommended, title, items = r.data, page = 1, requested = true))
-                }
-                new.getOrNull()?.let { b ->
-                    add(DiscoverRow(KEY_WHATS_NEW, RowKind.WhatsNew, "What's new", items = b.data, page = 1,
-                        hasMore = b.hasMore(b.data.size), requested = true))
-                    _state.update { s -> s.copy(totalTitles = b.totalItems) }
-                }
-                fac.getOrNull()?.let { f ->
-                    genresFor(f, home.getOrNull()?.genreOrder.orEmpty()).forEach { add(DiscoverRow(genreKey(it), RowKind.Genre, it, genre = it)) }
-                }
+            new.getOrNull()?.let { b -> _state.update { s -> s.copy(totalTitles = b.totalItems) } }
+            val rows = rowsFrom(home.getOrNull(), rec?.getOrNull(), new.getOrNull()?.data, new.getOrNull()?.totalItems, new.getOrNull()) +
+                fac.getOrNull()?.let { f -> genresFor(f, home.getOrNull()?.genreOrder.orEmpty()).map { DiscoverRow(genreKey(it), RowKind.Genre, it, genre = it) } }.orEmpty()
+            // Saved for the next start (rows, What's new; Continue Watching is saved as it loads).
+            if (home.isSuccess || new.isSuccess) {
+                val key = type ?: "all"
+                val before = snapshots?.read(key)
+                snapshots?.write(key, HomeSnapshot(home.getOrNull(), new.getOrNull()?.data.orEmpty(), new.getOrNull()?.totalItems, before?.continueWatching.orEmpty(), System.currentTimeMillis()))
             }
             val failures = listOf(rec ?: home, new, fac).mapNotNull { it.exceptionOrNull() }
             val error = if (failures.size == 3) discoverMessage(failures.first()) else null
@@ -218,10 +220,36 @@ class DiscoverViewModel(
 
     private suspend fun loadContinueWatching() {
         val type = _state.value.type
-        val entries = user.continueWatching().getOrNull().orEmpty()
-            .mapNotNull { toContinueEntry(it) }
-            .filter { type == null || (if (type == "series") it.isSeries else !it.isSeries) }
-        _state.update { it.copy(continueWatching = entries) }
+        val records = user.continueWatching().getOrNull() ?: return // a failure keeps what is shown
+        _state.update { it.copy(continueWatching = continueEntries(records, type)) }
+        snapshots?.let { s ->
+            val key = type ?: "all"
+            s.write(key, (s.read(key) ?: HomeSnapshot()).copy(continueWatching = records, savedAt = System.currentTimeMillis()))
+        }
+    }
+
+    private fun continueEntries(records: List<com.portalcast.tv.data.model.ProgressRecord>, type: String?): List<ContinueEntry> =
+        records.mapNotNull { toContinueEntry(it) }.filter { type == null || (if (type == "series") it.isSeries else !it.isSeries) }
+
+    /** The server's rows (or the old single recommendations row), then What's new. */
+    private fun rowsFrom(
+        home: com.portalcast.tv.data.model.HomeResponse?,
+        rec: com.portalcast.tv.data.model.RecommendationsResponse?,
+        whatsNew: List<com.portalcast.tv.data.model.MediaItem>?,
+        totalItems: Int?,
+        browse: com.portalcast.tv.data.model.DiscoverBrowseResponse?,
+    ): List<DiscoverRow> = buildList {
+        home?.rows?.forEach { r ->
+            add(DiscoverRow(homeKey(r.key), RowKind.Recommended, r.title, items = r.data, page = 1, requested = true))
+        }
+        rec?.let { r ->
+            val title = r.basedOnTitle?.takeIf { it.isNotBlank() }?.let { "Because you watched $it" } ?: "Recommended for you"
+            add(DiscoverRow(KEY_RECOMMENDED, RowKind.Recommended, title, items = r.data, page = 1, requested = true))
+        }
+        if (whatsNew != null && whatsNew.isNotEmpty()) {
+            val more = browse?.hasMore(whatsNew.size) ?: ((totalItems ?: 0) > whatsNew.size)
+            add(DiscoverRow(KEY_WHATS_NEW, RowKind.WhatsNew, "What's new", items = whatsNew, page = 1, hasMore = more, requested = true))
+        }
     }
 
     /**

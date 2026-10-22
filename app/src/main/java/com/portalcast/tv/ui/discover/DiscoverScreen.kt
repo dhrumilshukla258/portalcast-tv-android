@@ -136,7 +136,7 @@ fun DiscoverScreen(
     val container = LocalContext.current.appContainer
     val vm: DiscoverViewModel = viewModel(
         key = "discover:${fixedType ?: "all"}",
-        factory = viewModelFactory { initializer { DiscoverViewModel(container.discoverRepository, container.userRepository, fixedType) } },
+        factory = viewModelFactory { initializer { DiscoverViewModel(container.discoverRepository, container.userRepository, fixedType, container.homeSnapshots) } },
     )
     val state by vm.state.collectAsStateWithLifecycle()
     val serverUrl by container.sessionStore.serverUrl.collectAsStateWithLifecycle()

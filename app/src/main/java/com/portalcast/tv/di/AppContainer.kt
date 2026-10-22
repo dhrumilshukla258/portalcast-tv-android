@@ -30,6 +30,7 @@ import com.portalcast.tv.playback.DefaultProgressReporter
 import com.portalcast.tv.playback.DefaultStreamResolver
 import com.portalcast.tv.playback.ProgressReporter
 import com.portalcast.tv.playback.StreamResolver
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -51,6 +52,15 @@ class AppContainer(app: Application) {
 
     val sessionStore = SessionStore(app, appScope)
     val localPrefs = LocalPrefs(app)
+    /** The last Home seen, shown at once on a cold start (ui/discover/HomeSnapshot.kt). */
+    val homeSnapshots = com.portalcast.tv.ui.discover.HomeSnapshotStore(java.io.File(app.filesDir, "home-snapshots"))
+        .also { store ->
+            // Signed out (or a new server): the saved Home goes, so the next viewer never sees it.
+            appScope.launch {
+                var hadSession = false
+                sessionStore.session.collect { s -> if (s != null) hadSession = true else if (hadSession) { store.clear(); hadSession = false } }
+            }
+        }
 
     /** No interceptors: used by the refresher and by anything that must never trigger auth. */
     val bareClient: OkHttpClient = OkHttpClient.Builder()
