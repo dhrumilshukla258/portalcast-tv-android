@@ -35,6 +35,25 @@ data class RecommendationsResponse(
     val basedOnTitle: String? = null,
 )
 
+/**
+ * `GET /api/v2/home?type=` — the viewer's personal rows, prepared on the server ("Because you
+ * watched X", "Top picks for you", "More with <name>", "Popular on this server"), and
+ * `genreOrder`: their genres, most watched first, for the genre rows.
+ */
+@Serializable
+data class HomeResponse(
+    val rows: List<HomeRowDto> = emptyList(),
+    val genreOrder: List<String> = emptyList(),
+)
+
+@Serializable
+data class HomeRowDto(
+    val key: String,
+    val kind: String = "",
+    val title: String = "",
+    val data: List<MediaItem> = emptyList(),
+)
+
 /** `GET /api/v2/discover/variants?id=movie_123` */
 @Serializable
 data class VariantsResponse(val variants: List<MediaItem> = emptyList())

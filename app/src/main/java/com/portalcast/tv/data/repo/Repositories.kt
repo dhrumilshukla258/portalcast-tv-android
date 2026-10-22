@@ -13,6 +13,7 @@ import com.portalcast.tv.data.model.Paged
 import com.portalcast.tv.data.model.Preferences
 import com.portalcast.tv.data.model.ProgressRecord
 import com.portalcast.tv.data.model.RecommendationsResponse
+import com.portalcast.tv.data.model.HomeResponse
 import com.portalcast.tv.data.model.UserDto
 import com.portalcast.tv.data.store.Session
 import kotlinx.coroutines.flow.StateFlow
@@ -87,6 +88,8 @@ interface DiscoverRepository {
     suspend fun facets(type: String?): Result<DiscoverFacets>
     suspend fun browse(query: DiscoverQuery, page: Int): Result<DiscoverBrowseResponse>
     suspend fun recommendations(type: String?): Result<RecommendationsResponse>
+    /** The viewer's prepared rows (server Phase 2). Default: unsupported, so callers fall back. */
+    suspend fun home(type: String?): Result<HomeResponse> = Result.failure(UnsupportedOperationException("home"))
     suspend fun variants(prefixedId: String): Result<List<MediaItem>>
     /**
      * Resolve a Discover item (`movie_<id>` / `series_<id>`) into the regular list item

@@ -10,6 +10,8 @@ import com.portalcast.tv.data.model.Preferences
 import com.portalcast.tv.data.model.ProgressMeta
 import com.portalcast.tv.data.model.ProgressRecord
 import com.portalcast.tv.data.model.RecommendationsResponse
+import com.portalcast.tv.data.model.HomeResponse
+import com.portalcast.tv.data.model.HomeRowDto
 import com.portalcast.tv.data.net.ApiError
 import com.portalcast.tv.data.repo.DiscoverRepository
 import com.portalcast.tv.data.repo.UserRepository
@@ -80,6 +82,47 @@ class DiscoverViewModelTest {
         advanceUntilIdle()
         assertEquals(listOf("recommended", "whats_new", "genre:Action", "genre:Drama"), vm.state.value.visibleRows.map { it.key })
         assertNull(vm.state.value.emptyHint)
+    }
+
+    @Test
+    fun `the server's Home rows come first and genre rows follow the viewer's genres`() = runTest(dispatcher) {
+        val repo = FakeDiscoverRepository().apply {
+            home = Result.success(HomeResponse(
+                rows = listOf(
+                    HomeRowDto("because:movie_9", "because", "Because you watched Heat", listOf(item("movie_1"), item("movie_2"))),
+                    HomeRowDto("picks", "picks", "Top picks for you", listOf(item("movie_3"))),
+                ),
+                genreOrder = listOf("Crime", "Not a facet", "Drama"),
+            ))
+            whatsNew = Result.success(page("movie_5"))
+            facets = Result.success(DiscoverFacets(genres = listOf(
+                FacetValue("Drama", 50), FacetValue("Action", 70), FacetValue("Crime", 10), FacetValue("Uncategorized", 99),
+            )))
+        }
+        val vm = DiscoverViewModel(repo, FakeUserRepository())
+        vm.onScreenShown(); advanceUntilIdle()
+
+        assertEquals(
+            listOf("home:because:movie_9", "home:picks", "whats_new", "genre:Crime", "genre:Drama", "genre:Action"),
+            vm.state.value.rows.map { it.key },
+        )
+        assertEquals("Because you watched Heat", vm.state.value.rows[0].title)
+        assertTrue(repo.recommendationTypes.isEmpty())
+        // personal rows are complete: they never page
+        vm.onRowNearEnd("home:picks"); advanceUntilIdle()
+        assertEquals(1, repo.browseCalls.size)
+    }
+
+    @Test
+    fun `without Home rows from the server, the recommendations row is used`() = runTest(dispatcher) {
+        val repo = FakeDiscoverRepository().apply {
+            home = Result.failure(ApiError.Http(404, "Not Found"))
+            recommendations = Result.success(RecommendationsResponse(data = listOf(item("movie_9")), basedOnTitle = "Heat"))
+        }
+        val vm = DiscoverViewModel(repo, FakeUserRepository())
+        vm.onScreenShown(); advanceUntilIdle()
+        assertEquals("recommended", vm.state.value.rows.first().key)
+        assertEquals(listOf<String?>(null), repo.recommendationTypes)
     }
 
     @Test
@@ -294,6 +337,8 @@ class DiscoverViewModelTest {
 private class FakeDiscoverRepository : DiscoverRepository {
     var facets: Result<DiscoverFacets> = Result.success(DiscoverFacets())
     var recommendations: Result<RecommendationsResponse> = Result.success(RecommendationsResponse())
+    /** Null: the server has no Home rows (an older server), as the interface's default. */
+    var home: Result<HomeResponse>? = null
     var whatsNew: Result<DiscoverBrowseResponse> = Result.success(DiscoverBrowseResponse())
     val genrePages = mutableMapOf<String, Result<DiscoverBrowseResponse>>()
     var filterPages = mutableListOf<DiscoverBrowseResponse>()
@@ -313,6 +358,7 @@ private class FakeDiscoverRepository : DiscoverRepository {
     fun releaseOne() { gates.removeFirstOrNull()?.complete(Unit) }
 
     override suspend fun facets(type: String?) = facets
+    override suspend fun home(type: String?): Result<HomeResponse> = home ?: Result.failure(UnsupportedOperationException("home"))
     override suspend fun recommendations(type: String?): Result<RecommendationsResponse> {
         recommendationTypes += type
         return recommendations

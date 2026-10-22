@@ -6,6 +6,7 @@ import com.portalcast.tv.data.model.DiscoverFacets
 import com.portalcast.tv.data.model.DiscoverQuery
 import com.portalcast.tv.data.model.MediaItem
 import com.portalcast.tv.data.model.RecommendationsResponse
+import com.portalcast.tv.data.model.HomeResponse
 import com.portalcast.tv.data.net.ApiError
 import com.portalcast.tv.data.net.ApiService
 import com.portalcast.tv.data.net.AppJson
@@ -27,9 +28,10 @@ class DefaultDiscoverRepository(
     private val facetsCache = KeyedSessionCache<String, DiscoverFacets>(session, maxEntries = 4)
     private val browseCache = KeyedSessionCache<String, DiscoverBrowseResponse>(session)
     private val recsCache = KeyedSessionCache<String, RecommendationsResponse>(session, maxEntries = 4)
+    private val homeCache = KeyedSessionCache<String, HomeResponse>(session, maxEntries = 4)
     private val variantsCache = KeyedSessionCache<String, List<MediaItem>>(session, maxEntries = 60)
 
-    fun clearCaches() { facetsCache.clear(); browseCache.clear(); recsCache.clear(); variantsCache.clear() }
+    fun clearCaches() { facetsCache.clear(); browseCache.clear(); recsCache.clear(); homeCache.clear(); variantsCache.clear() }
 
     override suspend fun facets(type: String?): Result<DiscoverFacets> =
         facetsCache.get(type.orEmpty()) { apiCall(ApiPaths.DISCOVER_FACETS) { api.discoverFacets(type) } }
@@ -54,6 +56,9 @@ class DefaultDiscoverRepository(
 
     override suspend fun recommendations(type: String?): Result<RecommendationsResponse> =
         recsCache.get(type.orEmpty()) { apiCall(ApiPaths.DISCOVER_RECOMMENDATIONS) { api.discoverRecommendations(type) } }
+
+    override suspend fun home(type: String?): Result<HomeResponse> =
+        homeCache.get(type.orEmpty()) { apiCall(ApiPaths.HOME) { api.home(type) } }
 
     override suspend fun variants(prefixedId: String): Result<List<MediaItem>> =
         variantsCache.get(prefixedId) { apiCall(ApiPaths.DISCOVER_VARIANTS) { api.discoverVariants(prefixedId).variants } }

@@ -160,16 +160,22 @@ class DiscoverViewModel(
         val scope = rowsScope()
         scope.launch { loadContinueWatching() }
         scope.launch {
-            val recD = async { discover.recommendations(type) }
+            // The server's prepared rows (GET /api/v2/home); an older server has none, and the
+            // single recommendations row is used instead.
+            val homeD = async { discover.home(type) }
             val newD = async { discover.browse(DiscoverQuery(type = type), 1) }
             val facD = async { discover.facets(type) }
-            val rec = recD.await()
+            val home = homeD.await()
+            val rec = if (home.isSuccess) null else discover.recommendations(type)
             val new = newD.await()
             val fac = facD.await()
             if (gen != generation) return@launch
 
             val rows = buildList {
-                rec.getOrNull()?.let { r ->
+                home.getOrNull()?.rows?.forEach { r ->
+                    add(DiscoverRow(homeKey(r.key), RowKind.Recommended, r.title, items = r.data, page = 1, requested = true))
+                }
+                rec?.getOrNull()?.let { r ->
                     val title = r.basedOnTitle?.takeIf { it.isNotBlank() }?.let { "Because you watched $it" } ?: "Recommended for you"
                     add(DiscoverRow(KEY_RECOMMENDED, RowKind.Recommended, title, items = r.data, page = 1, requested = true))
                 }
@@ -177,9 +183,11 @@ class DiscoverViewModel(
                     add(DiscoverRow(KEY_WHATS_NEW, RowKind.WhatsNew, "What's new", items = b.data, page = 1,
                         hasMore = b.hasMore(b.data.size), requested = true))
                 }
-                fac.getOrNull()?.let { f -> genresFor(f).forEach { add(DiscoverRow(genreKey(it), RowKind.Genre, it, genre = it)) } }
+                fac.getOrNull()?.let { f ->
+                    genresFor(f, home.getOrNull()?.genreOrder.orEmpty()).forEach { add(DiscoverRow(genreKey(it), RowKind.Genre, it, genre = it)) }
+                }
             }
-            val failures = listOf(rec, new, fac).mapNotNull { it.exceptionOrNull() }
+            val failures = listOf(rec ?: home, new, fac).mapNotNull { it.exceptionOrNull() }
             val error = if (failures.size == 3) discoverMessage(failures.first()) else null
             val nothing = error == null && rows.none { it.kind == RowKind.Genre || it.items.isNotEmpty() }
             _state.update {
@@ -351,14 +359,21 @@ class DiscoverViewModel(
         const val EMPTY_HINT = "Nothing to discover yet. Discover needs TMDB enrichment on the server; ask the admin to run it."
 
         fun genreKey(genre: String) = "genre:$genre"
+        fun homeKey(key: String) = "home:$key"
 
-        /** Top genres by count, "Uncategorized" skipped. */
-        fun genresFor(facets: DiscoverFacets): List<String> = facets.genres
-            .filter { it.value.isNotBlank() && !it.value.equals("Uncategorized", ignoreCase = true) }
-            .sortedByDescending { it.count }
-            .map { it.value }
-            .distinct()
-            .take(MAX_GENRE_ROWS)
+        /**
+         * Genre rows: the viewer's genres first (most watched first, from the server), then the
+         * biggest genres by count; "Uncategorized" skipped, at most [MAX_GENRE_ROWS].
+         */
+        fun genresFor(facets: DiscoverFacets, preferred: List<String> = emptyList()): List<String> {
+            val byCount = facets.genres
+                .filter { it.value.isNotBlank() && !it.value.equals("Uncategorized", ignoreCase = true) }
+                .sortedByDescending { it.count }
+                .map { it.value }
+                .distinct()
+            val known = byCount.toSet()
+            return (preferred.filter { it in known } + byCount).distinct().take(MAX_GENRE_ROWS)
+        }
 
         fun discoverMessage(e: Throwable): String = if (e is ApiError.ColdCache) COLD_CACHE_MESSAGE else e.userMessage()
 

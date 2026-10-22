@@ -17,6 +17,7 @@ import com.portalcast.tv.data.model.ProfileResponse
 import com.portalcast.tv.data.model.ProgressRecord
 import com.portalcast.tv.data.model.ProviderKeyResponse
 import com.portalcast.tv.data.model.RecommendationsResponse
+import com.portalcast.tv.data.model.HomeResponse
 import com.portalcast.tv.data.model.RefreshRequest
 import com.portalcast.tv.data.model.RefreshResponse
 import com.portalcast.tv.data.model.SuccessResponse
@@ -232,6 +233,9 @@ interface ApiService {
 
     @GET("api/v2/discover/recommendations")
     suspend fun discoverRecommendations(@Query("type") type: String?): RecommendationsResponse
+
+    @GET("api/v2/home")
+    suspend fun home(@Query("type") type: String?): HomeResponse
 
     @GET("api/v2/discover/variants")
     suspend fun discoverVariants(@Query("id") prefixedId: String): VariantsResponse
