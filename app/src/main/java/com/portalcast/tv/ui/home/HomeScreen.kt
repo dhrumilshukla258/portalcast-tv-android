@@ -146,7 +146,7 @@ fun HomeScreen(
             delay(400)
             restorePending = false
             // Back from a child screen: the tab should have restored its own focus. If it didn't,
-            // go into the content, not the rail (opening the rail on Back looked like a bug).
+            // go into the content, not the tabs (landing on the tabs on Back looked like a bug).
             if (!contentFocused && !tabsFocused) {
                 runCatching { contentRequester.requestFocus() }
                 withFrameNanos { }
@@ -161,7 +161,7 @@ fun HomeScreen(
 
     // Focus recovery: when the focused element disappears (e.g. a Retry button replaced by the
     // content it loaded) nothing on screen has focus and the remote does nothing visible.
-    // Move focus into the content (first focusable child), falling back to the rail.
+    // Move focus into the content (first focusable child), falling back to the tabs.
     LaunchedEffect(contentFocused, tabsFocused, restorePending) {
         if (current == null || contentFocused || tabsFocused || restorePending) return@LaunchedEffect
         delay(250)
@@ -186,12 +186,13 @@ fun HomeScreen(
         scope.launch { runCatching { prefs.setLastTab(t.route) } }
     }
 
-    // A tab switch follows focus once it rests; a newer focus cancels the pending one.
-    var pendingSwitch by remember { mutableStateOf<Job?>(null) }
+    // A tab switch follows focus once it rests; a newer focus cancels the pending one. Held
+    // outside Compose state: a d-pad step across the tabs recomposes nothing.
+    val pendingSwitch = remember { arrayOfNulls<Job>(1) }
     fun focusOnTab(t: HomeTab) {
-        pendingSwitch?.cancel()
+        pendingSwitch[0]?.cancel()
         if (t == tab) return
-        pendingSwitch = scope.launch { delay(TAB_SWITCH_DELAY_MS); select(t) }
+        pendingSwitch[0] = scope.launch { delay(TAB_SWITCH_DELAY_MS); select(t) }
     }
 
     com.portalcast.tv.ui.components.IptvStatusPoller()
@@ -223,7 +224,7 @@ fun HomeScreen(
                         label = t.title,
                         selected = t == current,
                         // Center switches at once; resting on a tab switches after a moment.
-                        onClick = { pendingSwitch?.cancel(); select(t) },
+                        onClick = { pendingSwitch[0]?.cancel(); select(t) },
                         onFocused = { focusOnTab(t) },
                         modifier = Modifier.focusRequester(tabRequesters.getValue(t)),
                     )
@@ -233,7 +234,7 @@ fun HomeScreen(
                     label = "Settings",
                     selected = false,
                     onClick = onOpenSettings,
-                    onFocused = { pendingSwitch?.cancel() },
+                    onFocused = { pendingSwitch[0]?.cancel() },
                     modifier = Modifier.focusRequester(settingsRequester),
                 )
             }
