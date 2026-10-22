@@ -86,6 +86,8 @@ data class OpenRequest(val item: MediaItem, val isSeries: Boolean)
 data class DiscoverUiState(
     /** null = All, else "movie" | "series". */
     val type: String? = null,
+    /** How many titles of this type the catalog has (What's new's total), for the header. */
+    val totalTitles: Int? = null,
     val loading: Boolean = true,
     val continueWatching: List<ContinueEntry> = emptyList(),
     /** Recommended, What's new, then genre rows, in display order (hidden ones included). */
@@ -114,12 +116,14 @@ data class DiscoverUiState(
 class DiscoverViewModel(
     private val discover: DiscoverRepository,
     private val user: UserRepository,
+    /** The Movies / Series tabs: this screen shows one type only. */
+    initialType: String? = null,
 ) : ViewModel() {
 
     /** Last focused card ("cw|key" or "rowKey|itemId"), so Back from a detail lands on it again. */
     var lastFocusedKey: String? = null
 
-    private val _state = MutableStateFlow(DiscoverUiState())
+    private val _state = MutableStateFlow(DiscoverUiState(type = initialType))
     val state: StateFlow<DiscoverUiState> = _state
 
     /** Bounds genre-row fetches (first page and paging alike). */
@@ -186,6 +190,7 @@ class DiscoverViewModel(
                 new.getOrNull()?.let { b ->
                     add(DiscoverRow(KEY_WHATS_NEW, RowKind.WhatsNew, "What's new", items = b.data, page = 1,
                         hasMore = b.hasMore(b.data.size), requested = true))
+                    _state.update { s -> s.copy(totalTitles = b.totalItems) }
                 }
                 fac.getOrNull()?.let { f ->
                     genresFor(f, home.getOrNull()?.genreOrder.orEmpty()).forEach { add(DiscoverRow(genreKey(it), RowKind.Genre, it, genre = it)) }

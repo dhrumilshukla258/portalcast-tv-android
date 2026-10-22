@@ -117,6 +117,8 @@ fun HomeScreen(
     var visited by rememberSaveable { mutableStateOf(false) }
     var restorePending by remember { mutableStateOf(visited) }
     var railFocused by remember { mutableStateOf(false) }
+    /** The Movies or Series tab showing its per-category browse instead of its rows. */
+    var categories by rememberSaveable { mutableStateOf<HomeTab?>(null) }
     var contentFocused by remember { mutableStateOf(false) }
     val tabRequesters = remember { HomeTab.entries.associateWith { FocusRequester() } }
     val settingsRequester = remember { FocusRequester() }
@@ -198,8 +200,20 @@ fun HomeScreen(
                 HomeTab.SEARCH -> SearchScreen(onOpenMovie = openMovie, onOpenSeries = openSeries, onPlay = onPlay, onOpenPerson = onOpenPerson, restoreFocus = restorePending)
                 HomeTab.DISCOVER -> DiscoverScreen(onOpenMovie = openMovie, onOpenSeries = openSeries, onOpenSearch = { select(HomeTab.SEARCH) }, restoreFocus = restorePending)
                 HomeTab.LIVE -> LiveScreen(onPlay = onPlay, restoreFocus = restorePending)
-                HomeTab.MOVIES -> MoviesScreen(onOpenMovie = openMovie, restoreFocus = restorePending)
-                HomeTab.SERIES -> SeriesScreen(onOpenSeries = openSeries, restoreFocus = restorePending)
+                // Movies / Series: Home's layout for one type; Categories opens the per-category
+                // browse, Back returns (design-system.md, Screens).
+                HomeTab.MOVIES -> if (categories == HomeTab.MOVIES) {
+                    BackHandler { categories = null }
+                    MoviesScreen(onOpenMovie = openMovie, restoreFocus = restorePending)
+                } else {
+                    DiscoverScreen(onOpenMovie = openMovie, onOpenSeries = openSeries, restoreFocus = restorePending, fixedType = "movie", onOpenCategories = { categories = HomeTab.MOVIES })
+                }
+                HomeTab.SERIES -> if (categories == HomeTab.SERIES) {
+                    BackHandler { categories = null }
+                    SeriesScreen(onOpenSeries = openSeries, restoreFocus = restorePending)
+                } else {
+                    DiscoverScreen(onOpenMovie = openMovie, onOpenSeries = openSeries, restoreFocus = restorePending, fixedType = "series", onOpenCategories = { categories = HomeTab.SERIES })
+                }
             }
         }
 

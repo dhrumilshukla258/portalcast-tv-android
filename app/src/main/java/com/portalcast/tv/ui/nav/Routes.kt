@@ -31,7 +31,7 @@ object Routes {
 
 enum class HomeTab(val route: String, val title: String) {
     SEARCH("search", "Search"),
-    DISCOVER("discover", "Discover"),
+    DISCOVER("discover", "Home"),
     LIVE("live", "Live TV"),
     MOVIES("movies", "Movies"),
     SERIES("series", "Series");

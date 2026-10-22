@@ -124,10 +124,15 @@ fun DiscoverScreen(
     @Suppress("UNUSED_PARAMETER") onOpenSearch: () -> Unit = {},
     /** True when coming back from a detail/player: put focus back on the last card. */
     restoreFocus: Boolean = false,
+    /** "movie" / "series": the Movies or Series tab (one type, no type switch). Null: Home. */
+    fixedType: String? = null,
+    /** Opens the per-category browse (Movies / Series tabs). */
+    onOpenCategories: (() -> Unit)? = null,
 ) {
     val container = LocalContext.current.appContainer
     val vm: DiscoverViewModel = viewModel(
-        factory = viewModelFactory { initializer { DiscoverViewModel(container.discoverRepository, container.userRepository) } },
+        key = "discover:${fixedType ?: "all"}",
+        factory = viewModelFactory { initializer { DiscoverViewModel(container.discoverRepository, container.userRepository, fixedType) } },
     )
     val state by vm.state.collectAsStateWithLifecycle()
     val serverUrl by container.sessionStore.serverUrl.collectAsStateWithLifecycle()
@@ -181,6 +186,9 @@ fun DiscoverScreen(
             val grid = state.grid
             if (grid != null) {
                 TopBar(
+                    fixedType = fixedType,
+                    totalTitles = state.totalTitles,
+                    onOpenCategories = onOpenCategories,
                     type = state.type,
                     facets = state.facets,
                     query = grid.query,
@@ -195,6 +203,9 @@ fun DiscoverScreen(
             } else {
                 Column(Modifier.fillMaxWidth().fillMaxHeight(HERO_FRACTION)) {
                     TopBar(
+                        fixedType = fixedType,
+                        totalTitles = state.totalTitles,
+                        onOpenCategories = onOpenCategories,
                         type = state.type,
                         facets = state.facets,
                         query = null,
@@ -257,6 +268,9 @@ fun DiscoverScreen(
 
 @Composable
 private fun TopBar(
+    fixedType: String?,
+    totalTitles: Int?,
+    onOpenCategories: (() -> Unit)?,
     type: String?,
     facets: DiscoverFacets,
     query: DiscoverQuery?,
@@ -272,14 +286,27 @@ private fun TopBar(
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text("Discover", style = MaterialTheme.typography.headlineSmall, color = AppColors.Text)
-            Spacer(Modifier.width(24.dp))
-            listOf<Pair<String?, String>>(null to "All", "movie" to "Movies", "series" to "Series").forEach { (value, label) ->
-                TvButton(
-                    text = label,
-                    onClick = { onType(value) },
-                    style = if (type == value) TvButtonStyle.Primary else TvButtonStyle.Subtle,
+            // Home: a type switch. Movies / Series tabs: their name, how many titles, Categories.
+            val heading = when (fixedType) { "movie" -> "Movies"; "series" -> "Series"; else -> "Home" }
+            Text(heading, style = MaterialTheme.typography.headlineSmall, color = AppColors.Text)
+            if (fixedType != null && totalTitles != null && totalTitles > 0) {
+                Text(
+                    "%,d %s".format(totalTitles, if (fixedType == "movie") "films" else "series"),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = AppColors.TextMuted,
                 )
+            }
+            Spacer(Modifier.width(24.dp))
+            if (fixedType == null) {
+                listOf<Pair<String?, String>>(null to "All", "movie" to "Movies", "series" to "Series").forEach { (value, label) ->
+                    TvButton(
+                        text = label,
+                        onClick = { onType(value) },
+                        style = if (type == value) TvButtonStyle.Primary else TvButtonStyle.Subtle,
+                    )
+                }
+            } else if (onOpenCategories != null) {
+                TvButton(text = "Categories", onClick = onOpenCategories, style = TvButtonStyle.Subtle)
             }
         }
         // Letterboxd's "Browse by" line: the selectors on a row of their own, so a long

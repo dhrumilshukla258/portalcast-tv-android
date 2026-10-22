@@ -114,6 +114,20 @@ class DiscoverViewModelTest {
     }
 
     @Test
+    fun `the Movies tab shows one type and how many titles it has`() = runTest(dispatcher) {
+        val repo = FakeDiscoverRepository().apply {
+            home = Result.success(HomeResponse(rows = listOf(HomeRowDto("trending:movie", "trending", "Trending now", listOf(item("movie_1"))))))
+            whatsNew = Result.success(page("movie_5", total = 1234))
+        }
+        val vm = DiscoverViewModel(repo, FakeUserRepository(), initialType = "movie")
+        vm.onScreenShown(); advanceUntilIdle()
+        assertEquals("movie", vm.state.value.type)
+        assertEquals(1234, vm.state.value.totalTitles)
+        assertEquals("movie", repo.browseCalls.first().first.type)
+        assertEquals("Trending now", vm.state.value.rows.first().title)
+    }
+
+    @Test
     fun `without Home rows from the server, the recommendations row is used`() = runTest(dispatcher) {
         val repo = FakeDiscoverRepository().apply {
             home = Result.failure(ApiError.Http(404, "Not Found"))
