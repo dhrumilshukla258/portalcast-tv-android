@@ -84,8 +84,18 @@ private val TabBarHeight = 72.dp
 /** How long focus rests on a tab before the screen follows it (Center switches at once). */
 private const val TAB_SWITCH_DELAY_MS = 350L
 
-/** The tabs left to right (design-system.md, Navigation); Settings follows them. */
-private val TopTabs = listOf(HomeTab.DISCOVER, HomeTab.LIVE, HomeTab.MOVIES, HomeTab.SERIES, HomeTab.SPORTS, HomeTab.SEARCH, HomeTab.MY_LIST)
+/**
+ * The tabs left to right, the same five everywhere (phone bottom bar, PC and TV top tabs;
+ * design-system.md, Navigation); a Settings icon follows them. Movies, Series and People are
+ * chips at the top of Home ([SectionTabs]) and count as Home here.
+ */
+private val TopTabs = listOf(HomeTab.DISCOVER, HomeTab.LIVE, HomeTab.SPORTS, HomeTab.SEARCH, HomeTab.MY_LIST)
+
+/** Home's sections: the chips row Movies · Series · People (Home itself when none is chosen). */
+private val SectionTabs = listOf(HomeTab.MOVIES, HomeTab.SERIES, HomeTab.PEOPLE)
+
+/** The top tab a screen belongs to: Movies, Series and People are Home's. */
+private fun topTabOf(t: HomeTab): HomeTab = if (t in SectionTabs) HomeTab.DISCOVER else t
 
 /**
  * Home: text tabs along the top (Home, Live TV, Movies, Series, Search, My List, Settings; the
@@ -133,10 +143,12 @@ fun HomeScreen(
     var contentFocused by remember { mutableStateOf(false) }
     val tabRequesters = remember { HomeTab.entries.associateWith { FocusRequester() } }
     val settingsRequester = remember { FocusRequester() }
+    val chipRequesters = remember { SectionTabs.associateWith { FocusRequester() } }
+    var chipsFocused by remember { mutableStateOf(false) }
 
     val current = tab
     fun focusTabs() {
-        val target = current?.let { tabRequesters[it] } ?: return
+        val target = current?.let { tabRequesters[topTabOf(it)] } ?: return
         runCatching { target.requestFocus() }
     }
 
@@ -208,7 +220,7 @@ fun HomeScreen(
                     .onFocusChanged { tabsFocused = it.hasFocus }
                     // Entering the tabs (Up from the content) always lands on the CURRENT tab.
                     .focusProperties {
-                        enter = { tabRequesters.getValue(current) }
+                        enter = { tabRequesters.getValue(topTabOf(current)) }
                         exit = { dir -> if (dir == FocusDirection.Down) FocusRequester.Default else FocusRequester.Cancel }
                     }
                     .focusGroup()
@@ -221,7 +233,7 @@ fun HomeScreen(
                 for (t in TopTabs) {
                     TopTab(
                         label = t.title,
-                        selected = t == current,
+                        selected = t == topTabOf(current),
                         // Center switches at once; resting on a tab switches after a moment.
                         onClick = { pendingSwitch[0]?.cancel(); select(t) },
                         onFocused = { focusOnTab(t) },
@@ -231,11 +243,44 @@ fun HomeScreen(
                 Spacer(Modifier.weight(1f))
                 TopTab(
                     label = "Settings",
+                    icon = Icons.Filled.Settings,
                     selected = false,
                     onClick = onOpenSettings,
                     onFocused = { pendingSwitch[0]?.cancel() },
                     modifier = Modifier.focusRequester(settingsRequester),
                 )
+            }
+            // Home and its sections: the chips row Movies · Series · People under the tabs. The
+            // chosen one is filled; Center on it again goes back to Home.
+            val showChips = topTabOf(current) == HomeTab.DISCOVER && categories == null
+            if (showChips) {
+                Row(
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 48.dp, vertical = 6.dp)
+                        .onFocusChanged { chipsFocused = it.hasFocus }
+                        .focusProperties {
+                            enter = { chipRequesters[current] ?: chipRequesters.getValue(HomeTab.MOVIES) }
+                            exit = { dir ->
+                                when (dir) {
+                                    FocusDirection.Up -> tabRequesters.getValue(HomeTab.DISCOVER)
+                                    FocusDirection.Down -> FocusRequester.Default
+                                    else -> FocusRequester.Cancel
+                                }
+                            }
+                        }
+                        .focusGroup(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
+                    for (t in SectionTabs) {
+                        SectionChip(
+                            label = t.title,
+                            selected = t == current,
+                            onClick = { pendingSwitch[0]?.cancel(); select(if (t == current) HomeTab.DISCOVER else t) },
+                            modifier = Modifier.focusRequester(chipRequesters.getValue(t)),
+                        )
+                    }
+                }
             }
             Box(
                 Modifier
@@ -243,11 +288,16 @@ fun HomeScreen(
                     .weight(1f)
                     .onFocusChanged { contentFocused = it.hasFocus }
                     .focusRequester(contentRequester)
-                    // Focus leaves the content only Up, and then always onto the CURRENT tab. Without
-                    // this, Up from the top landed on whichever tab was nearest above, and Down on the
-                    // last row (or Left/Right at an edge) had nowhere sensible to go.
+                    // Focus leaves the content only Up: onto the chips row on Home and its sections,
+                    // else onto the CURRENT tab. Without this, Up from the top landed on whichever tab
+                    // was nearest above, and Down on the last row (or Left/Right at an edge) had
+                    // nowhere sensible to go.
                     .focusProperties {
-                        exit = { dir -> if (dir == FocusDirection.Up) tabRequesters.getValue(current) else FocusRequester.Cancel }
+                        exit = { dir ->
+                            if (dir != FocusDirection.Up) FocusRequester.Cancel
+                            else if (showChips) chipRequesters[current] ?: chipRequesters.getValue(HomeTab.MOVIES)
+                            else tabRequesters.getValue(topTabOf(current))
+                        }
                     }
                     .focusGroup(),
             ) {
@@ -263,6 +313,7 @@ fun HomeScreen(
                     )
                     HomeTab.DISCOVER -> DiscoverScreen(onOpenMovie = openMovie, onOpenSeries = openSeries, onOpenSearch = { select(HomeTab.SEARCH) }, restoreFocus = restorePending)
                     HomeTab.LIVE -> LiveScreen(onPlay = onPlay, restoreFocus = restorePending)
+                    HomeTab.PEOPLE -> com.portalcast.tv.ui.people.PeopleScreen(onOpenPerson = onOpenPerson, restoreFocus = restorePending)
                     HomeTab.MY_LIST -> com.portalcast.tv.ui.mylist.MyListScreen(onOpenMovie = openMovie, onOpenSeries = openSeries, restoreFocus = restorePending)
                     // Movies / Series: Home's layout for one type; Categories opens the per-category
                     // browse, Back returns (design-system.md, Screens).
@@ -297,6 +348,7 @@ fun HomeScreen(
 private fun TopTab(
     label: String,
     selected: Boolean,
+    icon: ImageVector? = null,
     onClick: () -> Unit,
     onFocused: () -> Unit,
     modifier: Modifier = Modifier,
@@ -318,14 +370,42 @@ private fun TopTab(
         ),
     ) {
         Column(Modifier.width(IntrinsicSize.Max).padding(horizontal = 14.dp, vertical = 8.dp)) {
-            Text(
-                label,
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium,
-                maxLines = 1,
-            )
+            if (icon != null) {
+                Icon(icon, contentDescription = label, modifier = Modifier.size(24.dp))
+            } else {
+                Text(
+                    label,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium,
+                    maxLines = 1,
+                )
+            }
             Spacer(Modifier.height(4.dp))
             Box(Modifier.fillMaxWidth().height(2.dp).background(if (selected) AppColors.Primary else Color.Transparent))
         }
+    }
+}
+
+/** A chip of Home's sections row: filled white when chosen, outlined otherwise; the focus ring. */
+@Composable
+private fun SectionChip(label: String, selected: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier) {
+    val shape = RoundedCornerShape(50)
+    Surface(
+        onClick = onClick,
+        modifier = modifier,
+        shape = ClickableSurfaceDefaults.shape(shape = shape),
+        scale = ClickableSurfaceDefaults.scale(focusedScale = 1.05f),
+        border = ClickableSurfaceDefaults.border(
+            border = Border(BorderStroke(1.dp, if (selected) Color.Transparent else Color.White.copy(alpha = 0.25f)), shape = shape),
+            focusedBorder = Border(BorderStroke(2.dp, AppColors.Focus), shape = shape),
+        ),
+        colors = ClickableSurfaceDefaults.colors(
+            containerColor = if (selected) Color.White else Color.Transparent,
+            contentColor = if (selected) AppColors.Background else AppColors.Text,
+            focusedContainerColor = if (selected) Color.White else Color.White.copy(alpha = 0.12f),
+            focusedContentColor = if (selected) AppColors.Background else AppColors.Text,
+        ),
+    ) {
+        Text(label, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(horizontal = 18.dp, vertical = 7.dp))
     }
 }

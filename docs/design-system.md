@@ -44,9 +44,10 @@ logo and accent colour.
 
 ## Navigation (top tabs)
 
-- Text tabs across the top, left to right: Home, Live TV, Movies, Series, Sports, Search, My List, Settings; the PortalCast logo on the left. The current tab in `text` with a 2 high `primary` underline, the others `textMuted`. Same on the TV and desktop web (the owner's reference: Fjord's TV and iPad layout).
-- TV: Up from the first row reaches the tabs, Down goes back in; resting on a tab for 350 ms shows its screen, Center at once (the last tab is remembered). Back goes to the tabs, then out of the app. Web: the header already works this way.
-- Web on a phone (under 640 wide): a bottom bar with every tab (icon over label); Settings from the profile button. Under 768 wide, Discover's filters are one "Filters" button (Home: a full row; Movies / Series: beside the title) opening a full-screen picker: Show (Movies / Series, on Home) or "Browse by category" (Movies / Series pages), then the five selectors, then a selector's values; the phone's Back steps back a level, then closes it; the row of selectors is for wider screens.
+- The same five tabs everywhere (owner, 2026-10-22: "same experience everywhere"): Home, Live TV, Sports, Search, My List. Phone: the bottom bar (icon over label). PC and TV: text tabs across the top after the PortalCast logo, a Settings icon on the right (TV); the current tab in `text` with a 2 high `primary` underline.
+- Home's sections, the same everywhere: a chips row Movies · Series · People under the tabs (compact chips from the left; the chosen one filled white; choosing it again goes back to Home). On a phone it is the only row under the header, with the page's filter icon on the right; PC and TV show their filter row under it. Movies, Series and People count as Home (its tab stays underlined).
+- TV: Up from the content reaches the chips row (on Home and its sections) and then the tabs, Down goes back in; resting on a tab for 350 ms shows its screen, Center at once (the last screen is remembered). Back goes to the tabs, then out of the app.
+- Web on a phone (under 640 wide): Settings from the profile button. Under 768 wide, Discover's filters are one "Filters" button (Home: a full row; Movies / Series: beside the title) opening a full-screen picker: Show (Movies / Series, on Home) or "Browse by category" (Movies / Series pages), then the five selectors, then a selector's values; the phone's Back steps back a level, then closes it; the row of selectors is for wider screens.
 - Order of work: the content tweaks first (cards, hero, rows, detail), then the TV's move from its left rail to top tabs, as a step of its own (it changes how the remote moves).
 
 ## Cards
@@ -83,6 +84,7 @@ logo and accent colour.
 | Movies / Series | A header ("Movies", "N films"), then rows: Trending now, Top rated, the personal rows for this type, genre rows; a "Categories" chip opens the per-category browse |
 | Detail | As above |
 | My List | Grid of posters, newest added first |
+| People | Home's third section: cast and crew as posters (photo 2:3, name, "Actor · 112"), most popular first, a chip per role (All, Actors, Actresses, Directors, Creators, Writers; Actors / Actresses once genders are known), a search box on the web (the TV searches people in Search); a person opens their page |
 | Live TV | As today (categories, channels, now/next, the guide grid), with these colours; later the layout of the reference: categories left, channels in the middle with what is on, a preview with now/next on the right |
 | Search | Search box, people and titles (as today), restyled with these tokens |
 | Sports | The next 7 days of the admin's leagues by day ("Today", "Tomorrow", "Sat 24 Oct"), a chip per sport; a row per game: time (or LIVE), the fixture and "League · City", then the channel the guide shows it on (plays it; several: pick one) or the broadcasters and "Find channel" (Search on Live TV). Credit line "Schedule: sporting-events.org". |

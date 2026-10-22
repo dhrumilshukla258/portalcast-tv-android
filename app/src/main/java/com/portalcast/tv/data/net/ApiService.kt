@@ -265,6 +265,10 @@ interface ApiService {
     @GET("api/v2/health/iptv")
     suspend fun iptvHealth(): com.portalcast.tv.ui.components.IptvHealth
 
+    /** The People tab (servers from 2026-10-22). */
+    @GET("api/v2/people")
+    suspend fun people(@Query("role") role: String, @Query("page") page: Int): com.portalcast.tv.data.model.PeoplePage
+
     /** People by name (servers from 2026-10-21); answered from the server's memory. */
     @GET("api/v2/search/people")
     suspend fun searchPeople(@Query("q") q: String, @Query("limit") limit: Int = 30): com.portalcast.tv.data.model.PeopleSearchResult

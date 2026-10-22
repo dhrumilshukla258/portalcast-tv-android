@@ -65,6 +65,19 @@ data class PersonHit(
     val titles: Int = 0,
 )
 
+/** `GET /api/v2/people?role=&page=` (servers from 2026-10-22): the People tab, 60 a page. */
+@kotlinx.serialization.Serializable
+data class PeoplePage(
+    val data: List<PersonHit> = emptyList(),
+    val total: Int = 0,
+    val page: Int = 1,
+    val pageSize: Int = 60,
+    /** People per role ("actor": 12034...), for the chips; null before the server's index is ready. */
+    val counts: Map<String, Int>? = null,
+    val genderReady: Boolean = false,
+    val ready: Boolean = true,
+)
+
 /** The person a query clearly names, with their best-known titles ("Movies & series with X"). */
 @Serializable
 data class FeaturedPerson(val id: Int, val name: String, val credits: List<MediaItem> = emptyList(), val total: Int = 0)
