@@ -7,6 +7,7 @@ import com.portalcast.tv.data.net.LenientInt
 import com.portalcast.tv.data.net.LenientStr
 import kotlinx.serialization.EncodeDefault
 import kotlinx.serialization.ExperimentalSerializationApi
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.JsonObject
@@ -61,6 +62,8 @@ data class ProgressRecord(
     @EncodeDefault val completed: LenientBool = false,
     @EncodeDefault val meta: JsonObject = JsonObject(emptyMap()),
     val updatedAt: String? = null,
+    /** The title's backdrop, added by the server when answering (never stored). */
+    @SerialName("backdrop_path") val backdropPath: String? = null,
 ) {
     val parsedMeta: ProgressMeta? get() = runCatching { AppJson.decodeFromJsonElement(ProgressMeta.serializer(), meta) }.getOrNull()
 }

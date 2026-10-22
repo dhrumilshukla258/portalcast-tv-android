@@ -63,6 +63,10 @@ data class ContinueEntry(
     val progressPercent: Int,
     val isSeries: Boolean,
     val target: MediaItem,
+    /** Wide art for the 16:9 card: the title's backdrop, else null (the poster is used). */
+    val wideImagePath: String? = null,
+    /** "S1 · Pilot · 23 min left", "1h 12m left". */
+    val detail: String? = null,
 )
 
 /** Filtered grid mode: `discover/browse` with the overlay's query, paged 40 at a time. */
@@ -412,6 +416,8 @@ class DiscoverViewModel(
                 isSeries = if (isSeries) true else null,
                 seriesId = if (isSeries) id else null,
             )
+            val position = meta.currentTime ?: record.progress
+            val left = meta.duration?.let { d -> timeLeft(d - position) }
             return ContinueEntry(
                 key = record.mediaId,
                 title = title,
@@ -420,7 +426,16 @@ class DiscoverViewModel(
                 progressPercent = (meta.progressPercent ?: 0).coerceIn(0, 100),
                 isSeries = isSeries,
                 target = target,
+                wideImagePath = record.backdropPath?.takeIf { it.isNotBlank() },
+                detail = listOfNotNull(subtitle, left).joinToString(" · ").ifEmpty { null },
             )
+        }
+
+        /** "23 min left", "1h 12m left"; null under a minute or when unknown. */
+        fun timeLeft(seconds: Double): String? {
+            val min = (seconds / 60).toInt()
+            if (min < 1) return null
+            return if (min < 60) "$min min left" else "${min / 60}h ${min % 60}m left"
         }
     }
 }

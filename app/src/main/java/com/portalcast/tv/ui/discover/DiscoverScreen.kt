@@ -418,10 +418,11 @@ private fun ContinueWatchingRow(
             horizontalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             items(entries, key = { it.key }) { e ->
-                PosterCard(
+                ContinueCard(
                     title = e.title,
-                    subtitle = e.subtitle,
-                    imagePath = e.imagePath,
+                    detail = e.detail,
+                    wideImagePath = e.wideImagePath,
+                    posterPath = e.imagePath,
                     serverUrl = serverUrl,
                     progressPercent = e.progressPercent,
                     onClick = { onOpen(e) },
@@ -511,6 +512,7 @@ private fun MediaRow(
                     channel = item.network,
                     channelLogo = item.networkLogo,
                     badge = item.localBadge,
+                    rating = ratingOrNull(item.ratingBest),
                     modifier = cardModifier("${row.key}|${item.id}").rememberedIn(memory).bringIntoViewResponder(cardPad),
                 )
             }

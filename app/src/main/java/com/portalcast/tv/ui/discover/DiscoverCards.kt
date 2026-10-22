@@ -35,6 +35,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameNanos
+import androidx.compose.ui.graphics.Color
+import com.portalcast.tv.util.AMBIENT_BACKDROP
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -79,6 +81,102 @@ import com.portalcast.tv.util.CARD_POSTER
  */
 
 internal val PosterWidth: Dp = 130.dp
+
+/** Width of a Continue Watching card (16:9, design-system.md). */
+internal val WideCardWidth: Dp = 300.dp
+
+/** "8.4" when the rating is a real number above 0, else null. */
+internal fun ratingOrNull(r: String?): String? = r?.trim()?.takeIf { (it.toDoubleOrNull() ?: 0.0) > 0.0 }
+
+/** A dark pill with a star and the rating, top right on posters. */
+@Composable
+internal fun RatingBadge(rating: String, modifier: Modifier = Modifier) {
+    Row(
+        modifier.background(Color.Black.copy(alpha = 0.6f), RoundedCornerShape(50)).padding(horizontal = 7.dp, vertical = 3.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text("★", color = AppColors.Rating, style = MaterialTheme.typography.labelSmall)
+        Text(" $rating", color = AppColors.Text, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.SemiBold)
+    }
+}
+
+/**
+ * A Continue Watching card: 16:9 wide art (the title's backdrop, else its poster cropped), a
+ * progress bar along the bottom, and under it the title and "S1 · Pilot · 23 min left".
+ */
+@Composable
+internal fun ContinueCard(
+    title: String,
+    detail: String?,
+    wideImagePath: String?,
+    posterPath: String?,
+    serverUrl: String?,
+    progressPercent: Int,
+    onClick: () -> Unit,
+    onLongClick: (() -> Unit)?,
+    onFocused: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    var focused by remember { mutableStateOf(false) }
+    val context = LocalContext.current
+    val density = LocalDensity.current
+    val request = remember(serverUrl, wideImagePath, posterPath) {
+        val url = ImageUrl.downsize(ImageUrl.resolve(serverUrl, wideImagePath), AMBIENT_BACKDROP)
+            ?: ImageUrl.downsize(ImageUrl.resolve(serverUrl, posterPath), CARD_POSTER)
+        url?.let {
+            val w = with(density) { WideCardWidth.roundToPx() }
+            ImageRequest.Builder(context).data(it).size(w, w * 9 / 16).build()
+        }
+    }
+    Column(modifier.width(WideCardWidth)) {
+        Card(
+            onClick = onClick,
+            onLongClick = onLongClick,
+            modifier = Modifier
+                .fillMaxWidth()
+                .aspectRatio(16f / 9f)
+                .onFocusChanged {
+                    if (focused != it.isFocused) focused = it.isFocused
+                    if (it.isFocused) onFocused()
+                },
+            shape = CardDefaults.shape(shape = CardShape),
+            scale = CardDefaults.scale(focusedScale = 1.05f),
+            border = CardDefaults.border(
+                border = Border(BorderStroke(1.dp, AppColors.GlassBorder), shape = CardShape),
+                focusedBorder = Border(BorderStroke(3.dp, AppColors.Focus), shape = CardShape),
+                pressedBorder = Border(BorderStroke(3.dp, AppColors.Focus), shape = CardShape),
+            ),
+            colors = CardDefaults.colors(
+                containerColor = AppColors.GlassFill,
+                focusedContainerColor = AppColors.GlassFillFocused,
+                pressedContainerColor = AppColors.GlassFillFocused,
+            ),
+        ) {
+            Box(Modifier.fillMaxSize()) {
+                if (request != null) {
+                    AsyncImage(model = request, contentDescription = title, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
+                } else {
+                    Text(title, modifier = Modifier.align(Alignment.Center).padding(8.dp), color = AppColors.TextMuted, style = MaterialTheme.typography.bodyMedium, maxLines = 2)
+                }
+                Box(Modifier.align(Alignment.BottomStart).fillMaxWidth().height(4.dp).background(Color.White.copy(alpha = 0.2f))) {
+                    Box(Modifier.fillMaxHeight().fillMaxWidth(progressPercent.coerceIn(0, 100) / 100f).background(AppColors.Primary))
+                }
+            }
+        }
+        Text(
+            title,
+            modifier = Modifier.padding(top = 10.dp),
+            color = if (focused) AppColors.Text else AppColors.Text.copy(alpha = 0.9f),
+            style = MaterialTheme.typography.bodyMedium,
+            fontWeight = FontWeight.Medium,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+        if (detail != null) {
+            Text(detail, color = AppColors.TextMuted, style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        }
+    }
+}
 
 /** How many of the next row's posters are fetched ahead (plan Phase 4). */
 private const val PREFETCH_POSTERS = 8
@@ -129,6 +227,8 @@ internal fun PosterCard(
     channel: String? = null,
     channelLogo: String? = null,
     badge: String? = null,
+    /** The title's rating ("8.4"): a "★ 8.4" pill top right (design-system.md, Cards). */
+    rating: String? = null,
 ) {
     var focused by remember { mutableStateOf(false) }
     val context = LocalContext.current
@@ -187,6 +287,8 @@ internal fun PosterCard(
                 }
                 if (badge != null) {
                     LocalBadge(badge, Modifier.align(Alignment.TopEnd).padding(6.dp))
+                } else if (rating != null) {
+                    RatingBadge(rating, Modifier.align(Alignment.TopEnd).padding(6.dp))
                 }
                 if (progressPercent != null) {
                     Box(

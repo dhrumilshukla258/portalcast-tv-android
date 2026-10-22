@@ -14,9 +14,10 @@ import androidx.tv.material3.darkColorScheme
  * the colour the webui's pairing QR uses). Always dark: this is a TV app.
  */
 object AppColors {
-    val Background = Color(0xFF0F172A)
-    val Surface = Color(0xFF1E293B)
-    val SurfaceVariant = Color(0xFF334155)
+    val Background = Color(0xFF0A0F1C)  // design-system.md: background
+    val Surface = Color(0xFF121A2B)     // surface
+    val SurfaceVariant = Color(0xFF1E293B)  // surfaceRaised
+    val Rating = Color(0xFFFBBF24)      // the star before a rating
     val Primary = Color(0xFF38BDF8)     // sky-400
     val OnPrimary = Color(0xFF082F49)
     val Secondary = Color(0xFFA78BFA)   // violet-400
@@ -31,7 +32,7 @@ object AppColors {
     val GlassFill = Color(0x14FFFFFF)          // white 8 %
     val GlassFillFocused = Color(0x2EFFFFFF)   // white 18 %
     val GlassBorder = Color(0x1AFFFFFF)        // white 10 %
-    val GlassScrim = Color(0xB30F172A)         // background 70 %, behind dialogs/panels
+    val GlassScrim = Color(0xB30A0F1C)         // background 70 %, behind dialogs/panels
 }
 
 private val DarkScheme = darkColorScheme(

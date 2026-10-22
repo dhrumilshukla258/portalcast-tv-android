@@ -235,6 +235,24 @@ class DiscoverViewModelTest {
     }
 
     @Test
+    fun `continue watching cards show the wide art and the time left`() {
+        val ep = DiscoverViewModel.toContinueEntry(ProgressRecord(
+            mediaId = "ep55",
+            meta = ProgressMeta(mediaId = "ep55", type = "series", title = "Dark", episodeTitle = "Secrets", series_number = 2,
+                currentTime = 1200.0, duration = 2580.0, catalogId = "series_301").toJson(),
+            backdropPath = "/api/images/tmdb/original/b.jpg",
+        ))!!
+        assertEquals("/api/images/tmdb/original/b.jpg", ep.wideImagePath)
+        assertEquals("S2·Secrets · 23 min left", ep.detail)
+        val movie = DiscoverViewModel.toContinueEntry(record("m1", ProgressMeta(mediaId = "m1", type = "movie", title = "Heat", currentTime = 600.0, duration = 10_320.0)))!!
+        assertEquals("2h 42m left", movie.detail)
+        assertNull(movie.wideImagePath)
+        val noDuration = DiscoverViewModel.toContinueEntry(record("m2", ProgressMeta(mediaId = "m2", type = "movie", title = "Ran")))!!
+        assertNull(noDuration.detail)
+        assertNull(DiscoverViewModel.timeLeft(30.0))
+    }
+
+    @Test
     fun `clicking continue watching navigates without resolving`() = runTest(dispatcher) {
         val user = FakeUserRepository().apply {
             rows = listOf(record("ep55", ProgressMeta(mediaId = "ep55", type = "series", title = "Dark", catalogId = "series_301")))
