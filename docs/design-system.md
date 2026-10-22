@@ -44,14 +44,14 @@ logo and accent colour.
 
 - Text tabs across the top, left to right: Home, Live TV, Movies, Series, Sports, Search, My List, Settings; the PortalCast logo on the left. The current tab in `text` with a 2 high `primary` underline, the others `textMuted`. Same on the TV and desktop web (the owner's reference: Fjord's TV and iPad layout).
 - TV: Up from the first row reaches the tabs, Down goes back in; resting on a tab for 350 ms shows its screen, Center at once (the last tab is remembered). Back goes to the tabs, then out of the app. Web: the header already works this way.
-- Web on a phone (under 640 wide): a bottom bar with every tab (icon over label); Settings from the profile button. Under 768 wide, Discover's filters are one "Filters" button beside the page title opening a full-screen picker (the five selectors, then a selector's values), and Movies / Series put "Browse by category" on a full row under it; the row of selectors is for wider screens.
+- Web on a phone (under 640 wide): a bottom bar with every tab (icon over label); Settings from the profile button. Under 768 wide, Discover's filters are one "Filters" button (Home: a full row; Movies / Series: beside the title) opening a full-screen picker: Show (Movies / Series, on Home) or "Browse by category" (Movies / Series pages), then the five selectors, then a selector's values; the phone's Back steps back a level, then closes it; the row of selectors is for wider screens.
 - Order of work: the content tweaks first (cards, hero, rows, detail), then the TV's move from its left rail to top tabs, as a step of its own (it changes how the remote moves).
 
 ## Cards
 
 - Poster 2:3, width 130 (web: 150 on desktop, 112 on a phone), radius 8, image cropped to fill.
 - Focus / hover: scale 1.06, white ring 2; the title appears under the focused card in `caption` ("Lanterns · S1E3" for an episode).
-- Continue Watching (web, the owner's call 2026-10-22): the hero is the one landscape tile (the last title); the row under it is posters the size of the other rows', in one scrolling row like every other (never wrapping), a 3 high `primary` progress bar along the bottom and "Episode · 23 min left" under it. The TV keeps wide 16:9 cards (300 wide).
+- Continue Watching (web, the owner's call 2026-10-22): the hero is the one landscape tile (the last title); the row under it (the other titles; the hero's is not repeated) is posters the size of the other rows', in one scrolling row like every other (never wrapping), a 3 high `primary` progress bar along the bottom and "Episode · 23 min left" under it. The TV keeps wide 16:9 cards (300 wide).
 - Rows on a phone: left-aligned titles, posters only (the art carries the title), about 3.3 posters a screen; the first prepared row on Home has larger posters (about 2.3 a screen).
 - Rating badge on posters in rows: top right, a dark pill (black 60 %) with the `rating` star and the rating ("★ 8.4"), `caption` size. Only for a real rating (`rating_best`).
 - No art: `surface` tile with the title's first letter.
