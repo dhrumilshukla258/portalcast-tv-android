@@ -17,8 +17,13 @@ class ImageUrlDownsizeTest {
     @Test
     fun `other images are left as they are`() {
         assertEquals("http://s/api/images/proxy?u=abc&s=def", ImageUrl.downsize("http://s/api/images/proxy?u=abc&s=def", "w342"))
-        assertEquals("http://s/api/library/art/x?s=1", ImageUrl.downsize("http://s/api/library/art/x?s=1", "w342"))
         assertEquals("http://s/api/images/tmdb/h632/a.jpg", ImageUrl.downsize("http://s/api/images/tmdb/h632/a.jpg", "w342"))
         assertNull(ImageUrl.downsize(null, "w342"))
+    }
+
+    @Test
+    fun `NAS art asks the server for the width`() {
+        assertEquals("http://s/api/images/local?a=12.poster.3&s=sig&w=342", ImageUrl.downsize("http://s/api/images/local?a=12.poster.3&s=sig", "w342"))
+        assertEquals("http://s/api/images/local?a=12.poster.3&s=sig&w=780", ImageUrl.downsize("http://s/api/images/local?a=12.poster.3&s=sig&w=780", "w342"))
     }
 }

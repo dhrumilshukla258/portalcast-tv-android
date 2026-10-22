@@ -23,10 +23,15 @@ object ImageUrl {
     /**
      * The same TMDB image at [target] width (`w342`, `w780`, `w1280`) when the URL asks for a
      * larger one (`w500`, `original`...): cards and backdrops get the smallest file that still
-     * looks sharp (Phase 4). Never enlarges; other URLs (portal art, NAS art) are unchanged.
+     * looks sharp (Phase 4). Never enlarges a TMDB image; NAS art gets `&w=` (scaled by the server); portal art is unchanged.
      */
     fun downsize(url: String?, target: String): String? {
         if (url == null) return null
+        // NAS art (server Phase 4): the server scales it to the asked width once and keeps it.
+        if (url.contains("/api/images/local?") && !url.contains("&w=")) {
+            val w = target.drop(1).toIntOrNull() ?: return url
+            return "$url&w=$w"
+        }
         val m = TMDB_SIZE.find(url) ?: return url
         val current = m.groupValues[2]
         val have = if (current == "original") Int.MAX_VALUE else current.drop(1).toIntOrNull() ?: return url
