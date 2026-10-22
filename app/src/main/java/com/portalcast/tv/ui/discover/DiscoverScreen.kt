@@ -103,7 +103,7 @@ private const val HERO_FRACTION = 0.45f
 private val RowTitleHeight = 34.dp
 
 /**
- * The Discover tab's content pane, hosted by HomeScreen inside its nav rail.
+ * The Discover tab's content pane, hosted by HomeScreen under its top tabs.
  *
  * Layout: a fixed hero in the top [HERO_FRACTION] of the screen (the focused item's
  * backdrop, title, meta line and overview), the rows in a LazyColumn below it. The
@@ -120,7 +120,7 @@ fun DiscoverScreen(
     onOpenMovie: (MediaItem) -> Unit,
     onOpenSeries: (MediaItem) -> Unit,
     modifier: Modifier = Modifier,
-    /** Kept for Home's call site; Discover has no Search button (the rail has Search). */
+    /** Kept for Home's call site; Discover has no Search button (the tabs have Search). */
     @Suppress("UNUSED_PARAMETER") onOpenSearch: () -> Unit = {},
     /** True when coming back from a detail/player: put focus back on the last card. */
     restoreFocus: Boolean = false,
@@ -359,7 +359,7 @@ private fun RowsContent(
     val onOpen: (MediaItem) -> Unit = remember(vm) { vm::open }
     val onRowNearEnd: (String) -> Unit = remember(vm) { vm::onRowNearEnd }
     // Back from a title opened here: focus the card it was opened from (Home otherwise fell back
-    // to the rail, which looked like Back "opening the side bar").
+    // to the tabs, which looked like Back jumping away from where the viewer was).
     val restoreRequester = remember { FocusRequester() }
     val restoreKey = remember { if (restoreFocus) vm.lastFocusedKey else null }
     LaunchedEffect(restoreKey) {

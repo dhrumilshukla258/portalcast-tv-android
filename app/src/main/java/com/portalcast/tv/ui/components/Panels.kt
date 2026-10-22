@@ -78,7 +78,7 @@ fun LoadingPanel(modifier: Modifier = Modifier, message: String = "Loading…") 
  * A centered error message with an optional Retry button.
  *
  * @param requestFocus move focus to Retry when shown. Off by default so an error in a
- *   content pane does not steal focus from the nav rail.
+ *   content pane does not steal focus from the tabs.
  */
 @Composable
 fun ErrorPanel(
