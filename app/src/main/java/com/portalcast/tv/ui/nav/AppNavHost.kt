@@ -65,6 +65,15 @@ fun AppNavHost(container: AppContainer) {
         if (session == null && currentRoute != null && !onAuthRoute) nav.resetTo(if (serverUrl != null) Routes.PAIR else Routes.SERVER)
     }
 
+    // A card opened from a person's page or More Like This: the resolved item is kept so
+    // the detail page starts from it (catalog id, art) like one opened from Home.
+    val openMovieFromCard: (com.portalcast.tv.data.model.MediaItem) -> Unit = { item ->
+        com.portalcast.tv.ui.SelectedItemHolder.put(item); nav.navigate(Routes.movieDetail(item.id, item.categoryId))
+    }
+    val openSeriesFromCard: (com.portalcast.tv.data.model.MediaItem) -> Unit = { item ->
+        com.portalcast.tv.ui.SelectedItemHolder.put(item); nav.navigate(Routes.seriesDetail(item.id, item.categoryId))
+    }
+
     NavHost(navController = nav, startDestination = start) {
         composable(Routes.SERVER) {
             ServerUrlScreen(onConnected = {
@@ -115,6 +124,8 @@ fun AppNavHost(container: AppContainer) {
                 category = entry.arguments?.getString("category") ?: "*",
                 onPlay = { nav.navigate(Routes.PLAYER) { launchSingleTop = true } },
                 onOpenPerson = { id -> nav.navigate(Routes.person(id)) },
+                onOpenMovie = openMovieFromCard,
+                onOpenSeries = openSeriesFromCard,
             )
         }
 
@@ -130,14 +141,16 @@ fun AppNavHost(container: AppContainer) {
                 category = entry.arguments?.getString("category") ?: "*",
                 onPlay = { nav.navigate(Routes.PLAYER) { launchSingleTop = true } },
                 onOpenPerson = { id -> nav.navigate(Routes.person(id)) },
+                onOpenMovie = openMovieFromCard,
+                onOpenSeries = openSeriesFromCard,
             )
         }
 
         composable(Routes.PERSON, arguments = listOf(navArgument("id") { type = NavType.IntType })) { entry ->
             com.portalcast.tv.ui.person.PersonScreen(
                 id = entry.arguments?.getInt("id") ?: 0,
-                onOpenMovie = { item -> nav.navigate(Routes.movieDetail(item.id, item.categoryId)) },
-                onOpenSeries = { item -> nav.navigate(Routes.seriesDetail(item.id, item.categoryId)) },
+                onOpenMovie = openMovieFromCard,
+                onOpenSeries = openSeriesFromCard,
             )
         }
 

@@ -45,6 +45,10 @@ import com.portalcast.tv.ui.components.TvButtonStyle
 import com.portalcast.tv.ui.components.backdropArt
 import com.portalcast.tv.ui.components.posterPath
 import com.portalcast.tv.ui.components.rememberImageUrl
+import com.portalcast.tv.ui.discover.MoreLikeThis
+import com.portalcast.tv.ui.discover.MyListButton
+import com.portalcast.tv.ui.discover.contentIdOf
+import com.portalcast.tv.ui.discover.rememberTitleExtras
 import com.portalcast.tv.ui.theme.AppColors
 
 /**
@@ -55,7 +59,15 @@ import com.portalcast.tv.ui.theme.AppColors
  * @param onPlay called after `PlaybackHolder.start`; navigate to the player.
  */
 @Composable
-fun MovieDetailScreen(id: String, category: String, onPlay: () -> Unit, onOpenPerson: (Int) -> Unit = {}, modifier: Modifier = Modifier) {
+fun MovieDetailScreen(
+    id: String,
+    category: String,
+    onPlay: () -> Unit,
+    onOpenPerson: (Int) -> Unit = {},
+    onOpenMovie: (MediaItem) -> Unit = {},
+    onOpenSeries: (MediaItem) -> Unit = {},
+    modifier: Modifier = Modifier,
+) {
     val container = LocalContext.current.appContainer
     val vm: MovieDetailViewModel = viewModel(
         key = "movie-$id-$category",
@@ -77,6 +89,8 @@ fun MovieDetailScreen(id: String, category: String, onPlay: () -> Unit, onOpenPe
 
     // One details request for the page (info and people both use it).
     val details = com.portalcast.tv.ui.components.rememberTitleDetails(item, "movie")
+    // My List and More Like This (design-system.md, Detail page).
+    val extras = rememberTitleExtras(contentIdOf(item, "movie"))
     val primaryFocus = remember { FocusRequester() }
     LaunchedEffect(state.progressLoaded) {
         if (state.progressLoaded) {
@@ -125,6 +139,8 @@ fun MovieDetailScreen(id: String, category: String, onPlay: () -> Unit, onOpenPe
                                 modifier = Modifier.focusRequester(primaryFocus),
                             )
                         }
+                        Spacer(Modifier.width(16.dp))
+                        MyListButton(extras)
                     }
                 } else {
                     Text("Loading…", color = AppColors.TextMuted, style = MaterialTheme.typography.bodyLarge)
@@ -138,6 +154,7 @@ fun MovieDetailScreen(id: String, category: String, onPlay: () -> Unit, onOpenPe
                     details,
                     onOpenPerson = { p -> p.id?.let(onOpenPerson) },
                 )
+                MoreLikeThis(extras, onOpenMovie, onOpenSeries, Modifier.padding(top = 24.dp))
             }
         }
     }

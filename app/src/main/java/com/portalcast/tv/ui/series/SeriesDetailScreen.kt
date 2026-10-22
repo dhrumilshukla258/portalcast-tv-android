@@ -75,6 +75,10 @@ import com.portalcast.tv.ui.components.backdropArt
 import com.portalcast.tv.ui.components.panelMessage
 import com.portalcast.tv.ui.components.posterPath
 import com.portalcast.tv.ui.components.rememberImageUrl
+import com.portalcast.tv.ui.discover.MoreLikeThisButton
+import com.portalcast.tv.ui.discover.MyListButton
+import com.portalcast.tv.ui.discover.contentIdOf
+import com.portalcast.tv.ui.discover.rememberTitleExtras
 import com.portalcast.tv.ui.theme.AppColors
 
 /**
@@ -86,7 +90,15 @@ import com.portalcast.tv.ui.theme.AppColors
  */
 @OptIn(ExperimentalComposeUiApi::class)
 @Composable
-fun SeriesDetailScreen(id: String, category: String, onPlay: () -> Unit, onOpenPerson: (Int) -> Unit = {}, modifier: Modifier = Modifier) {
+fun SeriesDetailScreen(
+    id: String,
+    category: String,
+    onPlay: () -> Unit,
+    onOpenPerson: (Int) -> Unit = {},
+    onOpenMovie: (MediaItem) -> Unit = {},
+    onOpenSeries: (MediaItem) -> Unit = {},
+    modifier: Modifier = Modifier,
+) {
     val container = LocalContext.current.appContainer
     val vm: SeriesDetailViewModel = viewModel(
         key = "series-$id-$category",
@@ -210,12 +222,17 @@ fun SeriesDetailScreen(id: String, category: String, onPlay: () -> Unit, onOpenP
                 }
                 state.playError?.let { ErrorText(it, textAlign = TextAlign.Start, modifier = Modifier.padding(top = 8.dp)) }
 
-                // Cast and crew: the column has no room for a row, so a button opens them all.
+                // Cast and crew, My List, More Like This: the column has no room for rows, so
+                // buttons (cast and similar titles open in dialogs).
                 val peopleDetails = titleDetails
                 var showPeople by remember { mutableStateOf(false) }
-                if (peopleDetails != null && peopleDetails.peopleEntries().any { it.person.id != null }) {
-                    Spacer(Modifier.height(10.dp))
-                    TvButton(text = "Cast & crew", onClick = { showPeople = true })
+                val extras = rememberTitleExtras(contentIdOf(series, "series"))
+                Row(Modifier.padding(top = 10.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    if (peopleDetails != null && peopleDetails.peopleEntries().any { it.person.id != null }) {
+                        TvButton(text = "Cast & crew", onClick = { showPeople = true })
+                    }
+                    MyListButton(extras)
+                    MoreLikeThisButton(extras, series.displayTitle, onOpenMovie, onOpenSeries)
                 }
                 if (showPeople && peopleDetails != null) {
                     com.portalcast.tv.ui.components.CastAndCrewDialog(

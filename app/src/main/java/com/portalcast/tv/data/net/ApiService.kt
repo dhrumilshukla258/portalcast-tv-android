@@ -237,6 +237,23 @@ interface ApiService {
     @GET("api/v2/home")
     suspend fun home(@Query("type") type: String?): HomeResponse
 
+    /** More Like This for a detail page (servers from 2026-10-22). */
+    @GET("api/v2/discover/similar")
+    suspend fun similar(@Query("id") id: String): com.portalcast.tv.data.model.CardsResponse
+
+    /** My List (servers from 2026-10-22): cards, ids, add, remove. */
+    @GET("api/user/list")
+    suspend fun myList(): com.portalcast.tv.data.model.CardsResponse
+
+    @GET("api/user/list/ids")
+    suspend fun myListIds(): com.portalcast.tv.data.model.ListIds
+
+    @PUT("api/user/list/{id}")
+    suspend fun addToList(@Path("id") id: String): okhttp3.ResponseBody
+
+    @DELETE("api/user/list/{id}")
+    suspend fun removeFromList(@Path("id") id: String): okhttp3.ResponseBody
+
     @GET("api/v2/discover/variants")
     suspend fun discoverVariants(@Query("id") prefixedId: String): VariantsResponse
 

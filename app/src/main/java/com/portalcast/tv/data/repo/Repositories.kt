@@ -90,6 +90,12 @@ interface DiscoverRepository {
     suspend fun recommendations(type: String?): Result<RecommendationsResponse>
     /** The viewer's prepared rows (server Phase 2). Default: unsupported, so callers fall back. */
     suspend fun home(type: String?): Result<HomeResponse> = Result.failure(UnsupportedOperationException("home"))
+    /** More Like This (server Phase 6). Default: none. */
+    suspend fun similar(contentId: String): Result<List<MediaItem>> = Result.success(emptyList())
+    /** My List (server Phase 6). Defaults: unsupported, so the button stays hidden. */
+    suspend fun myList(): Result<List<MediaItem>> = Result.success(emptyList())
+    suspend fun myListIds(): Result<Set<String>> = Result.failure(UnsupportedOperationException("my list"))
+    suspend fun setInList(contentId: String, inList: Boolean): Result<Unit> = Result.failure(UnsupportedOperationException("my list"))
     suspend fun variants(prefixedId: String): Result<List<MediaItem>>
     /**
      * Resolve a Discover item (`movie_<id>` / `series_<id>`) into the regular list item

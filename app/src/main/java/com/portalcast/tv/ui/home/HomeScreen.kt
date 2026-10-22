@@ -21,6 +21,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.PlayArrow
@@ -200,6 +201,7 @@ fun HomeScreen(
                 HomeTab.SEARCH -> SearchScreen(onOpenMovie = openMovie, onOpenSeries = openSeries, onPlay = onPlay, onOpenPerson = onOpenPerson, restoreFocus = restorePending)
                 HomeTab.DISCOVER -> DiscoverScreen(onOpenMovie = openMovie, onOpenSeries = openSeries, onOpenSearch = { select(HomeTab.SEARCH) }, restoreFocus = restorePending)
                 HomeTab.LIVE -> LiveScreen(onPlay = onPlay, restoreFocus = restorePending)
+                HomeTab.MY_LIST -> com.portalcast.tv.ui.mylist.MyListScreen(onOpenMovie = openMovie, onOpenSeries = openSeries)
                 // Movies / Series: Home's layout for one type; Categories opens the per-category
                 // browse, Back returns (design-system.md, Screens).
                 HomeTab.MOVIES -> if (categories == HomeTab.MOVIES) {
@@ -281,6 +283,7 @@ private val HomeTab.icon: ImageVector
         HomeTab.LIVE -> Icons.Filled.PlayArrow
         HomeTab.MOVIES -> Icons.Filled.Star
         HomeTab.SERIES -> Icons.AutoMirrored.Filled.List
+        HomeTab.MY_LIST -> Icons.Filled.Favorite
     }
 
 @Composable

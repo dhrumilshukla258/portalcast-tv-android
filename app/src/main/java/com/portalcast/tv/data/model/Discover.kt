@@ -54,6 +54,14 @@ data class HomeRowDto(
     val data: List<MediaItem> = emptyList(),
 )
 
+/** A list of cards: `GET /api/v2/discover/similar?id=` (More Like This), `GET /api/user/list` (My List). */
+@Serializable
+data class CardsResponse(val data: List<MediaItem> = emptyList())
+
+/** `GET /api/user/list/ids`: the content ids in My List. */
+@Serializable
+data class ListIds(val ids: List<String> = emptyList())
+
 /** `GET /api/v2/discover/variants?id=movie_123` */
 @Serializable
 data class VariantsResponse(val variants: List<MediaItem> = emptyList())

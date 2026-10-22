@@ -48,7 +48,8 @@ import com.portalcast.tv.ui.components.gridItem
 import com.portalcast.tv.ui.components.keepColumn
 import com.portalcast.tv.ui.components.rememberGridFocus
 import com.portalcast.tv.ui.components.revealWithTitle
-import com.portalcast.tv.ui.discover.VariantPickerDialog
+import com.portalcast.tv.ui.discover.DiscoverOpener
+import com.portalcast.tv.ui.discover.OpenerEffects
 import com.portalcast.tv.ui.theme.AppColors
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -60,10 +61,6 @@ data class PersonUiState(
     val loading: Boolean = true,
     val error: Throwable? = null,
     val page: PersonPage? = null,
-    val variants: List<MediaItem>? = null,
-    val resolving: Boolean = false,
-    val openError: String? = null,
-    val navigation: Pair<MediaItem, Boolean>? = null,
 )
 
 /** `GET /api/v2/people/{id}`; opening a title works like a Discover card (version picker, then the detail page). */
@@ -71,6 +68,7 @@ class PersonViewModel(private val id: Int, private val discover: DiscoverReposit
     private val _state = MutableStateFlow(PersonUiState())
     val state: StateFlow<PersonUiState> = _state.asStateFlow()
     var lastFocusedIndex = 0
+    val opener = DiscoverOpener(discover, viewModelScope)
 
     init { load() }
 
@@ -84,29 +82,6 @@ class PersonViewModel(private val id: Int, private val discover: DiscoverReposit
         }
     }
 
-    fun open(item: MediaItem) {
-        if (_state.value.resolving) return
-        _state.update { it.copy(resolving = true, openError = null) }
-        viewModelScope.launch {
-            val variants = discover.variants(item.id).getOrNull().orEmpty()
-            if (variants.size > 1) _state.update { it.copy(resolving = false, variants = variants) } else resolve(item)
-        }
-    }
-
-    fun chooseVariant(v: MediaItem) {
-        _state.update { it.copy(variants = null, resolving = true) }
-        viewModelScope.launch { resolve(v) }
-    }
-
-    fun dismissVariants() = _state.update { it.copy(variants = null) }
-    fun onNavigationHandled() = _state.update { it.copy(navigation = null) }
-
-    private suspend fun resolve(item: MediaItem) {
-        discover.openItem(item).fold(
-            { r -> _state.update { it.copy(resolving = false, navigation = r to ((r.discoverType ?: item.discoverType) == "series")) } },
-            { _ -> _state.update { it.copy(resolving = false, openError = "Couldn't open \"${item.displayTitle}\"") } },
-        )
-    }
 }
 
 private const val COLUMNS = 4
@@ -121,12 +96,8 @@ fun PersonScreen(id: Int, onOpenMovie: (MediaItem) -> Unit, onOpenSeries: (Media
     val vm: PersonViewModel = viewModel(key = "person-$id", factory = viewModelFactory { initializer { PersonViewModel(id, container.discoverRepository) } })
     val state by vm.state.collectAsStateWithLifecycle()
     val serverUrl by container.sessionStore.serverUrl.collectAsStateWithLifecycle()
-
-    LaunchedEffect(state.navigation) {
-        val nav = state.navigation ?: return@LaunchedEffect
-        vm.onNavigationHandled()
-        if (nav.second) onOpenSeries(nav.first) else onOpenMovie(nav.first)
-    }
+    val opening by vm.opener.state.collectAsStateWithLifecycle()
+    OpenerEffects(vm.opener, serverUrl, onOpenMovie, onOpenSeries)
 
     val page = state.page
     if (page == null) {
@@ -153,7 +124,7 @@ fun PersonScreen(id: Int, onOpenMovie: (MediaItem) -> Unit, onOpenSeries: (Media
                 Spacer(Modifier.height(14.dp))
                 Text(it, style = MaterialTheme.typography.bodyMedium, color = AppColors.Text, maxLines = 14, overflow = TextOverflow.Ellipsis)
             }
-            state.openError?.let { Text(it, color = AppColors.Error, modifier = Modifier.padding(top = 12.dp)) }
+            opening.openError?.let { Text(it, color = AppColors.Error, modifier = Modifier.padding(top = 12.dp)) }
         }
         Spacer(Modifier.width(32.dp))
         if (page.credits.isEmpty()) {
@@ -173,7 +144,7 @@ fun PersonScreen(id: Int, onOpenMovie: (MediaItem) -> Unit, onOpenSeries: (Media
                     val role = item.roles.joinToString(" · ") { r -> r.role?.takeIf { it.isNotBlank() } ?: r.kind.replaceFirstChar { c -> c.uppercase() } }
                     MediaCard(
                         item = item,
-                        onClick = { vm.lastFocusedIndex = i; vm.open(item) },
+                        onClick = { vm.lastFocusedIndex = i; vm.opener.open(item) },
                         subtitle = listOfNotNull(item.displayYear, role.takeIf { it.isNotBlank() }).joinToString(" · "),
                         width = Dp.Unspecified,
                         modifier = (if (i == vm.lastFocusedIndex) Modifier.focusRequester(firstFocus) else Modifier)
@@ -185,5 +156,4 @@ fun PersonScreen(id: Int, onOpenMovie: (MediaItem) -> Unit, onOpenSeries: (Media
         }
     }
 
-    state.variants?.let { v -> VariantPickerDialog(v, serverUrl, onChoose = vm::chooseVariant, onDismiss = vm::dismissVariants) }
 }

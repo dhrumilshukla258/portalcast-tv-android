@@ -31,7 +31,7 @@ class DefaultDiscoverRepository(
     private val homeCache = KeyedSessionCache<String, HomeResponse>(session, maxEntries = 4)
     private val variantsCache = KeyedSessionCache<String, List<MediaItem>>(session, maxEntries = 60)
 
-    fun clearCaches() { facetsCache.clear(); browseCache.clear(); recsCache.clear(); homeCache.clear(); variantsCache.clear() }
+    fun clearCaches() { facetsCache.clear(); browseCache.clear(); recsCache.clear(); homeCache.clear(); variantsCache.clear(); similarCache.clear() }
 
     override suspend fun facets(type: String?): Result<DiscoverFacets> =
         facetsCache.get(type.orEmpty()) { apiCall(ApiPaths.DISCOVER_FACETS) { api.discoverFacets(type) } }
@@ -56,6 +56,21 @@ class DefaultDiscoverRepository(
 
     override suspend fun recommendations(type: String?): Result<RecommendationsResponse> =
         recsCache.get(type.orEmpty()) { apiCall(ApiPaths.DISCOVER_RECOMMENDATIONS) { api.discoverRecommendations(type) } }
+
+    // More Like This changes only with the catalog: kept like Discover's other answers.
+    private val similarCache = KeyedSessionCache<String, List<MediaItem>>(session, maxEntries = 30)
+
+    override suspend fun similar(contentId: String): Result<List<MediaItem>> =
+        similarCache.get(contentId) { apiCall(ApiPaths.SIMILAR) { api.similar(contentId).data } }
+
+    // My List is the viewer's own and changes from any device: never cached here.
+    override suspend fun myList(): Result<List<MediaItem>> = apiCall(ApiPaths.MY_LIST) { api.myList().data }
+
+    override suspend fun myListIds(): Result<Set<String>> = apiCall(ApiPaths.MY_LIST) { api.myListIds().ids.toSet() }
+
+    override suspend fun setInList(contentId: String, inList: Boolean): Result<Unit> = apiCall(ApiPaths.MY_LIST) {
+        if (inList) api.addToList(contentId).close() else api.removeFromList(contentId).close()
+    }
 
     override suspend fun home(type: String?): Result<HomeResponse> =
         homeCache.get(type.orEmpty()) { apiCall(ApiPaths.HOME) { api.home(type) } }

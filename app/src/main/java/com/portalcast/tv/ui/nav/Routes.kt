@@ -34,7 +34,8 @@ enum class HomeTab(val route: String, val title: String) {
     DISCOVER("discover", "Home"),
     LIVE("live", "Live TV"),
     MOVIES("movies", "Movies"),
-    SERIES("series", "Series");
+    SERIES("series", "Series"),
+    MY_LIST("mylist", "My List");
 
     companion object {
         fun fromRoute(route: String?): HomeTab = entries.firstOrNull { it.route == route } ?: DISCOVER
