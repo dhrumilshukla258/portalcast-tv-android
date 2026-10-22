@@ -246,6 +246,7 @@ returns `/api/local/stream?t=` (progressive, range requests). Treat these ids as
   - `GET /api/v2/discover/facets?type=movie|series` → `{ genres, countries, themes, languages }`, each `[{ value, count }]`.
   - `GET /api/v2/discover/browse?type=&genre=a,b&country=&language=&theme=&page=` → `{ data, page, total_items }`.
   - `GET /api/v2/discover/recommendations?type=` → `{ data, basedOnTitle? }` (**basedOnTitle may be absent**).
+  - **Answer versions** (server Phase 3a): every answer may carry `X-Catalog-Version` / `X-Home-Version`; catalog reads (Discover, people, people search, groups, movies/series lists) and Home then add `v=<version>` and an answer at the current version is cached for a year (`data/net/AnswerVersions.kt`). Never on a title's own answer (`movieId`, `seasonId`, `episodeId`: play links). No header: plain addresses, usual caching.
   - `GET /api/v2/home?type=` → `{ rows: [{ key, kind, title, data }], genreOrder }`: the viewer's personal rows, prepared on the server (Because you watched X, Top picks for you, More with <name>, Popular on this server), shown first, never paged; `genreOrder` (their genres, most watched first) orders the genre rows. A server without it (404) falls back to `discover/recommendations`. ETag/304 when unchanged.
   - `GET /api/v2/discover/variants?id=movie_123` → `{ variants: [{ …item, variantLabel }] }`.
   - Items: `{ id: "movie_<raw>"|"series_<raw>", type, name, title, screenshot_uri,

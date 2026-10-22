@@ -5,6 +5,7 @@ import java.io.File
 import okhttp3.Cache
 import android.app.Application
 import com.portalcast.tv.BuildConfig
+import com.portalcast.tv.data.net.AnswerVersions
 import com.portalcast.tv.data.net.ApiService
 import com.portalcast.tv.data.net.AppJson
 import com.portalcast.tv.data.net.AuthInterceptor
@@ -73,8 +74,11 @@ class AppContainer(app: Application) {
         .addNetworkInterceptor { chain ->
             val response = chain.proceed(chain.request())
             response.header("X-IPTV")?.let { IptvStatus.report(it) }
+            AnswerVersions.report(response)
             response
         }
+        // Catalog reads carry the server's answer version (v=): cached for a year at that address.
+        .addInterceptor { chain -> chain.proceed(AnswerVersions.pin(chain.request())) }
         .followRedirects(false)
         .followSslRedirects(false)
         .addInterceptor(DynamicBaseUrlInterceptor(sessionStore))
