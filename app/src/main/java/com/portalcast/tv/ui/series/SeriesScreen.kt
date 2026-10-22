@@ -21,5 +21,8 @@ fun SeriesScreen(onOpenSeries: (MediaItem) -> Unit, modifier: Modifier = Modifie
         key = if (library) "catalog-series-library" else "catalog-series",
         factory = viewModelFactory { initializer { CatalogViewModel(CatalogSource.Series(container.seriesRepository), if (library) com.portalcast.tv.ui.movies.LOCAL_CATEGORY else null) } },
     )
-    CatalogScreen(vm = vm, title = if (library) "My library · Series" else "IPTV categories · Series", onOpen = onOpenSeries, modifier = modifier, restoreFocus = restoreFocus)
+    // IPTV categories and My library stay as they are: no title menu here (owner).
+    androidx.compose.runtime.CompositionLocalProvider(com.portalcast.tv.ui.components.LocalTitleMenu provides null) {
+        CatalogScreen(vm = vm, title = if (library) "My library · Series" else "IPTV categories · Series", onOpen = onOpenSeries, modifier = modifier, restoreFocus = restoreFocus)
+    }
 }

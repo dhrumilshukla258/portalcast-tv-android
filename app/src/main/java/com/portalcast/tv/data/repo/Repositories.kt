@@ -105,6 +105,11 @@ interface DiscoverRepository {
     /** The title menu (server 2026-10-22). Defaults: unsupported (older servers). */
     suspend fun setWatched(contentId: String, watched: Boolean): Result<Unit> = Result.failure(UnsupportedOperationException("watched"))
     suspend fun setNotInterested(contentId: String, hidden: Boolean): Result<Unit> = Result.failure(UnsupportedOperationException("not interested"))
+    /** The viewer's Not interested titles (content ids). Default: none. */
+    suspend fun hiddenIds(): Result<Set<String>> = Result.success(emptySet())
+    /** My List > Watched and Not interested, as cards. Defaults: unsupported. */
+    suspend fun watchedTitles(): Result<List<MediaItem>> = Result.failure(UnsupportedOperationException("watched"))
+    suspend fun hiddenTitles(): Result<List<MediaItem>> = Result.failure(UnsupportedOperationException("not interested"))
     suspend fun variants(prefixedId: String): Result<List<MediaItem>>
     /**
      * Resolve a Discover item (`movie_<id>` / `series_<id>`) into the regular list item

@@ -76,6 +76,11 @@ fun AppNavHost(container: AppContainer) {
         com.portalcast.tv.ui.SelectedItemHolder.put(item); nav.navigate(Routes.seriesDetail(item.id, item.categoryId))
     }
 
+    // The viewer's Not interested titles, for Home's rows (ui/components/TitleMenu.kt).
+    LaunchedEffect(session) {
+        if (session == null) com.portalcast.tv.ui.components.HiddenTitles.set(emptySet())
+        else container.discoverRepository.hiddenIds().onSuccess { com.portalcast.tv.ui.components.HiddenTitles.set(it) }
+    }
     // The title menu (hold Center on a title card), for every screen.
     var titleMenu by remember { mutableStateOf<com.portalcast.tv.ui.components.TitleMenuTarget?>(null) }
     titleMenu?.let { t -> com.portalcast.tv.ui.components.TitleMenuDialog(t, onDismiss = { titleMenu = null }) }

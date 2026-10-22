@@ -261,6 +261,16 @@ interface ApiService {
     @DELETE("api/user/watched/{id}")
     suspend fun unmarkWatched(@Path("id") id: String): okhttp3.ResponseBody
 
+    @GET("api/user/hidden")
+    suspend fun hiddenIds(): com.portalcast.tv.data.model.ListIds
+
+    /** My List sections (servers from 2026-10-22). */
+    @GET("api/user/hidden/cards")
+    suspend fun hiddenCards(): com.portalcast.tv.data.model.CardsResponse
+
+    @GET("api/user/watched")
+    suspend fun watchedCards(): com.portalcast.tv.data.model.CardsResponse
+
     @PUT("api/user/hidden/{id}")
     suspend fun hideTitle(@Path("id") id: String): okhttp3.ResponseBody
 

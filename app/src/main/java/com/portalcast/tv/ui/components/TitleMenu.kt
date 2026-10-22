@@ -37,13 +37,32 @@ import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.launch
 
 /** What the title menu was opened for: the card's item, and Remove on Continue Watching cards. */
-data class TitleMenuTarget(val item: MediaItem, val onRemoveFromContinue: (() -> Unit)? = null)
+data class TitleMenuTarget(
+    val item: MediaItem,
+    val onRemoveFromContinue: (() -> Unit)? = null,
+    /** From My List > Watched: the menu offers Not watched (undo). */
+    val watched: Boolean = false,
+)
 
 /**
  * Opens the title menu (hold Center on a card; owner, 2026-10-22). Provided by HomeScreen;
  * null elsewhere (cards then keep their own long-press, if any).
  */
 val LocalTitleMenu = staticCompositionLocalOf<((TitleMenuTarget) -> Unit)?> { null }
+
+/**
+ * The viewer's Not interested titles, left out of every Home / Movies / Series row (the
+ * server only takes them off its personal rows; What's new and genre rows are shared).
+ * Loaded at sign-in (AppNavHost), changed by the title menu. IPTV categories, search and My
+ * List are left as they are.
+ */
+object HiddenTitles {
+    private val _ids = kotlinx.coroutines.flow.MutableStateFlow<Set<String>>(emptySet())
+    val ids: kotlinx.coroutines.flow.StateFlow<Set<String>> = _ids
+    fun set(ids: Set<String>) { _ids.value = ids }
+    fun add(id: String) { _ids.value = _ids.value + id }
+    fun remove(id: String) { _ids.value = _ids.value - id }
+}
 
 /** Something changed (watched, not interested, My List): screens with suggestions reload. */
 object TitleChanges {
@@ -127,8 +146,10 @@ fun TitleMenuDialog(target: TitleMenuTarget, onDismiss: () -> Unit) {
                 if (list != null) add((if (list) "Remove from My List" else "Add to My List") to {
                     run(if (list) "Removed from My List" else "Added to My List") { discover.setInList(id, !list) }
                 })
-                add("Mark as watched" to { run("Marked as watched") { discover.setWatched(id, true) } })
-                add("Not interested" to { run("Got it: you won't see it on Home") { discover.setNotInterested(id, true) } })
+                if (target.watched) add("Not watched" to { run("Marked as not watched") { discover.setWatched(id, false) } })
+                else add("Mark as watched" to { run("Marked as watched") { discover.setWatched(id, true) } })
+                if (id in HiddenTitles.ids.value) add("Show on Home again" to { run("It can show on Home again") { discover.setNotInterested(id, false).onSuccess { HiddenTitles.remove(id) } } })
+                else add("Not interested" to { run("Got it: you won't see it on Home") { discover.setNotInterested(id, true).onSuccess { HiddenTitles.add(id) } } })
                 target.onRemoveFromContinue?.let { remove ->
                     add("Remove from Continue Watching" to { remove(); TitleChanges.changed(); onDismiss() })
                 }

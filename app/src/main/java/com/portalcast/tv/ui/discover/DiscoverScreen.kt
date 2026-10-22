@@ -453,7 +453,7 @@ private fun ContinueWatchingRow(
                     serverUrl = serverUrl,
                     progressPercent = e.progressPercent,
                     onClick = { onOpen(e) },
-                    onLongClick = titleMenu?.let { open -> { open(com.portalcast.tv.ui.components.TitleMenuTarget(e.target) { onRemove(e) }) } } ?: { confirm = e },
+                    onLongClick = titleMenu?.let { open -> { open(com.portalcast.tv.ui.components.TitleMenuTarget(e.target, onRemoveFromContinue = { onRemove(e) })) } } ?: { confirm = e },
                     onFocused = { onFocusEntry(e) },
                     modifier = cardModifier("cw|${e.key}").rememberedIn(memory).bringIntoViewResponder(cardPad),
                 )
@@ -507,6 +507,7 @@ private fun MediaRow(
 ) {
     val listState = rememberLazyListState()
     val titleMenu = com.portalcast.tv.ui.components.LocalTitleMenu.current
+    val hidden by com.portalcast.tv.ui.components.HiddenTitles.ids.collectAsStateWithLifecycle()
     val nearEnd by rememberUpdatedState(onRowNearEnd)
     LaunchedEffect(listState, row.key) {
         snapshotFlow {
@@ -529,7 +530,7 @@ private fun MediaRow(
             contentPadding = PaddingValues(horizontal = 48.dp, vertical = 12.dp),
             horizontalArrangement = Arrangement.spacedBy(16.dp),
         ) {
-            items(row.items, key = { it.id }) { item ->
+            items(row.items.filterNot { com.portalcast.tv.ui.components.titleContentId(it) in hidden }, key = { it.id }) { item ->
                 PosterCard(
                     title = item.displayTitle,
                     subtitle = null,
@@ -574,6 +575,7 @@ private fun FilterGridContent(
     onOpen: (MediaItem) -> Unit,
     onNearEnd: () -> Unit,
 ) {
+    val hidden by com.portalcast.tv.ui.components.HiddenTitles.ids.collectAsStateWithLifecycle()
     val label = listOfNotNull(
         grid.query.genres.takeIf { it.isNotEmpty() }?.joinToString(" + "),
         grid.query.country,
@@ -613,7 +615,7 @@ private fun FilterGridContent(
                     horizontalArrangement = Arrangement.spacedBy(16.dp),
                     verticalArrangement = Arrangement.spacedBy(20.dp),
                 ) {
-                    itemsIndexed(grid.items, key = { _, it -> it.id }) { i, item ->
+                    itemsIndexed(grid.items.filterNot { com.portalcast.tv.ui.components.titleContentId(it) in hidden }, key = { _, it -> it.id }) { i, item ->
                         PosterCard(
                             title = item.displayTitle,
                             subtitle = item.displayYear,

@@ -309,7 +309,7 @@ fun HomeScreen(
                     HomeTab.DISCOVER -> DiscoverScreen(onOpenMovie = openMovie, onOpenSeries = openSeries, onOpenSearch = { select(HomeTab.SEARCH) }, restoreFocus = restorePending, sectionChips = sectionChips)
                     HomeTab.LIVE -> LiveScreen(onPlay = onPlay, restoreFocus = restorePending)
                     HomeTab.PEOPLE -> com.portalcast.tv.ui.people.PeopleScreen(onOpenPerson = onOpenPerson, restoreFocus = restorePending, sectionChips = sectionChips)
-                    HomeTab.MY_LIST -> com.portalcast.tv.ui.mylist.MyListScreen(onOpenMovie = openMovie, onOpenSeries = openSeries, restoreFocus = restorePending)
+                    HomeTab.MY_LIST -> com.portalcast.tv.ui.mylist.MyListScreen(onOpenMovie = openMovie, onOpenSeries = openSeries, restoreFocus = restorePending, onPlay = onPlay)
                     // Movies / Series: Home's layout for one type; Categories opens the per-category
                     // browse, Back returns (design-system.md, Screens).
                     HomeTab.MOVIES -> if (categories == HomeTab.MOVIES) {

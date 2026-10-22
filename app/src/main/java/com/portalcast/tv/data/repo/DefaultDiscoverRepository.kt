@@ -77,6 +77,10 @@ class DefaultDiscoverRepository(
         if (watched) api.markWatched(contentId).close() else api.unmarkWatched(contentId).close()
     }.onSuccess { clearCaches() }
 
+    override suspend fun hiddenIds(): Result<Set<String>> = apiCall(ApiPaths.MY_LIST) { api.hiddenIds().ids.toSet() }
+    override suspend fun watchedTitles(): Result<List<MediaItem>> = apiCall(ApiPaths.MY_LIST) { api.watchedCards().data }
+    override suspend fun hiddenTitles(): Result<List<MediaItem>> = apiCall(ApiPaths.MY_LIST) { api.hiddenCards().data }
+
     override suspend fun setNotInterested(contentId: String, hidden: Boolean): Result<Unit> = apiCall(ApiPaths.MY_LIST) {
         if (hidden) api.hideTitle(contentId).close() else api.unhideTitle(contentId).close()
     }.onSuccess { clearCaches() }
