@@ -69,6 +69,7 @@ import com.portalcast.tv.ui.components.TvButtonStyle
 import com.portalcast.tv.ui.theme.AppColors
 import com.portalcast.tv.util.ImageUrl
 import kotlinx.coroutines.delay
+import com.portalcast.tv.util.CARD_POSTER
 
 /*
  * Discover-private cards and dialogs. Shared cards for the other tabs live in
@@ -107,7 +108,7 @@ internal fun PosterCard(
     val context = LocalContext.current
     val density = LocalDensity.current
     val request = remember(serverUrl, imagePath) {
-        ImageUrl.resolve(serverUrl, imagePath)?.let { url ->
+        ImageUrl.downsize(ImageUrl.resolve(serverUrl, imagePath), CARD_POSTER)?.let { url ->
             val w = with(density) { PosterWidth.roundToPx() }
             ImageRequest.Builder(context).data(url).size(w, w * 3 / 2).build()
         }
@@ -236,7 +237,7 @@ internal fun VariantPickerDialog(
     val density = LocalDensity.current
     val poster = remember(variants, serverUrl) {
         val path = variants.firstNotNullOfOrNull { it.screenshotUri?.takeIf { p -> p.isNotBlank() } }
-        ImageUrl.resolve(serverUrl, path)?.let { url ->
+        ImageUrl.downsize(ImageUrl.resolve(serverUrl, path), CARD_POSTER)?.let { url ->
             val w = with(density) { 170.dp.roundToPx() }
             ImageRequest.Builder(context).data(url).size(w, w * 3 / 2).build()
         }

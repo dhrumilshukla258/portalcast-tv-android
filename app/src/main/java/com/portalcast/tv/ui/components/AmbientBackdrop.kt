@@ -24,6 +24,7 @@ import com.portalcast.tv.data.model.MediaItem
 import com.portalcast.tv.ui.theme.AppColors
 import com.portalcast.tv.util.ImageUrl
 import kotlinx.coroutines.delay
+import com.portalcast.tv.util.AMBIENT_BACKDROP
 
 /**
  * The webui's AmbientBackdrop on the TV: one shared pool of TMDB backdrops, fed by whatever
@@ -93,7 +94,8 @@ fun AmbientBackdrop(modifier: Modifier = Modifier) {
         Crossfade(targetState = current, animationSpec = tween(FADE_MS), label = "ambient") { url ->
             if (url != null) {
                 val request = remember(url) {
-                    ImageRequest.Builder(context).data(url).size(DECODE_W, DECODE_H).build()
+                    // Dimmed and blurred behind content: w780 instead of the original file (Phase 4).
+                    ImageRequest.Builder(context).data(ImageUrl.downsize(url, AMBIENT_BACKDROP)).size(DECODE_W, DECODE_H).build()
                 }
                 AsyncImage(
                     model = request,

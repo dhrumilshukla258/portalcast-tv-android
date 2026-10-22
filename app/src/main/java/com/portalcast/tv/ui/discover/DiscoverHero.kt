@@ -45,6 +45,7 @@ import com.portalcast.tv.util.ImageUrl
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.distinctUntilChanged
+import com.portalcast.tv.util.HERO_BACKDROP
 
 /** How long focus must rest on a card before the hero backdrop follows it. */
 private const val HERO_IMAGE_DEBOUNCE_MS = 400L
@@ -101,7 +102,7 @@ internal fun HeroBackdrop(focus: HeroFocus, serverUrl: String?, modifier: Modifi
     val request = remember(url) {
         url?.let {
             ImageRequest.Builder(context)
-                .data(it)
+                .data(ImageUrl.downsize(it, HERO_BACKDROP))
                 .size(HERO_IMAGE_W, HERO_IMAGE_H)
                 .apply { previous?.let { p -> placeholderMemoryCacheKey(MemoryCache.Key(p)) } }
                 .crossfade(250)

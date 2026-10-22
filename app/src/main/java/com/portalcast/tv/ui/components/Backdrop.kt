@@ -16,6 +16,8 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import com.portalcast.tv.ui.theme.AppColors
+import com.portalcast.tv.util.HERO_BACKDROP
+import com.portalcast.tv.util.ImageUrl
 
 /**
  * Large dimmed (and, on Android 12+, blurred) image behind a detail screen, faded into
@@ -49,7 +51,8 @@ fun Backdrop(imageUrl: String?, modifier: Modifier = Modifier, blurred: Boolean 
         }
         if (imageUrl != null) {
             AsyncImage(
-                model = imageUrl,
+                // Full width at 1080p: w1280 instead of the original file (Phase 4).
+                model = ImageUrl.downsize(imageUrl, HERO_BACKDROP),
                 contentDescription = null,
                 contentScale = ContentScale.Crop,
                 alpha = 0.45f,

@@ -38,6 +38,8 @@ import androidx.tv.material3.Text
 import coil.compose.AsyncImage
 import com.portalcast.tv.data.model.MediaItem
 import com.portalcast.tv.ui.theme.AppColors
+import com.portalcast.tv.util.CARD_POSTER
+import com.portalcast.tv.util.ImageUrl
 
 private const val FOCUSED_SCALE = 1.1f
 
@@ -99,7 +101,8 @@ fun MediaCard(
             interactionSource = interaction,
         ) {
             Box(Modifier.fillMaxSize()) {
-                ArtImage(url = imageUrl, fallbackText = title, modifier = Modifier.fillMaxSize())
+                // Card size: w342 is sharp at 130 dp, focused (Phase 4).
+                ArtImage(url = ImageUrl.downsize(imageUrl, CARD_POSTER), fallbackText = title, modifier = Modifier.fillMaxSize())
                 if (badge != null) LocalBadge(badge, Modifier.align(Alignment.TopEnd).padding(6.dp))
                 if (progress != null && progress > 0f) {
                     ProgressLine(

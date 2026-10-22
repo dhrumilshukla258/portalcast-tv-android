@@ -17,6 +17,24 @@ object ImageUrl {
         return "$origin/api/images$rel"
     }
 
+    /** TMDB size widths, for [downsize]. */
+    private val TMDB_SIZE = Regex("""(/api/images/tmdb/|image\.tmdb\.org/t/p/)(w\d+|original)/""")
+
+    /**
+     * The same TMDB image at [target] width (`w342`, `w780`, `w1280`) when the URL asks for a
+     * larger one (`w500`, `original`...): cards and backdrops get the smallest file that still
+     * looks sharp (Phase 4). Never enlarges; other URLs (portal art, NAS art) are unchanged.
+     */
+    fun downsize(url: String?, target: String): String? {
+        if (url == null) return null
+        val m = TMDB_SIZE.find(url) ?: return url
+        val current = m.groupValues[2]
+        val have = if (current == "original") Int.MAX_VALUE else current.drop(1).toIntOrNull() ?: return url
+        val want = target.drop(1).toIntOrNull() ?: return url
+        if (have <= want) return url
+        return url.replaceRange(m.groups[2]!!.range, target)
+    }
+
     /** Resolve a relative stream `cmd` such as `/api/proxy?t=…` against the server origin. */
     fun absolute(serverUrl: String?, cmdOrUrl: String?): String? {
         val c = cmdOrUrl?.trim()?.takeIf { it.isNotEmpty() } ?: return null
