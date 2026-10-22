@@ -86,7 +86,7 @@ private val TabBarHeight = 72.dp
 private const val TAB_SWITCH_DELAY_MS = 350L
 
 /** The tabs left to right (design-system.md, Navigation); Settings follows them. */
-private val TopTabs = listOf(HomeTab.DISCOVER, HomeTab.LIVE, HomeTab.MOVIES, HomeTab.SERIES, HomeTab.SEARCH, HomeTab.MY_LIST)
+private val TopTabs = listOf(HomeTab.DISCOVER, HomeTab.LIVE, HomeTab.MOVIES, HomeTab.SERIES, HomeTab.SPORTS, HomeTab.SEARCH, HomeTab.MY_LIST)
 
 /**
  * Home: text tabs along the top (Home, Live TV, Movies, Series, Search, My List, Settings; the
@@ -129,6 +129,8 @@ fun HomeScreen(
     var tabsFocused by remember { mutableStateOf(false) }
     /** The Movies or Series tab showing its per-category browse instead of its rows. */
     var categories by rememberSaveable { mutableStateOf<HomeTab?>(null) }
+    /** Sports' "Find channel": a Live TV search handed to the Search tab once. */
+    var searchFor by remember { mutableStateOf<String?>(null) }
     var contentFocused by remember { mutableStateOf(false) }
     val tabRequesters = remember { HomeTab.entries.associateWith { FocusRequester() } }
     val settingsRequester = remember { FocusRequester() }
@@ -253,7 +255,15 @@ fun HomeScreen(
                     .focusGroup(),
             ) {
                 when (current) {
-                    HomeTab.SEARCH -> SearchScreen(onOpenMovie = openMovie, onOpenSeries = openSeries, onPlay = onPlay, onOpenPerson = onOpenPerson, restoreFocus = restorePending)
+                    HomeTab.SEARCH -> SearchScreen(
+                        onOpenMovie = openMovie, onOpenSeries = openSeries, onPlay = onPlay, onOpenPerson = onOpenPerson, restoreFocus = restorePending,
+                        liveQuery = searchFor, onLiveQueryUsed = { searchFor = null },
+                    )
+                    HomeTab.SPORTS -> com.portalcast.tv.ui.sports.SportsScreen(
+                        onPlay = onPlay,
+                        onFindChannel = { q -> searchFor = q; select(HomeTab.SEARCH) },
+                        restoreFocus = restorePending,
+                    )
                     HomeTab.DISCOVER -> DiscoverScreen(onOpenMovie = openMovie, onOpenSeries = openSeries, onOpenSearch = { select(HomeTab.SEARCH) }, restoreFocus = restorePending)
                     HomeTab.LIVE -> LiveScreen(onPlay = onPlay, restoreFocus = restorePending)
                     HomeTab.MY_LIST -> com.portalcast.tv.ui.mylist.MyListScreen(onOpenMovie = openMovie, onOpenSeries = openSeries, restoreFocus = restorePending)

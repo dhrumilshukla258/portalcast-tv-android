@@ -42,16 +42,17 @@ logo and accent colour.
 
 ## Navigation (top tabs)
 
-- Text tabs across the top, left to right: Home, Live TV, Movies, Series, Search, My List, Settings; the PortalCast logo on the left. The current tab in `text` with a 2 high `primary` underline, the others `textMuted`. Same on the TV and desktop web (the owner's reference: Fjord's TV and iPad layout).
+- Text tabs across the top, left to right: Home, Live TV, Movies, Series, Sports, Search, My List, Settings; the PortalCast logo on the left. The current tab in `text` with a 2 high `primary` underline, the others `textMuted`. Same on the TV and desktop web (the owner's reference: Fjord's TV and iPad layout).
 - TV: Up from the first row reaches the tabs, Down goes back in; resting on a tab for 350 ms shows its screen, Center at once (the last tab is remembered). Back goes to the tabs, then out of the app. Web: the header already works this way.
-- Web on a phone (under 768 wide): a bottom bar: Home, Live TV, Browse (Movies and Series), Search, My List; Settings from the profile button.
+- Web on a phone (under 640 wide): a bottom bar with every tab (icon over label); Settings from the profile button. Discover's filters are one "All Categories" button opening a full-screen picker (the five selectors, then a selector's values); the row of selectors is for wider screens.
 - Order of work: the content tweaks first (cards, hero, rows, detail), then the TV's move from its left rail to top tabs, as a step of its own (it changes how the remote moves).
 
 ## Cards
 
 - Poster 2:3, width 130 (web: 150 on desktop, 112 on a phone), radius 8, image cropped to fill.
 - Focus / hover: scale 1.06, white ring 2; the title appears under the focused card in `caption` ("Lanterns · S1E3" for an episode).
-- Continue Watching uses wide cards: 16:9 (the title's backdrop, else its poster), 300 wide (web 320, phone 260), a 3 high `primary` progress bar on a white 20 % track along the bottom, and under it the title and "S1 E3 · 23 min left" (movies: "1h 12m left").
+- Continue Watching (web, the owner's call 2026-10-22): the hero is the one landscape tile (the last title); the row under it is posters the size of the other rows', in one scrolling row like every other (never wrapping), a 3 high `primary` progress bar along the bottom and "Episode · 23 min left" under it. The TV keeps wide 16:9 cards (300 wide).
+- Rows on a phone: left-aligned titles, posters only (the art carries the title), about 3.3 posters a screen; the first prepared row on Home has larger posters (about 2.3 a screen).
 - Rating badge on posters in rows: top right, a dark pill (black 60 %) with the `rating` star and the rating ("★ 8.4"), `caption` size. Only for a real rating (`rating_best`).
 - No art: `surface` tile with the title's first letter.
 - Images at card size: w342 (web w500 at 2x), see the image sizes in the plan (Phase 4).
@@ -82,3 +83,4 @@ logo and accent colour.
 | My List | Grid of posters, newest added first |
 | Live TV | As today (categories, channels, now/next, the guide grid), with these colours; later the layout of the reference: categories left, channels in the middle with what is on, a preview with now/next on the right |
 | Search | Search box, people and titles (as today), restyled with these tokens |
+| Sports | The next 7 days of the admin's leagues by day ("Today", "Tomorrow", "Sat 24 Oct"), a chip per sport; a row per game: time (or LIVE), the fixture and "League · City", then the channel the guide shows it on (plays it; several: pick one) or the broadcasters and "Find channel" (Search on Live TV). Credit line "Schedule: sporting-events.org". |

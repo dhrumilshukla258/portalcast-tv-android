@@ -71,6 +71,10 @@ class DefaultLiveRepository(
         }.onSuccess { if (it != null) epgCache.put(it) }
     }
 
+    // Not cached: the "Live" badges and guide matches move with the clock (the server caches).
+    override suspend fun sports(days: Int): Result<com.portalcast.tv.data.model.SportsResponse> =
+        apiCall(ApiPaths.SPORTS) { api.sports(days) }
+
     override suspend fun favorites(): Result<List<String>> = users.preferences().map { it.favorites.orEmpty() }
 
     override suspend fun toggleFavorite(channelId: String): Result<List<String>> {

@@ -95,6 +95,9 @@ fun SearchScreen(
     modifier: Modifier = Modifier,
     /** True when coming back from a detail/player: focus the result that was opened. */
     restoreFocus: Boolean = false,
+    /** Search Live TV for this (Sports' "Find channel"), then [onLiveQueryUsed]. */
+    liveQuery: String? = null,
+    onLiveQueryUsed: () -> Unit = {},
 ) {
     val context = LocalContext.current
     val container = context.appContainer
@@ -110,6 +113,12 @@ fun SearchScreen(
         },
     )
     val state by vm.state.collectAsStateWithLifecycle()
+    LaunchedEffect(liveQuery) {
+        val q = liveQuery ?: return@LaunchedEffect
+        vm.setFilter(SearchViewModel.Filter.LIVE, remember = false)
+        vm.submit(q)
+        onLiveQueryUsed()
+    }
 
     // Back from a result: put focus on the card it was opened from, not on the search field.
     val restoreRequester = remember { FocusRequester() }

@@ -27,6 +27,7 @@ internal object ApiPaths {
     const val HOME = "/api/v2/home"
     const val SIMILAR = "/api/v2/discover/similar"
     const val MY_LIST = "/api/user/list"
+    const val SPORTS = "/api/v2/sports"
     const val DISCOVER_VARIANTS = "/api/v2/discover/variants"
     const val PERSON = "/api/v2/people"
     const val PEOPLE_SEARCH = "/api/v2/search/people"

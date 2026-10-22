@@ -254,6 +254,10 @@ interface ApiService {
     @DELETE("api/user/list/{id}")
     suspend fun removeFromList(@Path("id") id: String): okhttp3.ResponseBody
 
+    /** Sports schedule with guide-matched channels (servers from 2026-10-22). */
+    @GET("api/v2/sports")
+    suspend fun sports(@Query("days") days: Int): com.portalcast.tv.data.model.SportsResponse
+
     @GET("api/v2/discover/variants")
     suspend fun discoverVariants(@Query("id") prefixedId: String): VariantsResponse
 

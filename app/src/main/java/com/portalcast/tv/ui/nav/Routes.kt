@@ -35,6 +35,7 @@ enum class HomeTab(val route: String, val title: String) {
     LIVE("live", "Live TV"),
     MOVIES("movies", "Movies"),
     SERIES("series", "Series"),
+    SPORTS("sports", "Sports"),
     MY_LIST("mylist", "My List");
 
     companion object {

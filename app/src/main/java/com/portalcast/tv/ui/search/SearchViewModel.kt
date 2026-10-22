@@ -145,9 +145,10 @@ class SearchViewModel(
         rememberQuery(query)
     }
 
-    fun setFilter(f: Filter) {
+    /** [remember]: keep it as the chip for the next visit (false for Sports' "Find channel"). */
+    fun setFilter(f: Filter, remember: Boolean = true) {
         _state.update { it.copy(filter = f) }
-        prefs?.edit()?.putString(PREF_FILTER, f.name)?.apply()
+        if (remember) prefs?.edit()?.putString(PREF_FILTER, f.name)?.apply()
     }
 
     fun openPerson(id: Int) {
