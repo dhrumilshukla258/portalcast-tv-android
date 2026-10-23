@@ -80,7 +80,7 @@ import com.portalcast.tv.util.CARD_POSTER
  * ui/components (another phase owns those); these stay here on purpose.
  */
 
-internal val PosterWidth: Dp = 130.dp
+internal val PosterWidth: Dp = 118.dp
 
 /** Width of a Continue Watching card (16:9, design-system.md). */
 internal val WideCardWidth: Dp = 300.dp

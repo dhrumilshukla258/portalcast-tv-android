@@ -39,6 +39,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import kotlinx.coroutines.Job
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.ui.ExperimentalComposeUiApi
@@ -232,6 +237,22 @@ fun HomeScreen(
                     .height(TabBarHeight)
                     .background(Brush.verticalGradient(0f to AppColors.Background, 1f to AppColors.Background.copy(alpha = 0.6f)))
                     .onFocusChanged { tabsFocused = it.hasFocus }
+                    .onPreviewKeyEvent { e ->
+                        if (e.type == KeyEventType.KeyDown && e.key == Key.DirectionDown) {
+                            scope.launch {
+                                withFrameNanos { }
+                                withFrameNanos { }
+                                repeat(30) {
+                                    if (contentFocused || !tabsFocused) return@launch
+                                    runCatching { contentRequester.requestFocus() }
+                                    withFrameNanos { }
+                                    if (contentFocused) return@launch
+                                    delay(100)
+                                }
+                            }
+                        }
+                        false
+                    }
                     // Entering the tabs (Up from the content) always lands on the CURRENT tab.
                     .focusProperties {
                         enter = { tabRequesters.getValue(topTabOf(current)) }

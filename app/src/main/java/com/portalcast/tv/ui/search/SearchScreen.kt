@@ -2,6 +2,9 @@
 
 package com.portalcast.tv.ui.search
 
+import androidx.compose.foundation.relocation.bringIntoViewResponder
+import androidx.compose.foundation.lazy.rememberLazyListState
+import com.portalcast.tv.ui.discover.PivotRowToTop
 import com.portalcast.tv.ui.components.PersonTile
 import com.portalcast.tv.ui.components.PersonEntry
 import com.portalcast.tv.data.model.PersonCredit
@@ -231,6 +234,7 @@ private fun RecentSearches(recent: List<String>, onPick: (String) -> Unit) {
 }
 
 @Composable
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 private fun AllResults(state: SearchViewModel.State, vm: SearchViewModel, onPlay: () -> Unit, cardModifier: (String) -> Modifier) {
     val serverUrl = rememberServerUrl()
     val epg = remember(state.epgIndex) { EpgLookup(state.epgIndex) }
@@ -240,9 +244,13 @@ private fun AllResults(state: SearchViewModel.State, vm: SearchViewModel, onPlay
     // People lead when the query names someone ("shah rukh") or nothing else matched;
     // otherwise they follow the titles.
     val peopleFirst = state.featured != null || (state.movies.groups.isEmpty() && state.series.groups.isEmpty())
+    // A focused row moves to the top of the results, as on Home: the default scroll left the
+    // titles under the posters below the screen (owner, 2026-10-22).
+    val listState = rememberLazyListState()
+    val pivot = remember(listState) { PivotRowToTop { listState.layoutInfo.viewportSize.height } }
     val people: LazyListScope.() -> Unit = {
         if (state.people.isNotEmpty()) item(key = "people") {
-            PeopleResultRow(state.people, vm::openPerson, Modifier.rememberedIn(memory)) { cardModifier("p|$it") }
+            PeopleResultRow(state.people, vm::openPerson, Modifier.rememberedIn(memory).bringIntoViewResponder(pivot)) { cardModifier("p|$it") }
         }
         state.featured?.let { f ->
             item(key = "featured") {
@@ -250,7 +258,7 @@ private fun AllResults(state: SearchViewModel.State, vm: SearchViewModel, onPlay
                     title = "Movies & series with ${f.name}",
                     items = f.credits,
                     onItemClick = vm::openDiscoverTitle,
-                    modifier = Modifier.rememberedIn(memory),
+                    modifier = Modifier.rememberedIn(memory).bringIntoViewResponder(pivot),
                     itemModifier = { _, item -> cardModifier("f|${item.id}") },
                 )
             }
@@ -258,15 +266,16 @@ private fun AllResults(state: SearchViewModel.State, vm: SearchViewModel, onPlay
     }
     LazyColumn(
         Modifier.fillMaxSize().focusMemory(memory),
+        state = listState,
         contentPadding = PaddingValues(bottom = 40.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         if (peopleFirst) people()
         if (state.movies.groups.isNotEmpty()) item(key = "movies") {
-            GroupRow("Movies", state.movies, { vm.openGroup(it, isSeries = false) }, vm::loadMoreMovies, Modifier.rememberedIn(memory)) { cardModifier("m|$it") }
+            GroupRow("Movies", state.movies, { vm.openGroup(it, isSeries = false) }, vm::loadMoreMovies, Modifier.rememberedIn(memory).bringIntoViewResponder(pivot)) { cardModifier("m|$it") }
         }
         if (state.series.groups.isNotEmpty()) item(key = "series") {
-            GroupRow("Series", state.series, { vm.openGroup(it, isSeries = true) }, vm::loadMoreSeries, Modifier.rememberedIn(memory)) { cardModifier("s|$it") }
+            GroupRow("Series", state.series, { vm.openGroup(it, isSeries = true) }, vm::loadMoreSeries, Modifier.rememberedIn(memory).bringIntoViewResponder(pivot)) { cardModifier("s|$it") }
         }
         if (!peopleFirst) people()
         if (state.channels.isNotEmpty()) {

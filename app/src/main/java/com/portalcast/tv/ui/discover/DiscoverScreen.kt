@@ -97,7 +97,10 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 private const val PAGE_AHEAD = 8
 
 /** Share of the screen height the hero (top bar + title/meta/overview) takes; rows scroll below it. */
-private const val HERO_FRACTION = 0.45f
+// 0.42, posters 118 dp and 8 dp row padding: a row (heading, poster, title under it) is about
+// 262 dp and fits the ~271 dp left under the hero; at 0.45 / 130 dp the titles fell off the
+// bottom of the screen (owner, 2026-10-22).
+private const val HERO_FRACTION = 0.42f
 
 /** Row title height; fixed so every row has the same geometry under the hero. */
 private val RowTitleHeight = 34.dp
@@ -160,7 +163,8 @@ fun DiscoverScreen(
     var screenX by remember { mutableFloatStateOf(0f) }
     LaunchedEffect(returnFocusTo) {
         val dim = returnFocusTo ?: return@LaunchedEffect
-        repeat(20) { if (runCatching { selectorFocus.getValue(dim).requestFocus() }.isSuccess) return@LaunchedEffect; delay(40) }
+        repeat(20) { if (runCatching { selectorFocus.getValue(dim).requestFocus() }.isSuccess) { returnFocusTo = null; return@LaunchedEffect }; delay(40) }
+        returnFocusTo = null
     }
     val hero = remember { HeroFocus() }
 
@@ -261,8 +265,11 @@ fun DiscoverScreen(
                 onPick = { value ->
                     val base = state.grid?.query ?: DiscoverQuery(type = state.type)
                     vm.applyFilter(base.with(dim, value))
+                    // A pick shows its results: the panel closes and focus rests on the Filters
+                    // button, the results right under it (the same as the phone).
                     openFilter = null
-                    returnFocusTo = dim
+                    filtersOpen = false
+                    refocusFilters = true
                 },
                 onDismiss = { openFilter = null; returnFocusTo = dim },
             )
@@ -302,10 +309,12 @@ private fun TopBar(
     ) {
         sectionChips?.invoke()
         Spacer(Modifier.weight(1f))
+        // Solid, not Subtle: it sits over the hero backdrop, where a transparent button with grey
+        // text disappeared on bright images (owner, 2026-10-22).
         TvButton(
             text = if (activeFilters > 0) "Filters · $activeFilters" else "Filters",
             onClick = onOpenFilters,
-            style = if (activeFilters > 0) TvButtonStyle.Primary else TvButtonStyle.Subtle,
+            style = if (activeFilters > 0) TvButtonStyle.Primary else TvButtonStyle.Secondary,
             modifier = Modifier.focusRequester(filtersFocus),
         )
     }
@@ -527,7 +536,7 @@ private fun MediaRow(
         LazyRow(
             state = listState,
             modifier = Modifier.focusMemory(memory),
-            contentPadding = PaddingValues(horizontal = 48.dp, vertical = 12.dp),
+            contentPadding = PaddingValues(horizontal = 48.dp, vertical = 8.dp),
             horizontalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             items(row.items.filterNot { com.portalcast.tv.ui.components.titleContentId(it) in hidden }, key = { it.id }) { item ->

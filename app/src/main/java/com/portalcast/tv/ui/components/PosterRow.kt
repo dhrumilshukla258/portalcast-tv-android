@@ -47,6 +47,8 @@ fun PosterRow(
     subtitleFor: (MediaItem) -> String? = { it.displayYear },
     onLoadMore: (() -> Unit)? = null,
     itemModifier: (index: Int, item: MediaItem) -> Modifier = { _, _ -> Modifier },
+    /** Detail pages: a small grey heading lined up with the text, like "Cast & crew". */
+    compact: Boolean = false,
 ) {
     val loadMore by rememberUpdatedState(onLoadMore)
     if (onLoadMore != null) {
@@ -59,14 +61,14 @@ fun PosterRow(
     Column(modifier) {
         Text(
             title,
-            style = MaterialTheme.typography.titleLarge,
-            color = AppColors.Text,
-            modifier = Modifier.padding(start = 48.dp, bottom = 8.dp),
+            style = if (compact) MaterialTheme.typography.labelLarge else MaterialTheme.typography.titleLarge,
+            color = if (compact) AppColors.TextMuted else AppColors.Text,
+            modifier = if (compact) Modifier else Modifier.padding(start = 48.dp, bottom = 8.dp),
         )
         LazyRow(
             state = state,
             modifier = Modifier.focusMemory(memory),
-            contentPadding = PaddingValues(horizontal = 48.dp, vertical = 12.dp),
+            contentPadding = PaddingValues(horizontal = if (compact) 6.dp else 48.dp, vertical = 12.dp),
             horizontalArrangement = Arrangement.spacedBy(20.dp),
         ) {
             itemsIndexed(items, key = { i, item -> "$i:${item.id}" }) { i, item ->

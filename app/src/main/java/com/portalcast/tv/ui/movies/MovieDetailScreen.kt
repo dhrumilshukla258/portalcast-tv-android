@@ -108,6 +108,7 @@ fun MovieDetailScreen(
                 modifier = Modifier.width(240.dp).aspectRatio(PosterAspect).clip(RoundedCornerShape(12.dp)),
             )
             Spacer(Modifier.width(40.dp))
+            com.portalcast.tv.ui.components.MinimalScrolling {
             Column(Modifier.weight(1f).verticalScroll(rememberScrollState())) {
                 MovieInfo(item, details)
                 Spacer(Modifier.height(28.dp))
@@ -154,7 +155,8 @@ fun MovieDetailScreen(
                     details,
                     onOpenPerson = { p -> p.id?.let(onOpenPerson) },
                 )
-                MoreLikeThis(extras, onOpenMovie, onOpenSeries, Modifier.padding(top = 24.dp))
+                MoreLikeThis(extras, onOpenMovie, onOpenSeries, Modifier.padding(top = 18.dp, bottom = 24.dp))
+            }
             }
         }
     }

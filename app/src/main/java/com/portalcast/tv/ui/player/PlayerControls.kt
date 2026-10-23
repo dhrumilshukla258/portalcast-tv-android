@@ -91,7 +91,9 @@ fun PlayerControlRow(
     val playing = state.status == PlayerStatus.Playing || state.status == PlayerStatus.Buffering
     val step = PlayerViewModel.SEEK_STEP_MS
     val hasNext = (state.session as? PlaybackSession.Episode)?.nextEpisode != null
-    Row(
+    // Play, seek and next episode in the centre; subtitles and audio at the far right (owner,
+    // 2026-10-22).
+    Box(
         Modifier
             .fillMaxWidth()
             .onFocusChanged { onFocusChanged(it.hasFocus) }
@@ -100,9 +102,8 @@ fun PlayerControlRow(
                 onActivity()
                 if (e.key == Key.DirectionUp) { onLeave(); true } else false
             },
-        verticalAlignment = Alignment.Top,
-        horizontalArrangement = Arrangement.spacedBy(10.dp),
     ) {
+      Row(Modifier.align(Alignment.TopCenter), verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
         ControlButton("Back ${step / 1000} s", onClick = { vm.seekBy(-step) }) { SeekIcon(forward = false, seconds = step / 1000) }
         ControlButton(if (playing) "Pause" else "Play", onClick = vm::togglePlayPause, modifier = Modifier.focusRequester(focus.playPause), large = true) {
             Icon(if (playing) PlayerIcons.Pause else PlayerIcons.Play, contentDescription = null, modifier = Modifier.size(30.dp))
@@ -111,7 +112,8 @@ fun PlayerControlRow(
         if (hasNext) {
             ControlButton("Next episode", onClick = vm::playNextEpisode) { Icon(PlayerIcons.SkipNext, contentDescription = null, modifier = Modifier.size(26.dp)) }
         }
-        Spacer(Modifier.weight(1f))
+      }
+      Row(Modifier.align(Alignment.TopEnd), verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
         ControlButton(
             if (state.externalSubtitles) "Subtitles · online" else "Subtitles",
             onClick = { vm.openSubtitlePanel() },
@@ -121,6 +123,7 @@ fun PlayerControlRow(
         ControlButton("Audio", onClick = { vm.openSubtitlePanel(audioOnly = true) }, modifier = Modifier.focusRequester(focus.audio)) {
             Icon(PlayerIcons.Audio, contentDescription = null, modifier = Modifier.size(24.dp))
         }
+      }
     }
 }
 

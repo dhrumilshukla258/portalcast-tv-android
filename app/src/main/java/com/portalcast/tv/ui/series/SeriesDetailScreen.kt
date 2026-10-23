@@ -1,5 +1,9 @@
 package com.portalcast.tv.ui.series
 
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.focusGroup
+import androidx.compose.runtime.key
 import com.portalcast.tv.ui.components.peopleEntries
 import com.portalcast.tv.ui.components.uniqueKeys
 import com.portalcast.tv.ui.components.rememberedIn
@@ -75,7 +79,7 @@ import com.portalcast.tv.ui.components.backdropArt
 import com.portalcast.tv.ui.components.panelMessage
 import com.portalcast.tv.ui.components.posterPath
 import com.portalcast.tv.ui.components.rememberImageUrl
-import com.portalcast.tv.ui.discover.MoreLikeThisButton
+import com.portalcast.tv.ui.discover.MoreLikeThis
 import com.portalcast.tv.ui.discover.MyListButton
 import com.portalcast.tv.ui.discover.contentIdOf
 import com.portalcast.tv.ui.discover.rememberTitleExtras
@@ -151,10 +155,18 @@ fun SeriesDetailScreen(
         // season's episodes as a list on the right. The left column adapts to what the title
         // has: a real backdrop carries the page on its own; without one the poster sits beside
         // the text; an overview, cast, director and country appear only when present.
-        Row(Modifier.fillMaxSize().padding(start = 56.dp, end = 40.dp, top = 40.dp)) {
+        val extras = rememberTitleExtras(contentIdOf(series, "series"))
+        // The page is one screen high; More Like This sits under it and Down from the seasons or
+        // the episodes lifts the page to show it (owner, 2026-10-22: no popup).
+        BoxWithConstraints(Modifier.fillMaxSize()) {
+        val pageHeight = maxHeight
+        com.portalcast.tv.ui.components.MinimalScrolling {
+        Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
+        Row(Modifier.fillMaxWidth().height(pageHeight).padding(start = 56.dp, end = 40.dp, top = 40.dp)) {
             // About 40 % of the screen: the episode list gets the rest, since episode names
-            // (daily soaps especially) are long.
-            Column(Modifier.width(380.dp).fillMaxHeight()) {
+            // (daily soaps especially) are long. It scrolls: a long overview no longer pushes
+            // the seasons below the screen.
+            Column(Modifier.width(380.dp).fillMaxHeight().verticalScroll(rememberScrollState()).padding(bottom = 24.dp)) {
                 val poster = rememberImageUrl(series.posterPath)
                 Row(verticalAlignment = Alignment.Top) {
                     if (!hasBackdrop && poster != null) {
@@ -222,17 +234,15 @@ fun SeriesDetailScreen(
                 }
                 state.playError?.let { ErrorText(it, textAlign = TextAlign.Start, modifier = Modifier.padding(top = 8.dp)) }
 
-                // Cast and crew, My List, More Like This: the column has no room for rows, so
-                // buttons (cast and similar titles open in dialogs).
+                // Cast and crew and My List: the column has no room for a row of people, so a
+                // button (cast opens in a dialog). More Like This is the row under the page.
                 val peopleDetails = titleDetails
                 var showPeople by remember { mutableStateOf(false) }
-                val extras = rememberTitleExtras(contentIdOf(series, "series"))
                 Row(Modifier.padding(top = 10.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     if (peopleDetails != null && peopleDetails.peopleEntries().any { it.person.id != null }) {
                         TvButton(text = "Cast & crew", onClick = { showPeople = true })
                     }
                     MyListButton(extras)
-                    MoreLikeThisButton(extras, series.displayTitle, onOpenMovie, onOpenSeries)
                 }
                 if (showPeople && peopleDetails != null) {
                     com.portalcast.tv.ui.components.CastAndCrewDialog(
@@ -243,26 +253,6 @@ fun SeriesDetailScreen(
                     )
                 }
 
-                if (state.seasons.isNotEmpty()) {
-                    Spacer(Modifier.height(22.dp))
-                    Text("Seasons", style = MaterialTheme.typography.labelLarge, color = AppColors.TextMuted, modifier = Modifier.padding(bottom = 8.dp))
-                    val seasonsMemory = rememberFocusMemory()
-                    LazyColumn(
-                        modifier = Modifier.weight(1f, fill = false).focusMemory(seasonsMemory),
-                        contentPadding = PaddingValues(vertical = 4.dp, horizontal = 4.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp),
-                    ) {
-                        itemsIndexed(state.seasons, key = { i, se -> "$i:${se.id}" }) { i, season ->
-                            val selected = season.id == state.selectedSeasonId
-                            TvButton(
-                                text = EpisodeInfo.seasonLabel(season, i),
-                                onClick = { vm.selectSeason(season.id) },
-                                style = if (selected) TvButtonStyle.Primary else TvButtonStyle.Subtle,
-                                modifier = Modifier.width(260.dp).rememberedIn(seasonsMemory),
-                            )
-                        }
-                    }
-                }
             }
 
             Spacer(Modifier.width(28.dp))
@@ -273,7 +263,11 @@ fun SeriesDetailScreen(
                     state.seasonsLoading && state.seasons.isEmpty() -> LoadingPanel(Modifier.fillMaxSize())
                     seasonsError != null -> ErrorPanel(seasonsError, onRetry = vm::loadSeasons, modifier = Modifier.fillMaxSize().initialFocusIf("back"))
                     state.seasons.isEmpty() -> EmptyPanel("No seasons found.", Modifier.fillMaxSize())
-                    else -> EpisodeList(
+                    // Season tabs over the episodes, always on screen (owner, 2026-10-22: in the left
+                    // column a long overview pushed the seasons below the screen).
+                    else -> Column(Modifier.fillMaxSize()) {
+                      SeasonTabs(state, onSelect = vm::selectSeason)
+                      EpisodeList(
                         state = state,
                         onPlay = { ep -> vm.playEpisode(ep, onPlay) },
                         onFocused = { vm.lastFocusedEpisodeId = it.id },
@@ -281,10 +275,40 @@ fun SeriesDetailScreen(
                         onRetry = vm::loadMoreEpisodes,
                         episodeModifier = { ep -> Modifier.initialFocusIf("ep:${ep.id}") },
                         scrollToId = focusTarget?.removePrefix("ep:")?.takeIf { focusTarget.startsWith("ep:") },
-                        modifier = Modifier.fillMaxSize(),
-                    )
+                        modifier = Modifier.fillMaxWidth().weight(1f),
+                      )
+                    }
                 }
             }
+        }
+        MoreLikeThis(extras, onOpenMovie, onOpenSeries, Modifier.padding(start = 56.dp, end = 40.dp, top = 8.dp, bottom = 40.dp))
+        }
+        }
+        }
+    }
+}
+
+/** Season 1 · Season 2 · …: one row over the episode list; the chosen season is filled. */
+@Composable
+private fun SeasonTabs(state: SeriesDetailViewModel.State, onSelect: (String) -> Unit) {
+    if (state.seasons.size <= 1) return
+    val memory = rememberFocusMemory()
+    val selectedIdx = state.seasons.indexOfFirst { it.id == state.selectedSeasonId }.coerceAtLeast(0)
+    val rowState = rememberLazyListState(initialFirstVisibleItemIndex = (selectedIdx - 2).coerceAtLeast(0))
+    LazyRow(
+        state = rowState,
+        modifier = Modifier.fillMaxWidth().focusMemory(memory),
+        contentPadding = PaddingValues(start = 8.dp, end = 8.dp, top = 4.dp, bottom = 10.dp),
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        itemsIndexed(state.seasons, key = { i, se -> "$i:${se.id}" }) { i, season ->
+            val selected = season.id == state.selectedSeasonId
+            TvButton(
+                text = EpisodeInfo.seasonLabel(season, i),
+                onClick = { onSelect(season.id) },
+                style = if (selected) TvButtonStyle.Primary else TvButtonStyle.Secondary,
+                modifier = Modifier.rememberedIn(memory),
+            )
         }
     }
 }
@@ -440,7 +464,8 @@ private fun EpisodeRow(
                         overview,
                         style = MaterialTheme.typography.bodySmall,
                         color = AppColors.TextMuted,
-                        maxLines = if (focused) 3 else 2,
+                        // The focused episode shows its whole description (owner, 2026-10-22).
+                        maxLines = if (focused) Int.MAX_VALUE else 2,
                         overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.padding(top = 3.dp),
                     )

@@ -223,20 +223,19 @@ fun SportsScreen(
             Text("Sports", style = MaterialTheme.typography.headlineSmall, color = AppColors.Text)
             val count = days.sumOf { it.games.size }
             Text("$count ${if (count == 1) "game" else "games"} in the next 30 days", style = MaterialTheme.typography.bodyMedium, color = AppColors.TextMuted)
-            TvButton(text = "Choose sports", onClick = vm::openChooser, style = TvButtonStyle.Subtle)
             Spacer(Modifier.weight(1f))
             Text("Schedule: ${answer.source.name}", style = MaterialTheme.typography.bodySmall, color = AppColors.TextMuted)
         }
-        if (sports.size > 1) {
-            LazyRow(
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-                contentPadding = PaddingValues(vertical = 12.dp),
-            ) {
+        LazyRow(
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            contentPadding = PaddingValues(vertical = 12.dp),
+        ) {
+            item(key = "choose") { TvButton(text = "Choose sports", onClick = vm::openChooser, style = TvButtonStyle.Secondary) }
+            if (sports.size > 1) {
                 item(key = "all") { SportChip("All", state.sport == null) { vm.selectSport(null) } }
                 items(sports, key = { it }) { s -> SportChip(s, state.sport == s) { vm.selectSport(s) } }
             }
-        } else {
-            Spacer(Modifier.height(12.dp))
         }
         if (days.isEmpty()) {
             Text(

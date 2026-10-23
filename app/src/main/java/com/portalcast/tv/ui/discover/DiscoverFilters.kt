@@ -146,17 +146,17 @@ internal fun BoxScope.FilterDropdown(
         }
     }
 
-    // A full-height panel along the left edge, from under the top bar to the bottom of the
-    // screen (owner: no small floating windows). Solid: it sits over the hero image.
+    // A full-height panel along the right edge, under the Filters button, from under the top bar
+    // to the bottom of the screen (owner: no small floating windows). Solid: it sits over the hero.
     Column(
         Modifier
-            .align(Alignment.TopStart)
+            .align(Alignment.TopEnd)
             .padding(top = with(LocalDensity.current) { topPx.toDp() })
             .fillMaxHeight()
             .width(460.dp)
             .background(AppColors.Background)
             .border(1.dp, AppColors.GlassBorder)
-            .padding(start = 32.dp, end = 16.dp, top = 12.dp, bottom = 12.dp),
+            .padding(start = 16.dp, end = 32.dp, top = 12.dp, bottom = 12.dp),
     ) {
         Text(
             dim.label,
@@ -199,7 +199,8 @@ private fun Option(label: String, count: String?, selected: Boolean, onClick: ()
 
 /**
  * The Filters panel (owner, 2026-10-22: one row under the tabs, the same as the phone): a
- * full-height panel along the left edge listing each selector with its value, then "Browse
+ * full-height panel along the right edge, under the Filters button, listing each selector with
+ * its value, then "Browse
  * by category" (Movies / Series) and "Clear filters". A selector opens its values
  * ([FilterDropdown]); Back closes the panel. [focus] holds one requester per selector, so
  * focus comes back to the one whose values were just closed.
@@ -229,13 +230,13 @@ internal fun BoxScope.FilterMenu(
     }
     Column(
         Modifier
-            .align(Alignment.TopStart)
+            .align(Alignment.TopEnd)
             .padding(top = with(LocalDensity.current) { topPx.toDp() })
             .fillMaxHeight()
             .width(460.dp)
             .background(AppColors.Background)
             .border(1.dp, AppColors.GlassBorder)
-            .padding(start = 32.dp, end = 16.dp, top = 12.dp, bottom = 12.dp),
+            .padding(start = 16.dp, end = 32.dp, top = 12.dp, bottom = 12.dp),
         verticalArrangement = Arrangement.spacedBy(6.dp),
     ) {
         Text(

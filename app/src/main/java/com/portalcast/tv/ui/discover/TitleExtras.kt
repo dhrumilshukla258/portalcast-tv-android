@@ -97,42 +97,14 @@ fun MyListButton(vm: TitleExtrasViewModel, modifier: Modifier = Modifier) {
 
 /** The More Like This row; nothing when there are no similar titles. */
 @Composable
-fun MoreLikeThis(vm: TitleExtrasViewModel, onOpenMovie: (MediaItem) -> Unit, onOpenSeries: (MediaItem) -> Unit, modifier: Modifier = Modifier) {
+fun MoreLikeThis(vm: TitleExtrasViewModel, onOpenMovie: (MediaItem) -> Unit, onOpenSeries: (MediaItem) -> Unit, modifier: Modifier = Modifier, compact: Boolean = true) {
     val container = LocalContext.current.appContainer
     val serverUrl by container.sessionStore.serverUrl.collectAsStateWithLifecycle()
     val state by vm.state.collectAsStateWithLifecycle()
     OpenerEffects(vm.opener, serverUrl, onOpenMovie, onOpenSeries)
     if (state.similar.isEmpty()) return
-    PosterRow(title = "More Like This", items = state.similar, onItemClick = vm.opener::open, modifier = modifier)
+    PosterRow(title = "More Like This", items = state.similar, onItemClick = vm.opener::open, modifier = modifier, compact = compact)
 }
 
 /** The catalog id of a movie or series shown on a detail page. */
 fun contentIdOf(item: MediaItem, kind: String): String = item.catalogId ?: "${kind}_${item.rawId}"
-
-/**
- * For pages with no room for the row (Series: seasons and episodes fill the page): a
- * "More Like This" button opening the row in a dialog.
- */
-@Composable
-fun MoreLikeThisButton(vm: TitleExtrasViewModel, title: String, onOpenMovie: (MediaItem) -> Unit, onOpenSeries: (MediaItem) -> Unit, modifier: Modifier = Modifier) {
-    val container = LocalContext.current.appContainer
-    val serverUrl by container.sessionStore.serverUrl.collectAsStateWithLifecycle()
-    val state by vm.state.collectAsStateWithLifecycle()
-    OpenerEffects(vm.opener, serverUrl, onOpenMovie, onOpenSeries)
-    if (state.similar.isEmpty()) return
-    var open by remember { mutableStateOf(false) }
-    TvButton(text = "More Like This", onClick = { open = true }, modifier = modifier)
-    if (!open) return
-    val first = remember { FocusRequester() }
-    LaunchedEffect(Unit) { repeat(10) { withFrameNanos { }; if (runCatching { first.requestFocus() }.isSuccess) return@LaunchedEffect } }
-    Dialog(onDismissRequest = { open = false }, properties = DialogProperties(usePlatformDefaultWidth = false)) {
-        Column(Modifier.widthIn(max = 1100.dp).background(AppColors.Surface, RoundedCornerShape(16.dp)).padding(vertical = 28.dp)) {
-            PosterRow(
-                title = "More like $title",
-                items = state.similar,
-                onItemClick = { item -> open = false; vm.opener.open(item) },
-                itemModifier = { i, _ -> if (i == 0) Modifier.focusRequester(first) else Modifier },
-            )
-        }
-    }
-}
