@@ -1,5 +1,6 @@
 package com.portalcast.tv.data.repo
 
+import kotlinx.serialization.builtins.ListSerializer
 import com.portalcast.tv.data.store.SessionSource
 import com.portalcast.tv.data.model.ChannelGroup
 import com.portalcast.tv.data.model.MediaItem
@@ -12,13 +13,20 @@ import com.portalcast.tv.data.net.apiCall
 class DefaultSeriesRepository(
     private val api: ApiService,
     session: SessionSource? = null,
+    disk: DiskCache? = null,
 ) : SeriesRepository {
 
     // Lists, seasons and episode pages are cached for 15 min per session (see
     // KeyedSessionCache); episode-file resolution never is (fresh stream links).
-    private val groupsCache = SessionCache<List<ChannelGroup>>(session, ttlMs = KeyedSessionCache.DEFAULT_TTL_MS)
-    private val pages = KeyedSessionCache<String, Paged<MediaItem>>(session)
-    private val seasonsCache = KeyedSessionCache<String, List<MediaItem>>(session, maxEntries = 40)
+    // Also kept in storage (DiskCache): after a restart shown at once, then checked with the server.
+    private val groupsCache = SessionCache(session, ttlMs = KeyedSessionCache.DEFAULT_TTL_MS, stored = disk?.let { Stored(it, NS, ListSerializer(ChannelGroup.serializer())) })
+    private val pages = KeyedSessionCache<String, Paged<MediaItem>>(session, stored = disk?.let { Stored(it, NS, Paged.serializer(MediaItem.serializer())) })
+    private val seasonsCache = KeyedSessionCache<String, List<MediaItem>>(session, maxEntries = 40, stored = disk?.let { Stored(it, NS, ListSerializer(MediaItem.serializer())) })
+
+    companion object {
+        /** [DiskCache.updates] kind for series answers. */
+        const val NS = "series"
+    }
 
     fun clearCaches() { groupsCache.clear(); pages.clear(); seasonsCache.clear() }
 

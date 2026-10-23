@@ -1,5 +1,6 @@
 package com.portalcast.tv.data.repo
 
+import kotlinx.serialization.builtins.ListSerializer
 import com.portalcast.tv.data.store.SessionSource
 import com.portalcast.tv.data.model.DiscoverBrowseResponse
 import com.portalcast.tv.data.model.DiscoverFacets
@@ -20,16 +21,18 @@ class DefaultDiscoverRepository(
     @Suppress("unused") private val vod: VodRepository,
     @Suppress("unused") private val series: SeriesRepository,
     session: SessionSource? = null,
+    disk: DiskCache? = null,
 ) : DiscoverRepository {
 
     // Discover data only changes when the server re-enriches: cache it for 15 min per
     // session so switching tabs or coming back from a title is instant. Recommendations
     // are per user but just as stable over that window.
     private val facetsCache = KeyedSessionCache<String, DiscoverFacets>(session, maxEntries = 4)
-    private val browseCache = KeyedSessionCache<String, DiscoverBrowseResponse>(session)
+    // Pages, versions and More Like This also kept in storage (DiskCache).
+    private val browseCache = KeyedSessionCache<String, DiscoverBrowseResponse>(session, stored = disk?.let { Stored(it, NS, DiscoverBrowseResponse.serializer()) })
     private val recsCache = KeyedSessionCache<String, RecommendationsResponse>(session, maxEntries = 4)
     private val homeCache = KeyedSessionCache<String, HomeResponse>(session, maxEntries = 4)
-    private val variantsCache = KeyedSessionCache<String, List<MediaItem>>(session, maxEntries = 60)
+    private val variantsCache = KeyedSessionCache<String, List<MediaItem>>(session, maxEntries = 60, stored = disk?.let { Stored(it, "$NS.variants", ListSerializer(MediaItem.serializer())) })
 
     fun clearCaches() { facetsCache.clear(); browseCache.clear(); recsCache.clear(); homeCache.clear(); variantsCache.clear(); similarCache.clear() }
 
@@ -58,7 +61,7 @@ class DefaultDiscoverRepository(
         recsCache.get(type.orEmpty()) { apiCall(ApiPaths.DISCOVER_RECOMMENDATIONS) { api.discoverRecommendations(type) } }
 
     // More Like This changes only with the catalog: kept like Discover's other answers.
-    private val similarCache = KeyedSessionCache<String, List<MediaItem>>(session, maxEntries = 30)
+    private val similarCache = KeyedSessionCache<String, List<MediaItem>>(session, maxEntries = 30, stored = disk?.let { Stored(it, "$NS.similar", ListSerializer(MediaItem.serializer())) })
 
     override suspend fun similar(contentId: String): Result<List<MediaItem>> =
         similarCache.get(contentId) { apiCall(ApiPaths.SIMILAR) { api.similar(contentId).data } }
@@ -132,6 +135,9 @@ class DefaultDiscoverRepository(
     }
 
     companion object {
+        /** [DiskCache.updates] kind for Discover answers. */
+        const val NS = "discover"
+
         /**
          * `{ ...item, ...file }` then Discover's title/poster re-applied and cast/director taken
          * from whichever side is non-empty, exactly like the webui. Done at the JSON level so

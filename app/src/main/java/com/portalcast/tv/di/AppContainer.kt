@@ -52,13 +52,25 @@ class AppContainer(app: Application) {
 
     val sessionStore = SessionStore(app, appScope)
     val localPrefs = LocalPrefs(app)
+    /**
+     * Server answers kept across restarts (data/repo/DiskCache.kt): pages opened before show at
+     * once, then are checked with the server. Per user and server.
+     */
+    val pageStore = com.portalcast.tv.data.repo.DiskCache(
+        java.io.File(app.filesDir, "page-cache"),
+        com.portalcast.tv.data.net.AppJson,
+        appScope,
+        identity = { sessionStore.session.value?.user?.id?.let { "$it@${sessionStore.serverUrl.value}" } },
+    )
+
     /** The last Home seen, shown at once on a cold start (ui/discover/HomeSnapshot.kt). */
     val homeSnapshots = com.portalcast.tv.ui.discover.HomeSnapshotStore(java.io.File(app.filesDir, "home-snapshots"))
         .also { store ->
-            // Signed out (or a new server): the saved Home goes, so the next viewer never sees it.
+            // Signed out (or a new server): the saved Home and pages go, so the next viewer never
+            // sees them.
             appScope.launch {
                 var hadSession = false
-                sessionStore.session.collect { s -> if (s != null) hadSession = true else if (hadSession) { store.clear(); hadSession = false } }
+                sessionStore.session.collect { s -> if (s != null) hadSession = true else if (hadSession) { store.clear(); pageStore.clear(); hadSession = false } }
             }
         }
 
@@ -120,10 +132,10 @@ class AppContainer(app: Application) {
 
     val authRepository: AuthRepository = DefaultAuthRepository(api, sessionStore)
     val userRepository: UserRepository = DefaultUserRepository(api, sessionStore)
-    val liveRepository: LiveRepository = DefaultLiveRepository(api, userRepository, sessionStore)
-    val vodRepository: VodRepository = DefaultVodRepository(api, sessionStore)
-    val seriesRepository: SeriesRepository = DefaultSeriesRepository(api, sessionStore)
-    val discoverRepository: DiscoverRepository = DefaultDiscoverRepository(api, vodRepository, seriesRepository, sessionStore)
+    val liveRepository: LiveRepository = DefaultLiveRepository(api, userRepository, sessionStore, disk = pageStore)
+    val vodRepository: VodRepository = DefaultVodRepository(api, sessionStore, disk = pageStore)
+    val seriesRepository: SeriesRepository = DefaultSeriesRepository(api, sessionStore, disk = pageStore)
+    val discoverRepository: DiscoverRepository = DefaultDiscoverRepository(api, vodRepository, seriesRepository, sessionStore, disk = pageStore)
 
     // ---- playback (Phase 1c) ----------------------------------------------------
 

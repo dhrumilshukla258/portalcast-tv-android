@@ -119,7 +119,7 @@ fun SeriesDetailScreen(
     val vm: SeriesDetailViewModel = viewModel(
         key = "series-$id-$category",
         factory = viewModelFactory {
-            initializer { SeriesDetailViewModel(id, category, container.seriesRepository, container.userRepository, container.discoverRepository) }
+            initializer { SeriesDetailViewModel(id, category, container.seriesRepository, container.userRepository, container.discoverRepository, container.pageStore.updates) }
         },
     )
     val state by vm.state.collectAsStateWithLifecycle()

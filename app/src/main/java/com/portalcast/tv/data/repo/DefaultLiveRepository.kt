@@ -1,5 +1,6 @@
 package com.portalcast.tv.data.repo
 
+import kotlinx.serialization.builtins.ListSerializer
 import com.portalcast.tv.data.model.Channel
 import com.portalcast.tv.data.model.ChannelGroup
 import com.portalcast.tv.data.model.EpgData
@@ -20,11 +21,14 @@ class DefaultLiveRepository(
     private val api: ApiService,
     private val users: UserRepository,
     private val session: SessionSource? = null,
+    disk: DiskCache? = null,
     private val clock: () -> Long = System::currentTimeMillis,
 ) : LiveRepository {
 
-    private val groupsCache = SessionCache<List<ChannelGroup>>(session, clock = clock)
-    private val channelsCache = SessionCache<List<Channel>>(session, clock = clock)
+    // Groups and channels also kept in storage (DiskCache): Live TV opens at once after a
+    // restart, then checks with the server. The guide is not (large, and it moves every hour).
+    private val groupsCache = SessionCache(session, clock = clock, stored = disk?.let { Stored(it, NS, ListSerializer(ChannelGroup.serializer())) })
+    private val channelsCache = SessionCache(session, clock = clock, stored = disk?.let { Stored(it, NS, ListSerializer(Channel.serializer())) })
     private val epgCache = SessionCache<EpgData>(session, ttlMs = EPG_TTL_MS, clock = clock)
     @Volatile private var windowUnsupported = false
 
@@ -106,6 +110,8 @@ class DefaultLiveRepository(
     }
 
     companion object {
+        /** [DiskCache.updates] kind for Live TV answers. */
+        const val NS = "live"
         const val WINDOW_HOURS = 6
         const val EPG_TTL_MS = 30 * 60 * 1000L
         const val MAX_RECENT = 20

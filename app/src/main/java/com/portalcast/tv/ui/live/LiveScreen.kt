@@ -69,7 +69,7 @@ private const val CLOCK_TICK_MS = 30_000L
 fun LiveScreen(onPlay: () -> Unit, modifier: Modifier = Modifier, restoreFocus: Boolean = false) {
     val container = LocalContext.current.appContainer
     val vm: LiveViewModel = viewModel(
-        factory = viewModelFactory { initializer { LiveViewModel(container.liveRepository, container.userRepository) } },
+        factory = viewModelFactory { initializer { LiveViewModel(container.liveRepository, container.userRepository, container.pageStore.updates) } },
     )
     val state by vm.state.collectAsStateWithLifecycle()
 

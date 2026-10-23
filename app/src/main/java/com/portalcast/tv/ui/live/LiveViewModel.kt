@@ -1,5 +1,7 @@
 package com.portalcast.tv.ui.live
 
+import kotlinx.coroutines.flow.SharedFlow
+import com.portalcast.tv.data.repo.DefaultLiveRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import androidx.lifecycle.ViewModel
@@ -28,6 +30,8 @@ import kotlinx.coroutines.launch
 class LiveViewModel(
     private val live: LiveRepository,
     private val users: UserRepository,
+    /** Stored answers that changed after being shown (DiskCache.updates): the list reloads in place. */
+    cacheUpdates: SharedFlow<String>? = null,
 ) : ViewModel() {
 
     data class State(
@@ -54,7 +58,12 @@ class LiveViewModel(
     /** Last focused channel id, for focus restoration when coming back from the player. */
     var lastFocusedChannelId: String? = null
 
-    init { load() }
+    init {
+        load()
+        cacheUpdates?.let { flow ->
+            viewModelScope.launch { flow.collect { ns -> if (ns == DefaultLiveRepository.NS) load() } }
+        }
+    }
 
     fun load(forceRefresh: Boolean = false) {
         _state.update { it.copy(loading = true, error = null) }

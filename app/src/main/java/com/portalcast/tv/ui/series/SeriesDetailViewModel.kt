@@ -1,5 +1,7 @@
 package com.portalcast.tv.ui.series
 
+import kotlinx.coroutines.flow.SharedFlow
+import com.portalcast.tv.data.repo.DefaultSeriesRepository
 import com.portalcast.tv.data.repo.DiscoverRepository
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -32,6 +34,8 @@ class SeriesDetailViewModel(
     private val users: UserRepository,
     /** For the show's full card when the page was opened from a thin one. */
     private val discover: DiscoverRepository? = null,
+    /** Stored answers that changed after being shown (DiskCache.updates): re-read quietly. */
+    private val cacheUpdates: SharedFlow<String>? = null,
 ) : ViewModel() {
 
     data class State(
@@ -71,12 +75,52 @@ class SeriesDetailViewModel(
     private var episodesGeneration = 0
     private var episodesJob: Job? = null
 
+    /** The viewer picked a season this showing: progress arriving later does not move it. */
+    private var seasonPickedByViewer = false
+
     init {
+        // Seasons do not wait for progress (they are often stored already and show at once);
+        // progress, when it lands, moves to the season being watched unless the viewer chose one.
         viewModelScope.launch {
             loadProgressNow()
-            loadSeasons()
+            val wanted = _state.value.continueRow?.parsedMeta?.seasonId
+            val s = _state.value
+            if (!seasonPickedByViewer && wanted != null && wanted != s.selectedSeasonId && s.seasons.any { it.id == wanted }) {
+                selectSeason(wanted, force = true)
+            }
         }
+        loadSeasons()
         loadFullCard()
+        cacheUpdates?.let { flow ->
+            viewModelScope.launch { flow.collect { ns -> if (ns == DefaultSeriesRepository.NS) refreshQuietly() } }
+        }
+    }
+
+    /**
+     * A stored answer was shown and the server's differs: read seasons and the loaded episode
+     * pages again (from memory now) and swap them in, without clearing the list (focus stays).
+     */
+    private fun refreshQuietly() {
+        viewModelScope.launch {
+            val fresh = repo.seasons(seriesId, effectiveCategory).getOrNull() ?: return@launch
+            val seasons = EpisodeInfo.sortSeasons(fresh)
+            if (seasons != _state.value.seasons) _state.update { it.copy(seasons = seasons) }
+            val s = _state.value
+            val seasonId = s.selectedSeasonId ?: return@launch
+            if (s.episodesLoading) return@launch
+            val pages = (s.episodes.nextPage - 1).coerceAtLeast(1)
+            var list = PagedList<MediaItem>()
+            for (p in 1..pages) {
+                val page = repo.episodes(seriesId, seasonId, p, effectiveCategory).getOrNull() ?: return@launch
+                list = list.append(page) { ep -> ep.id.ifBlank { ep.displayTitle } }
+                if (list.endReached) break
+            }
+            val sorted = list.copy(items = EpisodeInfo.sortEpisodes(list.items))
+            _state.update { st ->
+                if (st.selectedSeasonId != seasonId || st.episodes.items == sorted.items) st
+                else st.copy(episodes = sorted).withContinueEpisode()
+            }
+        }
     }
 
     /**
@@ -134,6 +178,7 @@ class SeriesDetailViewModel(
     }
 
     fun selectSeason(seasonId: String, force: Boolean = false) {
+        if (!force) seasonPickedByViewer = true
         if (!force && seasonId == _state.value.selectedSeasonId) return
         episodesGeneration++
         episodesJob?.cancel()
