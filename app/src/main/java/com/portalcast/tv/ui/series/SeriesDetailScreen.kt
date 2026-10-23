@@ -1,5 +1,10 @@
 package com.portalcast.tv.ui.series
 
+import androidx.activity.compose.BackHandler
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.launch
+import androidx.compose.foundation.relocation.bringIntoViewResponder
+import com.portalcast.tv.ui.discover.PivotRowToTop
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.focusGroup
@@ -161,9 +166,28 @@ fun SeriesDetailScreen(
         BoxWithConstraints(Modifier.fillMaxSize()) {
         val pageHeight = maxHeight
         com.portalcast.tv.ui.components.MinimalScrolling {
-        Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
-        // Bottom padding: the episode list ends with a gap above More Like This.
-        Row(Modifier.fillMaxWidth().height(pageHeight).padding(start = 56.dp, end = 40.dp, top = 40.dp, bottom = 28.dp)) {
+        val pageScroll = rememberScrollState()
+        val pageScope = rememberCoroutineScope()
+        // More Like This opens on request (owner, 2026-10-22: on a TV it should not show by itself).
+        var showMore by remember { mutableStateOf(false) }
+        val moreButton = remember { FocusRequester() }
+        val moreFirst = remember { FocusRequester() }
+        val extrasState by extras.state.collectAsStateWithLifecycle()
+        Column(Modifier.fillMaxSize().verticalScroll(pageScroll)) {
+        // Bottom padding: the episode list ends with a gap above More Like This. Focus back in the
+        // page (Up from More Like This) scrolls it back to the top, whole.
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .height(pageHeight)
+                .onFocusChanged {
+                    if (!it.hasFocus) return@onFocusChanged
+                    showMore = false
+                    if (pageScroll.value != 0) pageScope.launch { pageScroll.animateScrollTo(0) }
+                }
+                .focusGroup()
+                .padding(start = 56.dp, end = 40.dp, top = 40.dp, bottom = 28.dp),
+        ) {
             // About 40 % of the screen: the episode list gets the rest, since episode names
             // (daily soaps especially) are long. It scrolls: a long overview no longer pushes
             // the seasons below the screen.
@@ -236,7 +260,7 @@ fun SeriesDetailScreen(
                 state.playError?.let { ErrorText(it, textAlign = TextAlign.Start, modifier = Modifier.padding(top = 8.dp)) }
 
                 // Cast and crew and My List: the column has no room for a row of people, so a
-                // button (cast opens in a dialog). More Like This is the row under the page.
+                // button (cast opens in a dialog). More Like This opens its row under the page.
                 val peopleDetails = titleDetails
                 var showPeople by remember { mutableStateOf(false) }
                 Row(Modifier.padding(top = 10.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -244,6 +268,9 @@ fun SeriesDetailScreen(
                         TvButton(text = "Cast & crew", onClick = { showPeople = true })
                     }
                     MyListButton(extras)
+                    if (extrasState.similar.isNotEmpty()) {
+                        TvButton(text = "More Like This", onClick = { showMore = true }, modifier = Modifier.focusRequester(moreButton))
+                    }
                 }
                 if (showPeople && peopleDetails != null) {
                     com.portalcast.tv.ui.components.CastAndCrewDialog(
@@ -282,7 +309,12 @@ fun SeriesDetailScreen(
                 }
             }
         }
-        MoreLikeThis(extras, onOpenMovie, onOpenSeries, Modifier.padding(start = 56.dp, end = 40.dp, top = 8.dp, bottom = 32.dp))
+        if (showMore) {
+            MoreLikeThis(extras, onOpenMovie, onOpenSeries, Modifier.padding(start = 56.dp, end = 40.dp, top = 8.dp, bottom = 32.dp), firstCard = moreFirst)
+            LaunchedEffect(Unit) { repeat(10) { withFrameNanos { }; if (runCatching { moreFirst.requestFocus() }.isSuccess) return@LaunchedEffect } }
+            // Back closes the row: focus returns to the button, the page to the top.
+            BackHandler { runCatching { moreButton.requestFocus() }; showMore = false }
+        }
         }
         }
         }
@@ -314,7 +346,7 @@ private fun SeasonTabs(state: SeriesDetailViewModel.State, onSelect: (String) ->
     }
 }
 
-@OptIn(ExperimentalComposeUiApi::class)
+@OptIn(ExperimentalComposeUiApi::class, androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
 private fun EpisodeList(
     state: SeriesDetailViewModel.State,
@@ -353,6 +385,9 @@ private fun EpisodeList(
     // and description right; the focused row is highlighted and shows a longer description.
     val keys = remember(episodes.items) { uniqueKeys(episodes.items.map { it.id }) }
     val memory = rememberFocusMemory()
+    // The focused episode moves to the top of the list, its whole description under it (owner,
+    // 2026-10-22).
+    val pivot = remember(listState) { PivotRowToTop { listState.layoutInfo.viewportSize.height } }
     LazyColumn(
         state = listState,
         modifier = modifier.fillMaxWidth().focusMemory(memory),
@@ -368,7 +403,7 @@ private fun EpisodeList(
                 progress = state.fractions[ep.id],
                 onClick = { onPlay(ep) },
                 enabled = !state.starting,
-                modifier = episodeModifier(ep).rememberedIn(memory).onFocusChanged { if (it.hasFocus) onFocused(ep) },
+                modifier = episodeModifier(ep).rememberedIn(memory).bringIntoViewResponder(pivot).onFocusChanged { if (it.hasFocus) onFocused(ep) },
             )
         }
         if (error != null) {

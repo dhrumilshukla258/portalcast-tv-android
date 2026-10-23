@@ -98,7 +98,15 @@ fun MyListButton(vm: TitleExtrasViewModel, modifier: Modifier = Modifier) {
 
 /** The More Like This row; nothing when there are no similar titles. */
 @Composable
-fun MoreLikeThis(vm: TitleExtrasViewModel, onOpenMovie: (MediaItem) -> Unit, onOpenSeries: (MediaItem) -> Unit, modifier: Modifier = Modifier, compact: Boolean = true) {
+fun MoreLikeThis(
+    vm: TitleExtrasViewModel,
+    onOpenMovie: (MediaItem) -> Unit,
+    onOpenSeries: (MediaItem) -> Unit,
+    modifier: Modifier = Modifier,
+    compact: Boolean = true,
+    /** Put on the first card (focus goes there when the row is opened). */
+    firstCard: FocusRequester? = null,
+) {
     val container = LocalContext.current.appContainer
     val serverUrl by container.sessionStore.serverUrl.collectAsStateWithLifecycle()
     val state by vm.state.collectAsStateWithLifecycle()
@@ -112,6 +120,7 @@ fun MoreLikeThis(vm: TitleExtrasViewModel, onOpenMovie: (MediaItem) -> Unit, onO
         modifier = Modifier.showWholeWhenFocused().then(modifier),
         compact = compact,
         cardWidth = 118.dp,
+        itemModifier = { i, _ -> if (i == 0 && firstCard != null) Modifier.focusRequester(firstCard) else Modifier },
     )
 }
 
