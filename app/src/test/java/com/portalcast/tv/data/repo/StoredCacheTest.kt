@@ -2,6 +2,7 @@ package com.portalcast.tv.data.repo
 
 import com.portalcast.tv.data.net.AppJson
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.first
@@ -32,7 +33,9 @@ class StoredCacheTest {
         // for the server, which now has a second season.
         val store = disk(dir)
         val second = KeyedSessionCache<String, List<String>>(null, stored = Stored(store, "series", ser))
-        val changed = async { withTimeout(5_000) { store.updates.first() } }
+        // Listening before the check starts (UNDISPATCHED): a check that finishes first would
+        // otherwise announce the change before anyone listens (it timed out on a fast CI machine).
+        val changed = async(start = CoroutineStart.UNDISPATCHED) { withTimeout(5_000) { store.updates.first() } }
         var asked = 0
         val shown = second.get("seasons|42") { asked++; Result.success(listOf("S1", "S2")) }.getOrThrow()
         assertEquals(listOf("S1"), shown)
