@@ -1,5 +1,12 @@
 package com.portalcast.tv.ui.series
 
+import androidx.compose.ui.platform.LocalDensity
+import com.portalcast.tv.ui.discover.PadRectHorizontally
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.CompositingStrategy
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.BlendMode
 import androidx.activity.compose.BackHandler
 import androidx.compose.runtime.rememberCoroutineScope
 import kotlinx.coroutines.launch
@@ -112,7 +119,7 @@ fun SeriesDetailScreen(
     val vm: SeriesDetailViewModel = viewModel(
         key = "series-$id-$category",
         factory = viewModelFactory {
-            initializer { SeriesDetailViewModel(id, category, container.seriesRepository, container.userRepository) }
+            initializer { SeriesDetailViewModel(id, category, container.seriesRepository, container.userRepository, container.discoverRepository) }
         },
     )
     val state by vm.state.collectAsStateWithLifecycle()
@@ -322,15 +329,32 @@ fun SeriesDetailScreen(
 }
 
 /** Season 1 · Season 2 · …: one row over the episode list; the chosen season is filled. */
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
 private fun SeasonTabs(state: SeriesDetailViewModel.State, onSelect: (String) -> Unit) {
     if (state.seasons.size <= 1) return
     val memory = rememberFocusMemory()
     val selectedIdx = state.seasons.indexOfFirst { it.id == state.selectedSeasonId }.coerceAtLeast(0)
     val rowState = rememberLazyListState(initialFirstVisibleItemIndex = (selectedIdx - 2).coerceAtLeast(0))
+    // A soft fade where the row continues (it was cut off flat), and the focused tab is kept
+    // well clear of the edge (owner, 2026-10-22: Season 5 sat against the edge).
+    val fadePx = with(LocalDensity.current) { 56.dp.toPx() }
+    val tabPad = remember(fadePx) { PadRectHorizontally(fadePx + 8f) }
     LazyRow(
         state = rowState,
-        modifier = Modifier.fillMaxWidth().focusMemory(memory),
+        modifier = Modifier
+            .fillMaxWidth()
+            .graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen }
+            .drawWithContent {
+                drawContent()
+                if (rowState.canScrollForward) {
+                    drawRect(Brush.horizontalGradient(listOf(Color.Transparent, Color.Black), startX = size.width - fadePx, endX = size.width), blendMode = BlendMode.DstOut)
+                }
+                if (rowState.canScrollBackward) {
+                    drawRect(Brush.horizontalGradient(listOf(Color.Black, Color.Transparent), startX = 0f, endX = fadePx), blendMode = BlendMode.DstOut)
+                }
+            }
+            .focusMemory(memory),
         contentPadding = PaddingValues(start = 8.dp, end = 8.dp, top = 4.dp, bottom = 10.dp),
         horizontalArrangement = Arrangement.spacedBy(10.dp),
     ) {
@@ -340,7 +364,7 @@ private fun SeasonTabs(state: SeriesDetailViewModel.State, onSelect: (String) ->
                 text = EpisodeInfo.seasonLabel(season, i),
                 onClick = { onSelect(season.id) },
                 style = if (selected) TvButtonStyle.Primary else TvButtonStyle.Secondary,
-                modifier = Modifier.rememberedIn(memory),
+                modifier = Modifier.rememberedIn(memory).bringIntoViewResponder(tabPad),
             )
         }
     }

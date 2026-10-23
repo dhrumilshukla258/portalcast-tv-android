@@ -1,5 +1,6 @@
 package com.portalcast.tv.ui.series
 
+import com.portalcast.tv.data.repo.DiscoverRepository
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.portalcast.tv.data.model.MediaItem
@@ -29,6 +30,8 @@ class SeriesDetailViewModel(
     private val category: String,
     private val repo: SeriesRepository,
     private val users: UserRepository,
+    /** For the show's full card when the page was opened from a thin one. */
+    private val discover: DiscoverRepository? = null,
 ) : ViewModel() {
 
     data class State(
@@ -73,7 +76,45 @@ class SeriesDetailViewModel(
             loadProgressNow()
             loadSeasons()
         }
+        loadFullCard()
     }
+
+    /**
+     * Opened from Continue Watching (or anything that carries only a title and a poster) the
+     * page had no overview, year, rating, genres or backdrop (owner, 2026-10-22: "the details of
+     * the whole series are not accessible"). The show's Discover card fills what is missing.
+     */
+    private fun loadFullCard() {
+        val s = _state.value.series
+        if (s.overview != null && s.year != null && (s.backdropPath != null || s.backdropHdPath != null)) return
+        val repo = discover ?: return
+        val contentId = s.catalogId?.takeIf { it.startsWith("series_") } ?: if (seriesId.startsWith("series_")) seriesId else "series_${s.rawId.ifBlank { seriesId }}"
+        viewModelScope.launch {
+            val list = repo.variants(contentId).getOrNull().orEmpty()
+            val full = list.firstOrNull { it.id == contentId } ?: list.firstOrNull() ?: return@launch
+            _state.update { it.copy(series = it.series.filledFrom(full)) }
+        }
+    }
+
+    private fun MediaItem.filledFrom(f: MediaItem): MediaItem = copy(
+        description = description ?: f.description,
+        plot = plot ?: f.plot,
+        year = year ?: f.year,
+        ratingBest = ratingBest ?: f.ratingBest,
+        ratingSource = ratingSource ?: f.ratingSource,
+        ratingImdb = ratingImdb ?: f.ratingImdb,
+        genresStr = genresStr ?: f.genresStr,
+        runtime = runtime ?: f.runtime,
+        country = country ?: f.country,
+        director = director ?: f.director,
+        cast = cast ?: f.cast,
+        actors = actors ?: f.actors,
+        backdropPath = backdropPath ?: f.backdropPath,
+        backdropHdPath = backdropHdPath ?: f.backdropHdPath,
+        screenshotUri = screenshotUri ?: f.screenshotUri,
+        logoPath = logoPath ?: f.logoPath,
+        catalogId = catalogId ?: f.catalogId,
+    )
 
     fun loadSeasons() {
         _state.update { it.copy(seasonsLoading = true, seasonsError = null) }
