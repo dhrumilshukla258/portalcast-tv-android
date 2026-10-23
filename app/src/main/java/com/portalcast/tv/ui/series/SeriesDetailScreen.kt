@@ -162,7 +162,8 @@ fun SeriesDetailScreen(
         val pageHeight = maxHeight
         com.portalcast.tv.ui.components.MinimalScrolling {
         Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
-        Row(Modifier.fillMaxWidth().height(pageHeight).padding(start = 56.dp, end = 40.dp, top = 40.dp)) {
+        // Bottom padding: the episode list ends with a gap above More Like This.
+        Row(Modifier.fillMaxWidth().height(pageHeight).padding(start = 56.dp, end = 40.dp, top = 40.dp, bottom = 28.dp)) {
             // About 40 % of the screen: the episode list gets the rest, since episode names
             // (daily soaps especially) are long. It scrolls: a long overview no longer pushes
             // the seasons below the screen.
@@ -281,7 +282,7 @@ fun SeriesDetailScreen(
                 }
             }
         }
-        MoreLikeThis(extras, onOpenMovie, onOpenSeries, Modifier.padding(start = 56.dp, end = 40.dp, top = 8.dp, bottom = 40.dp))
+        MoreLikeThis(extras, onOpenMovie, onOpenSeries, Modifier.padding(start = 56.dp, end = 40.dp, top = 8.dp, bottom = 32.dp))
         }
         }
         }

@@ -1,5 +1,6 @@
 package com.portalcast.tv.ui.discover
 
+import com.portalcast.tv.ui.components.showWholeWhenFocused
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.padding
@@ -103,7 +104,15 @@ fun MoreLikeThis(vm: TitleExtrasViewModel, onOpenMovie: (MediaItem) -> Unit, onO
     val state by vm.state.collectAsStateWithLifecycle()
     OpenerEffects(vm.opener, serverUrl, onOpenMovie, onOpenSeries)
     if (state.similar.isEmpty()) return
-    PosterRow(title = "More Like This", items = state.similar, onItemClick = vm.opener::open, modifier = modifier, compact = compact)
+    // Home's poster size; the whole row comes on screen when a card in it is focused.
+    PosterRow(
+        title = "More Like This",
+        items = state.similar,
+        onItemClick = vm.opener::open,
+        modifier = Modifier.showWholeWhenFocused().then(modifier),
+        compact = compact,
+        cardWidth = 118.dp,
+    )
 }
 
 /** The catalog id of a movie or series shown on a detail page. */
