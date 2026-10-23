@@ -11,6 +11,9 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.repeatOnLifecycle
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 import com.portalcast.tv.appContainer
@@ -47,18 +50,22 @@ private const val QUIET_MS = 5 * 60_000L
 
 /**
  * Asks the server only after 5 minutes without any answer (was every minute) while the
- * home screen is up. Older servers (no header, no endpoint): always online.
+ * home screen is up, and only while the app is on screen: in the background it asks nothing,
+ * and coming back checks at once. Older servers (no header, no endpoint): always online.
  */
 @Composable
 fun IptvStatusPoller() {
     val api = LocalContext.current.appContainer.api
-    LaunchedEffect(Unit) {
-        while (true) {
-            if (System.currentTimeMillis() - IptvStatus.lastHeardAt >= QUIET_MS) {
-                val h = runCatching { api.iptvHealth() }.getOrNull()
-                IptvStatus.report(h?.iptv ?: "online")
+    val lifecycle = LocalLifecycleOwner.current.lifecycle
+    LaunchedEffect(lifecycle) {
+        lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
+            while (true) {
+                if (System.currentTimeMillis() - IptvStatus.lastHeardAt >= QUIET_MS) {
+                    val h = runCatching { api.iptvHealth() }.getOrNull()
+                    IptvStatus.report(h?.iptv ?: "online")
+                }
+                delay(60_000)
             }
-            delay(60_000)
         }
     }
 }

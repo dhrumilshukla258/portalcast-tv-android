@@ -29,7 +29,10 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.repeatOnLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
@@ -73,11 +76,19 @@ fun LiveScreen(onPlay: () -> Unit, modifier: Modifier = Modifier, restoreFocus: 
     )
     val state by vm.state.collectAsStateWithLifecycle()
 
-    // EPG refresh while the tab is on screen; the clock drives the programme progress bars.
-    LaunchedEffect(Unit) {
-        while (true) {
-            delay(EPG_REFRESH_MS)
-            vm.refreshEpg(forceRefresh = true)
+    // EPG refresh while the tab is on screen and the app is in front (in the background it asks
+    // nothing; coming back refreshes at once when the last load is older than EPG_REFRESH_MS);
+    // the clock drives the programme progress bars.
+    val lifecycle = LocalLifecycleOwner.current.lifecycle
+    val epgLoadedAt = remember { longArrayOf(System.currentTimeMillis()) }
+    LaunchedEffect(lifecycle) {
+        lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
+            while (true) {
+                val wait = EPG_REFRESH_MS - (System.currentTimeMillis() - epgLoadedAt[0])
+                if (wait > 0) delay(wait)
+                epgLoadedAt[0] = System.currentTimeMillis()
+                vm.refreshEpg(forceRefresh = true)
+            }
         }
     }
     val now by produceState(System.currentTimeMillis()) {
