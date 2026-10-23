@@ -239,16 +239,37 @@ class DiscoverViewModel(
         totalItems: Int?,
         browse: com.portalcast.tv.data.model.DiscoverBrowseResponse?,
     ): List<DiscoverRow> = buildList {
+        // A title shows once on Home (owner, 2026-10-22): each row keeps only what no row above has.
+        val shown = HashSet<String>()
+        fun unique(items: List<com.portalcast.tv.data.model.MediaItem>) = items.filter { shown.add(cardKey(it)) }
         home?.rows?.forEach { r ->
-            add(DiscoverRow(homeKey(r.key), RowKind.Recommended, r.title, items = r.data, page = 1, requested = true))
+            add(DiscoverRow(homeKey(r.key), RowKind.Recommended, r.title, items = unique(r.data), page = 1, requested = true))
         }
         rec?.let { r ->
             val title = r.basedOnTitle?.takeIf { it.isNotBlank() }?.let { "Because you watched $it" } ?: "Recommended for you"
-            add(DiscoverRow(KEY_RECOMMENDED, RowKind.Recommended, title, items = r.data, page = 1, requested = true))
+            add(DiscoverRow(KEY_RECOMMENDED, RowKind.Recommended, title, items = unique(r.data), page = 1, requested = true))
         }
         if (whatsNew != null && whatsNew.isNotEmpty()) {
             val more = browse?.hasMore(whatsNew.size) ?: ((totalItems ?: 0) > whatsNew.size)
-            add(DiscoverRow(KEY_WHATS_NEW, RowKind.WhatsNew, "What's new", items = whatsNew, page = 1, hasMore = more, requested = true))
+            add(DiscoverRow(KEY_WHATS_NEW, RowKind.WhatsNew, "What's new", items = unique(whatsNew), page = 1, hasMore = more, requested = true))
+        }
+    }
+
+    /** One key per title: Discover ids are already "movie_123"; others are built the same way. */
+    private fun cardKey(item: com.portalcast.tv.data.model.MediaItem): String =
+        com.portalcast.tv.ui.components.titleContentId(item) ?: item.id
+
+    /**
+     * Sets a genre row's items, keeping only titles no other row (nor Continue Watching) shows,
+     * decided inside the state update so two rows loading at once cannot both keep a title.
+     */
+    private fun setRowItems(key: String, transform: (DiscoverRow, (List<com.portalcast.tv.data.model.MediaItem>) -> List<com.portalcast.tv.data.model.MediaItem>) -> DiscoverRow) {
+        _state.update { s ->
+            val shown = HashSet<String>()
+            for (r in s.rows) if (r.key != key) r.items.forEach { shown.add(cardKey(it)) }
+            s.continueWatching.forEach { e -> shown.add(cardKey(e.target)) }
+            val unique: (List<com.portalcast.tv.data.model.MediaItem>) -> List<com.portalcast.tv.data.model.MediaItem> = { items -> items.filterNot { cardKey(it) in shown } }
+            s.copy(rows = s.rows.map { if (it.key == key) transform(it, unique) else it })
         }
     }
 
@@ -274,7 +295,7 @@ class DiscoverViewModel(
             val result = rowPermits.withPermit { discover.browse(query, 1) }
             if (gen != generation) return@launch
             result.fold(
-                { b -> updateRow(key) { it.copy(items = b.data, page = 1, hasMore = b.hasMore(b.data.size)) } },
+                { b -> setRowItems(key) { row, unique -> row.copy(items = unique(b.data), page = 1, hasMore = b.hasMore(b.data.size)) } },
                 { updateRow(key) { it.copy(failed = true) } },
             )
         }
@@ -293,10 +314,10 @@ class DiscoverViewModel(
             if (gen != generation) return@launch
             result.fold(
                 { b ->
-                    updateRow(key) {
-                        val merged = mergeById(it.items, b.data)
-                        it.copy(items = merged, page = row.page + 1, loadingMore = false,
-                            hasMore = b.data.isNotEmpty() && b.hasMore(merged.size))
+                    setRowItems(key) { r, unique ->
+                        val merged = mergeById(r.items, unique(b.data))
+                        r.copy(items = merged, page = row.page + 1, loadingMore = false,
+                            hasMore = b.data.isNotEmpty() && b.hasMore((row.page + 1) * b.data.size))
                     }
                 },
                 { updateRow(key) { it.copy(loadingMore = false, hasMore = false) } },
