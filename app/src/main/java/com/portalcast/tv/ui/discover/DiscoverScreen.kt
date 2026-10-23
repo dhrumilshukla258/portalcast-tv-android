@@ -2,6 +2,9 @@
 
 package com.portalcast.tv.ui.discover
 
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.onPreviewKeyEvent
@@ -97,10 +100,22 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 private const val PAGE_AHEAD = 8
 
 /** Share of the screen height the hero (top bar + title/meta/overview) takes; rows scroll below it. */
-// 0.42, posters 118 dp and 8 dp row padding: a row (heading, poster, title under it) is about
-// 262 dp and fits the ~271 dp left under the hero; at 0.45 / 130 dp the titles fell off the
-// bottom of the screen (owner, 2026-10-22).
+// The hero's share of the screen. The rows get the rest, and their posters are sized to fit it
+// (homePosterWidth): at a fixed 130 dp the titles under them fell off the bottom (owner,
+// 2026-10-22).
 private const val HERO_FRACTION = 0.42f
+
+/**
+ * The poster width for Home's rows: the widest whose row (heading, 8 dp above and below the
+ * cards for the focus scale, the 2:3 poster, the title under it after 8 dp and 4 % of the
+ * poster, a little air) fits the height the rows have on this screen at this text size.
+ */
+@Composable
+private fun homePosterWidth(rowsHeight: Dp): Dp {
+    val line = com.portalcast.tv.ui.components.lineHeightDp(MaterialTheme.typography.bodyMedium)
+    val chrome = RowTitleHeight + 16.dp + 8.dp + line + 8.dp
+    return com.portalcast.tv.ui.components.posterWidthToFit(rowsHeight, chrome, perWidth = 1.5f * 1.04f)
+}
 
 /** Row title height; fixed so every row has the same geometry under the hero. */
 private val RowTitleHeight = 34.dp
@@ -375,8 +390,10 @@ private fun RowsContent(
         val base = Modifier.onFocusChanged { if (it.isFocused) vm.lastFocusedKey = key }
         if (key == restoreKey) base.focusRequester(restoreRequester) else base
     }
+    BoxWithConstraints(modifier) {
+    CompositionLocalProvider(LocalPosterWidth provides homePosterWidth(maxHeight)) {
     LazyColumn(
-        modifier.fillMaxSize(),
+        Modifier.fillMaxSize(),
         state = listState,
         // Bottom room so the last rows can still scroll up under the hero.
         contentPadding = PaddingValues(bottom = 160.dp),
@@ -418,6 +435,8 @@ private fun RowsContent(
                 modifier = Modifier.bringIntoViewResponder(pivot),
             )
         }
+    }
+    }
     }
 }
 
@@ -568,7 +587,7 @@ private fun PlaceholderRow() {
         repeat(7) {
             Box(
                 Modifier
-                    .width(PosterWidth)
+                    .width(LocalPosterWidth.current)
                     .posterAspect()
                     .background(AppColors.Surface, RoundedCornerShape(10.dp)),
             )

@@ -82,6 +82,12 @@ import com.portalcast.tv.util.CARD_POSTER
 
 internal val PosterWidth: Dp = 118.dp
 
+/**
+ * The poster width on screen: Home works it out from the space its rows have (DiscoverScreen,
+ * homePosterWidth); [PosterWidth] where nothing set it.
+ */
+internal val LocalPosterWidth = androidx.compose.runtime.staticCompositionLocalOf { PosterWidth }
+
 /** Width of a Continue Watching card (16:9, design-system.md). */
 internal val WideCardWidth: Dp = 300.dp
 
@@ -190,12 +196,13 @@ private const val PREFETCH_POSTERS = 8
 internal fun PrefetchPosters(items: List<MediaItem>, serverUrl: String?) {
     val context = LocalContext.current
     val density = LocalDensity.current
+    val posterWidth = LocalPosterWidth.current
     val urls = remember(items, serverUrl) {
         items.asSequence().take(PREFETCH_POSTERS)
             .mapNotNull { ImageUrl.downsize(ImageUrl.resolve(serverUrl, it.screenshotUri), CARD_POSTER) }.toList()
     }
     DisposableEffect(urls) {
-        val w = with(density) { PosterWidth.roundToPx() }
+        val w = with(density) { posterWidth.roundToPx() }
         val loader = context.imageLoader
         val jobs = urls.map { loader.enqueue(ImageRequest.Builder(context).data(it).size(w, w * 3 / 2).build()) }
         onDispose { jobs.forEach { it.dispose() } }
@@ -233,13 +240,14 @@ internal fun PosterCard(
     var focused by remember { mutableStateOf(false) }
     val context = LocalContext.current
     val density = LocalDensity.current
-    val request = remember(serverUrl, imagePath) {
+    val posterWidth = LocalPosterWidth.current
+    val request = remember(serverUrl, imagePath, posterWidth) {
         ImageUrl.downsize(ImageUrl.resolve(serverUrl, imagePath), CARD_POSTER)?.let { url ->
-            val w = with(density) { PosterWidth.roundToPx() }
+            val w = with(density) { posterWidth.roundToPx() }
             ImageRequest.Builder(context).data(url).size(w, w * 3 / 2).build()
         }
     }
-    Column(modifier.width(PosterWidth).dimWhenIptvOffline(isLocal = badge != null)) {
+    Column(modifier.width(posterWidth).dimWhenIptvOffline(isLocal = badge != null)) {
         Card(
             onClick = onClick,
             onLongClick = onLongClick,
@@ -311,7 +319,7 @@ internal fun PosterCard(
         Text(
             title,
             // Below the focused (1.08x) poster's bottom edge, so it never covers the title.
-            modifier = Modifier.padding(top = 8.dp + PosterWidth * 1.5f * 0.04f),
+            modifier = Modifier.padding(top = 8.dp + posterWidth * 1.5f * 0.04f),
             color = if (focused) AppColors.Text else AppColors.TextMuted,
             style = MaterialTheme.typography.bodyMedium,
             maxLines = 1,

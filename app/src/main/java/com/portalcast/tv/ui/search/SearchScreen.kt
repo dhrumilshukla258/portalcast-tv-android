@@ -2,6 +2,11 @@
 
 package com.portalcast.tv.ui.search
 
+import androidx.compose.foundation.layout.BoxWithConstraints
+import com.portalcast.tv.ui.components.lineHeightDp
+import com.portalcast.tv.ui.components.posterWidthToFit
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.foundation.relocation.bringIntoViewResponder
 import androidx.compose.foundation.lazy.rememberLazyListState
 import com.portalcast.tv.ui.discover.PivotRowToTop
@@ -248,6 +253,7 @@ private fun AllResults(state: SearchViewModel.State, vm: SearchViewModel, onPlay
     // titles under the posters below the screen (owner, 2026-10-22).
     val listState = rememberLazyListState()
     val pivot = remember(listState) { PivotRowToTop { listState.layoutInfo.viewportSize.height } }
+    var cardWidth by remember { mutableStateOf(150.dp) }
     val people: LazyListScope.() -> Unit = {
         if (state.people.isNotEmpty()) item(key = "people") {
             PeopleResultRow(state.people, vm::openPerson, Modifier.rememberedIn(memory).bringIntoViewResponder(pivot)) { cardModifier("p|$it") }
@@ -259,11 +265,18 @@ private fun AllResults(state: SearchViewModel.State, vm: SearchViewModel, onPlay
                     items = f.credits,
                     onItemClick = vm::openDiscoverTitle,
                     modifier = Modifier.rememberedIn(memory).bringIntoViewResponder(pivot),
+                    cardWidth = cardWidth,
                     itemModifier = { _, item -> cardModifier("f|${item.id}") },
                 )
             }
         }
     }
+    // Posters sized so a row (heading, cards, the two lines under them) fits the results area
+    // on this screen at this text size; the focused row sits at its top.
+    BoxWithConstraints(Modifier.fillMaxSize()) {
+    val chrome = lineHeightDp(MaterialTheme.typography.titleLarge) + 8.dp + 24.dp +
+        lineHeightDp(MaterialTheme.typography.bodyMedium) + lineHeightDp(MaterialTheme.typography.bodySmall) + 16.dp
+    cardWidth = posterWidthToFit(maxHeight - 40.dp, chrome, perWidth = 1.5f * 1.06f)
     LazyColumn(
         Modifier.fillMaxSize().focusMemory(memory),
         state = listState,
@@ -272,10 +285,10 @@ private fun AllResults(state: SearchViewModel.State, vm: SearchViewModel, onPlay
     ) {
         if (peopleFirst) people()
         if (state.movies.groups.isNotEmpty()) item(key = "movies") {
-            GroupRow("Movies", state.movies, { vm.openGroup(it, isSeries = false) }, vm::loadMoreMovies, Modifier.rememberedIn(memory).bringIntoViewResponder(pivot)) { cardModifier("m|$it") }
+            GroupRow("Movies", state.movies, { vm.openGroup(it, isSeries = false) }, vm::loadMoreMovies, Modifier.rememberedIn(memory).bringIntoViewResponder(pivot), cardWidth) { cardModifier("m|$it") }
         }
         if (state.series.groups.isNotEmpty()) item(key = "series") {
-            GroupRow("Series", state.series, { vm.openGroup(it, isSeries = true) }, vm::loadMoreSeries, Modifier.rememberedIn(memory).bringIntoViewResponder(pivot)) { cardModifier("s|$it") }
+            GroupRow("Series", state.series, { vm.openGroup(it, isSeries = true) }, vm::loadMoreSeries, Modifier.rememberedIn(memory).bringIntoViewResponder(pivot), cardWidth) { cardModifier("s|$it") }
         }
         if (!peopleFirst) people()
         if (state.channels.isNotEmpty()) {
@@ -291,6 +304,7 @@ private fun AllResults(state: SearchViewModel.State, vm: SearchViewModel, onPlay
                 )
             }
         }
+    }
     }
 }
 
@@ -342,6 +356,7 @@ private fun GroupRow(
     onOpen: (SearchViewModel.TitleGroup) -> Unit,
     onLoadMore: () -> Unit,
     modifier: Modifier,
+    cardWidth: Dp,
     cardModifier: (String) -> Modifier,
 ) {
     val byId = remember(section.groups) { section.groups.associateBy { it.display.id } }
@@ -354,6 +369,7 @@ private fun GroupRow(
         subtitleFor = { item -> byId[item.id]?.versionsLabel },
         onLoadMore = if (section.hasMore) onLoadMore else null,
         itemModifier = { _, item -> byId[item.id]?.let { cardModifier(it.key) } ?: Modifier },
+        cardWidth = cardWidth,
     )
 }
 
