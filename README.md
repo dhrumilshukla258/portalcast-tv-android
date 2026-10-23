@@ -22,6 +22,11 @@
 
 ---
 
+<p align="center"><img src="docs/screenshots/home.jpg" alt="PortalCast on a TV: Home, with the hero following focus and the title under every poster"></p>
+<p align="center"><img src="docs/screenshots/series.jpg" alt="A series page on a TV: details, season tabs and the focused episode in full"></p>
+
+<p align="center"><sub>Captured on a Hisense Google TV. Artwork and episode stills from TMDB.</sub></p>
+
 ## Features
 
 - **The same app as the web** — Home, Live TV, Sports, Search and My List along the top, Movies · Series · Cast under it, in the black-blue PortalCast look.
