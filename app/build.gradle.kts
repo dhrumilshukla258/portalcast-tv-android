@@ -13,8 +13,8 @@ android {
         minSdk = 21
         targetSdk = 34
         // CI release builds pass these from the git tag (.github/workflows/release.yml).
-        versionCode = System.getenv("PORTALCAST_VERSION_CODE")?.toIntOrNull() ?: 400
-        versionName = System.getenv("PORTALCAST_VERSION_NAME") ?: "0.4.0"
+        versionCode = System.getenv("PORTALCAST_VERSION_CODE")?.toIntOrNull() ?: 500
+        versionName = System.getenv("PORTALCAST_VERSION_NAME") ?: "0.5.0"
     }
 
     // Release key from the environment (GitHub secrets in CI, or exported locally).
