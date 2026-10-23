@@ -13,6 +13,12 @@ class PortalcastApp : Application(), ImageLoaderFactory {
 
     override fun onCreate() {
         super.onCreate()
+        // App-wide Compose state, created here before anything draws. Created lazily it was
+        // first touched while Home's cached cards were being composed (instant start), and
+        // Compose then threw "Reading a state that was created after the snapshot was taken"
+        // on the next frame: the app closed as it opened (seen on the Hisense, 2026-10-22).
+        com.portalcast.tv.ui.components.IptvStatus.offline
+        com.portalcast.tv.ui.components.AmbientPool.urls
         container = AppContainer(this)
     }
 
