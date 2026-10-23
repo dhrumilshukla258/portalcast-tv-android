@@ -229,9 +229,10 @@ fun SportsScreen(
         LazyRow(
             horizontalArrangement = Arrangement.spacedBy(10.dp),
             verticalAlignment = Alignment.CenterVertically,
-            contentPadding = PaddingValues(vertical = 12.dp),
+            // Room at both ends: a focused chip grows and its ring was cut at the left edge.
+            contentPadding = PaddingValues(vertical = 12.dp, horizontal = 6.dp),
         ) {
-            item(key = "choose") { TvButton(text = "Choose sports", onClick = vm::openChooser, style = TvButtonStyle.Secondary) }
+            item(key = "choose") { SportChip("⚙  Choose sports", selected = false, onClick = vm::openChooser) }
             if (sports.size > 1) {
                 item(key = "all") { SportChip("All", state.sport == null) { vm.selectSport(null) } }
                 items(sports, key = { it }) { s -> SportChip(s, state.sport == s) { vm.selectSport(s) } }

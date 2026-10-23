@@ -220,6 +220,36 @@ fun SeriesDetailScreen(
                             Text(meta, style = MaterialTheme.typography.titleSmall, color = AppColors.TextMuted, modifier = Modifier.padding(top = 6.dp))
                         }
                         com.portalcast.tv.ui.components.DetailFacts(series, titleDetails, series = true)
+                        // Overview and credits in one block that takes focus: OK opens all of it (the
+                        // page shows them cut; owner, 2026-10-22: "hidden stuff" under the buttons).
+                        var showAbout by remember { mutableStateOf(false) }
+                        val aboutText = remember(series, titleDetails) {
+                            listOfNotNull(
+                                series.overview,
+                                series.director?.takeIf { it.isNotBlank() && it != "-" }?.let { "Created by: $it" },
+                                (titleDetails?.cast?.takeIf { it.isNotEmpty() }?.joinToString(", ") { c -> c.role?.takeIf { r -> r.isNotBlank() }?.let { r -> "${c.name} ($r)" } ?: c.name }
+                                    ?: series.cast)?.takeIf { it.isNotBlank() && it != "-" }?.let { "Cast: $it" },
+                                titleDetails?.studios?.takeIf { it.isNotBlank() }?.let { "Studio: $it" },
+                                series.country?.takeIf { it.isNotBlank() && it != "-" }?.let { "Country: $it" },
+                            ).joinToString("\n\n")
+                        }
+                        if (showAbout) com.portalcast.tv.ui.components.ReadMoreDialog(series.displayTitle, aboutText, onDismiss = { showAbout = false })
+                        androidx.tv.material3.Surface(
+                            onClick = { showAbout = true },
+                            modifier = Modifier.padding(top = 6.dp),
+                            shape = androidx.tv.material3.ClickableSurfaceDefaults.shape(shape = androidx.compose.foundation.shape.RoundedCornerShape(10.dp)),
+                            scale = androidx.tv.material3.ClickableSurfaceDefaults.scale(focusedScale = 1f),
+                            border = androidx.tv.material3.ClickableSurfaceDefaults.border(
+                                focusedBorder = androidx.tv.material3.Border(androidx.compose.foundation.BorderStroke(2.dp, AppColors.Focus), shape = androidx.compose.foundation.shape.RoundedCornerShape(10.dp)),
+                            ),
+                            colors = androidx.tv.material3.ClickableSurfaceDefaults.colors(
+                                containerColor = androidx.compose.ui.graphics.Color.Transparent,
+                                focusedContainerColor = AppColors.GlassFillFocused,
+                                contentColor = AppColors.Text,
+                                focusedContentColor = AppColors.Text,
+                            ),
+                        ) {
+                        Column(Modifier.padding(horizontal = 6.dp, vertical = 4.dp)) {
                         series.overview?.let {
                             Text(
                                 it,
@@ -227,7 +257,7 @@ fun SeriesDetailScreen(
                                 color = AppColors.Text,
                                 maxLines = if (hasBackdrop) 5 else 4,
                                 overflow = TextOverflow.Ellipsis,
-                                modifier = Modifier.padding(top = 10.dp),
+                                modifier = Modifier.padding(top = 4.dp),
                             )
                         }
                         val details = listOfNotNull(
@@ -242,6 +272,9 @@ fun SeriesDetailScreen(
                             for (line in details) {
                                 Text(line, style = MaterialTheme.typography.bodySmall, color = AppColors.TextMuted, maxLines = 2, overflow = TextOverflow.Ellipsis)
                             }
+                        }
+                        Text("OK: more about the show", style = MaterialTheme.typography.labelSmall, color = AppColors.TextMuted, modifier = Modifier.padding(top = 6.dp))
+                        }
                         }
                     }
                 }

@@ -155,7 +155,7 @@ fun PersonScreen(id: Int, onOpenMovie: (MediaItem) -> Unit, onOpenSeries: (Media
                     Spacer(Modifier.height(10.dp))
                     TvButton(text = "Read more", onClick = { showBio = true })
                 }
-                if (showBio) BiographyDialog(p.name, bio, onDismiss = { showBio = false })
+                if (showBio) com.portalcast.tv.ui.components.ReadMoreDialog(p.name, bio, onDismiss = { showBio = false })
             }
             opening.openError?.let { Text(it, color = AppColors.Error, modifier = Modifier.padding(top = 12.dp)) }
         }
@@ -189,44 +189,4 @@ fun PersonScreen(id: Int, onOpenMovie: (MediaItem) -> Unit, onOpenSeries: (Media
         }
     }
 
-}
-
-/** The whole biography; Up / Down scroll it, Back closes. */
-@Composable
-private fun BiographyDialog(name: String, text: String, onDismiss: () -> Unit) {
-    val scroll = rememberScrollState()
-    val scope = rememberCoroutineScope()
-    val focus = remember { FocusRequester() }
-    LaunchedEffect(Unit) { repeat(10) { withFrameNanos { }; if (runCatching { focus.requestFocus() }.isSuccess) return@LaunchedEffect } }
-    Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
-        Column(
-            Modifier
-                .widthIn(max = 900.dp)
-                .fillMaxHeight(0.85f)
-                .background(AppColors.Surface, RoundedCornerShape(16.dp))
-                .padding(32.dp),
-        ) {
-            Text(name, style = MaterialTheme.typography.headlineSmall, color = AppColors.Text)
-            Spacer(Modifier.height(14.dp))
-            Box(
-                Modifier
-                    .weight(1f)
-                    .focusRequester(focus)
-                    .focusable()
-                    .onPreviewKeyEvent { e ->
-                        if (e.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
-                        when (e.key) {
-                            Key.DirectionDown -> { scope.launch { scroll.animateScrollBy(260f) }; true }
-                            Key.DirectionUp -> { scope.launch { scroll.animateScrollBy(-260f) }; true }
-                            else -> false
-                        }
-                    }
-                    .verticalScroll(scroll),
-            ) {
-                Text(text, style = MaterialTheme.typography.bodyLarge, color = AppColors.Text)
-            }
-            Spacer(Modifier.height(12.dp))
-            Text("Up / Down to scroll · Back to close", style = MaterialTheme.typography.labelMedium, color = AppColors.TextMuted)
-        }
-    }
 }
