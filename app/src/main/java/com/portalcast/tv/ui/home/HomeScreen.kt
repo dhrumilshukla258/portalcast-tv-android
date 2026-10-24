@@ -94,6 +94,9 @@ private const val TAB_SWITCH_DELAY_MS = 350L
  * design-system.md, Navigation); a Settings icon follows them. Movies, Series and People are
  * chips at the top of Home ([SectionTabs]) and count as Home here.
  */
+/** A second Back within this long leaves the app. */
+private const val EXIT_BACK_WINDOW_MS = 2_000L
+
 private val TopTabs = listOf(HomeTab.DISCOVER, HomeTab.LIVE, HomeTab.SPORTS, HomeTab.SEARCH, HomeTab.MY_LIST)
 
 /** Home's sections: the chips row Movies · Series · People (Home itself when none is chosen). */
@@ -219,6 +222,7 @@ fun HomeScreen(
     val pendingSwitch = remember { arrayOfNulls<Job>(1) }
     // Which end of the tab row has focus: -1 the first tab, 1 Settings, 0 between (no recomposition).
     val tabEdge = remember { IntArray(1) }
+    val lastBackAt = remember { LongArray(1) }
     fun focusOnTab(t: HomeTab) {
         pendingSwitch[0]?.cancel()
         // Resting on the tab the screen belongs to does nothing: focus lands on Home while
@@ -238,7 +242,12 @@ fun HomeScreen(
                 select(HomeTab.DISCOVER)
                 runCatching { tabRequesters.getValue(HomeTab.DISCOVER).requestFocus() }
             }
-            else -> (context as? Activity)?.finish()
+            // Out of the app only with a second Back within 2 s (owner, 2026-10-24).
+            android.os.SystemClock.uptimeMillis() - lastBackAt[0] < EXIT_BACK_WINDOW_MS -> (context as? Activity)?.finish()
+            else -> {
+                lastBackAt[0] = android.os.SystemClock.uptimeMillis()
+                android.widget.Toast.makeText(context, "Press Back again to exit", android.widget.Toast.LENGTH_SHORT).show()
+            }
         }
     }
 
