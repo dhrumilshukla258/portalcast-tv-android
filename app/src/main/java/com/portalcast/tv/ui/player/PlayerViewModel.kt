@@ -42,6 +42,8 @@ data class PlayerUiState(
     /** Readable failure for the error panel; null while playback is healthy. */
     val error: String? = null,
     val positionMs: Long = 0L,
+    /** Left/Right held: where the bar is being moved to; the player seeks there on release. */
+    val scrubMs: Long? = null,
     val durationMs: Long = 0L,
     val bufferedMs: Long = 0L,
     /** The info overlay / channel banner is shown; auto-hides 4 s after the last key. */
@@ -489,6 +491,41 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
         showOverlay()
     }
 
+    private var scrubStartMs = 0L
+    private var scrubLastMs = 0L
+
+    /**
+     * Left/Right held (VOD): the bar moves without seeking, a little faster for the first moment,
+     * then steadily (owner, 2026-10-23); [scrubRelease] seeks once. Each key repeat used to seek,
+     * which rebuffered an IPTV stream at every step.
+     */
+    fun scrubHeld(forward: Boolean) {
+        val s = session ?: return
+        if (s.isLive) { showOverlay(); return }
+        val duration = player.duration.takeIf { it != C.TIME_UNSET } ?: return
+        val now = android.os.SystemClock.uptimeMillis()
+        val from = _state.value.scrubMs
+        if (from == null) {
+            scrubStartMs = now
+            scrubLastMs = now
+            _state.update { it.copy(scrubMs = player.currentPosition) }
+        } else {
+            val delta = scrubStepMs(heldMs = now - scrubStartMs, sinceLastMs = now - scrubLastMs)
+            scrubLastMs = now
+            _state.update { it.copy(scrubMs = (from + if (forward) delta else -delta).coerceIn(0L, duration)) }
+        }
+        showOverlay()
+    }
+
+    /** The held key let go: one seek to where the bar is. False when nothing was being moved. */
+    fun scrubRelease(): Boolean {
+        val target = _state.value.scrubMs ?: return false
+        player.seekTo(target)
+        _state.update { it.copy(scrubMs = null, positionMs = target) }
+        showOverlay()
+        return true
+    }
+
     /** Live only: step through the session playlist; the switch happens after a 2 s pause in key presses. */
     fun channelStep(delta: Int) {
         val s = session as? PlaybackSession.Live ?: return
@@ -699,7 +736,18 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
 
     companion object {
         const val SEEK_STEP_MS = 10_000L
-        const val SEEK_STEP_FAST_MS = 30_000L
+        /** Holding Left/Right moves the bar at 20x, rising to 60x over 1.5 s, then steady. */
+        const val SCRUB_START_SPEED = 20f
+        const val SCRUB_STEADY_SPEED = 60f
+        const val SCRUB_RAMP_MS = 1_500L
+
+        /** Video time to move for [sinceLastMs] of real time, [heldMs] into the hold. */
+        fun scrubStepMs(heldMs: Long, sinceLastMs: Long): Long {
+            val ramp = (heldMs.toFloat() / SCRUB_RAMP_MS).coerceIn(0f, 1f)
+            val speed = SCRUB_START_SPEED + (SCRUB_STEADY_SPEED - SCRUB_START_SPEED) * ramp
+            // A late key repeat (a busy frame) never jumps more than a quarter second's worth.
+            return (speed * sinceLastMs.coerceIn(0L, 250L)).toLong()
+        }
         const val OVERLAY_HIDE_MS = 4_000L
         const val CHANNEL_SWITCH_DEBOUNCE_MS = 2_000L
         /**

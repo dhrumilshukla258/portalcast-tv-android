@@ -17,6 +17,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
@@ -176,17 +178,23 @@ fun PlayerScreen(
             // onKeyEvent must sit BEFORE focusable(): modifiers after the focus target are its
             // children and never see key events, which left every remote key dead in the player.
             .onKeyEvent { event ->
-                if (event.type != KeyEventType.KeyDown || hasError || state.subtitlePanel != null || controlsFocused || nextFocused) return@onKeyEvent false
+                if (hasError || state.subtitlePanel != null || controlsFocused || nextFocused) return@onKeyEvent false
+                val seekKey = event.key == Key.DirectionLeft || event.key == Key.DirectionRight ||
+                    event.key == Key.MediaRewind || event.key == Key.MediaFastForward
+                // Let go after holding: one seek to where the bar was moved.
+                if (event.type == KeyEventType.KeyUp) return@onKeyEvent seekKey && vm.scrubRelease()
+                if (event.type != KeyEventType.KeyDown) return@onKeyEvent false
                 val live = state.isLive
-                val held = event.nativeKeyEvent.repeatCount >= 3
-                val step = if (held) PlayerViewModel.SEEK_STEP_FAST_MS else PlayerViewModel.SEEK_STEP_MS
+                // A press jumps 10 s; held, the bar moves (faster, then steady) until released.
+                val held = event.nativeKeyEvent.repeatCount > 0
+                val step = PlayerViewModel.SEEK_STEP_MS
                 when (event.key) {
                     Key.DirectionCenter, Key.Enter, Key.NumPadEnter, Key.MediaPlayPause -> { vm.togglePlayPause(); true }
                     Key.MediaPlay -> { vm.play(); true }
                     Key.MediaPause -> { vm.pause(); true }
                     Key.MediaStop -> { exit(); true }
-                    Key.DirectionLeft, Key.MediaRewind -> { if (live) vm.showOverlay() else vm.seekBy(-step); true }
-                    Key.DirectionRight, Key.MediaFastForward -> { if (live) vm.showOverlay() else vm.seekBy(step); true }
+                    Key.DirectionLeft, Key.MediaRewind -> { if (live) vm.showOverlay() else if (held) vm.scrubHeld(forward = false) else vm.seekBy(-step); true }
+                    Key.DirectionRight, Key.MediaFastForward -> { if (live) vm.showOverlay() else if (held) vm.scrubHeld(forward = true) else vm.seekBy(step); true }
                     // Up/Down bring up the control row for movies/episodes (focus on play/pause).
                     Key.DirectionUp -> { if (live) vm.channelStep(-LIVE_DOWN_KEY_DELTA) else enterControls(); true }
                     Key.Captions -> { if (!live) vm.openSubtitlePanel(); true }
@@ -336,40 +344,84 @@ private fun BoxScope.VodOverlay(state: PlayerUiState, controlRow: @Composable ()
         }
         is PlaybackSession.Live -> session.channel.displayName to ""
     }
+    // While Left/Right is held the bar shows where the player will go, not where it is.
+    val scrub = state.scrubMs
+    val shownMs = scrub ?: state.positionMs
     Column(
         Modifier
             .align(Alignment.BottomCenter)
             .fillMaxWidth()
-            .background(Brush.verticalGradient(listOf(Color.Transparent, Color.Black.copy(alpha = 0.9f))))
-            .padding(start = 48.dp, end = 48.dp, top = 32.dp, bottom = 12.dp),
+            // Tall and soft, so the picture shows through above the text.
+            .background(Brush.verticalGradient(0f to Color.Transparent, 0.35f to Color.Black.copy(alpha = 0.55f), 1f to Color.Black.copy(alpha = 0.92f)))
+            .padding(start = 56.dp, end = 56.dp, top = 72.dp, bottom = 16.dp),
     ) {
         Text(title, style = MaterialTheme.typography.headlineMedium, color = AppColors.Text, fontWeight = FontWeight.SemiBold)
         if (subtitle.isNotBlank()) Text(subtitle, style = MaterialTheme.typography.bodyLarge, color = AppColors.TextMuted)
-        // What the decoder is actually playing (shown with the overlay on play/pause).
-        state.videoStats?.let { Text(it, style = MaterialTheme.typography.labelLarge, color = AppColors.TextMuted) }
-        Spacer(Modifier.height(16.dp))
+        // What the decoder is actually playing: small and quiet, for whoever wants it.
+        state.videoStats?.let { Text(it, style = MaterialTheme.typography.labelMedium, color = AppColors.TextMuted.copy(alpha = 0.7f), modifier = Modifier.padding(top = 2.dp)) }
+        Spacer(Modifier.height(if (scrub != null) 44.dp else 18.dp))
         ProgressBar(
-            fraction = if (state.durationMs > 0) state.positionMs.toFloat() / state.durationMs else 0f,
+            fraction = if (state.durationMs > 0) shownMs.toFloat() / state.durationMs else 0f,
             buffered = if (state.durationMs > 0) state.bufferedMs.toFloat() / state.durationMs else 0f,
+            // Where the bar is going and how far that is from where the picture is.
+            scrubLabel = scrub?.let { "${formatTime(it)}  ·  ${if (it >= state.positionMs) "+" else "−"}${formatTime(kotlin.math.abs(it - state.positionMs))}" },
         )
-        Spacer(Modifier.height(8.dp))
+        Spacer(Modifier.height(10.dp))
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-            Text(formatTime(state.positionMs), style = MaterialTheme.typography.bodyMedium, color = AppColors.Text)
+            Text(formatTime(shownMs), style = MaterialTheme.typography.bodyMedium, color = AppColors.Text)
             Text(
-                if (state.durationMs > 0) "-${formatTime(state.durationMs - state.positionMs)}  ·  ${formatTime(state.durationMs)}" else "",
+                if (state.durationMs > 0) "-${formatTime(state.durationMs - shownMs)}  ·  ${formatTime(state.durationMs)}" else "",
                 style = MaterialTheme.typography.bodyMedium, color = AppColors.TextMuted,
             )
         }
-        Spacer(Modifier.height(10.dp))
+        Spacer(Modifier.height(12.dp))
         controlRow()
     }
 }
 
+/**
+ * Thin at rest; while Left/Right is held it grows, with a handle and, above it, where it will
+ * land ([scrubLabel]).
+ */
 @Composable
-private fun ProgressBar(fraction: Float, buffered: Float) {
-    Box(Modifier.fillMaxWidth().height(6.dp).clip(RoundedCornerShape(3.dp)).background(AppColors.SurfaceVariant)) {
-        Box(Modifier.fillMaxHeight().fillMaxWidth(buffered.coerceIn(0f, 1f)).background(AppColors.TextMuted.copy(alpha = 0.5f)))
-        Box(Modifier.fillMaxHeight().fillMaxWidth(fraction.coerceIn(0f, 1f)).background(AppColors.Primary))
+private fun ProgressBar(fraction: Float, buffered: Float, scrubLabel: String? = null) {
+    val f = fraction.coerceIn(0f, 1f)
+    val barHeight = if (scrubLabel != null) 8.dp else 4.dp
+    androidx.compose.foundation.layout.BoxWithConstraints(Modifier.fillMaxWidth().height(20.dp), contentAlignment = Alignment.CenterStart) {
+        val x = maxWidth * f
+        Box(Modifier.fillMaxWidth().height(barHeight).clip(RoundedCornerShape(barHeight / 2)).background(Color.White.copy(alpha = 0.22f))) {
+            Box(Modifier.fillMaxHeight().fillMaxWidth(buffered.coerceIn(0f, 1f)).background(Color.White.copy(alpha = 0.35f)))
+            Box(Modifier.fillMaxHeight().fillMaxWidth(f).background(AppColors.Primary))
+        }
+        val knob = if (scrubLabel != null) 18.dp else 12.dp
+        Box(
+            Modifier
+                .offset(x = (x - knob / 2).coerceAtLeast(0.dp))
+                .size(knob)
+                .clip(androidx.compose.foundation.shape.CircleShape)
+                .background(Color.White),
+        )
+        if (scrubLabel != null) {
+            // The bubble follows the handle and stays on screen at either end.
+            val bubbleWidth = 220.dp
+            Box(
+                Modifier
+                    .offset(x = (x - bubbleWidth / 2).coerceIn(0.dp, (maxWidth - bubbleWidth).coerceAtLeast(0.dp)), y = (-34).dp)
+                    .width(bubbleWidth),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(
+                    scrubLabel,
+                    style = MaterialTheme.typography.titleSmall,
+                    color = AppColors.Text,
+                    fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(Color.Black.copy(alpha = 0.75f))
+                        .padding(horizontal = 12.dp, vertical = 4.dp),
+                )
+            }
+        }
     }
 }
 
