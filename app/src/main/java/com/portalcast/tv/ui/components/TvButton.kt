@@ -2,6 +2,8 @@ package com.portalcast.tv.ui.components
 
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
@@ -30,6 +32,8 @@ fun TvButton(
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
     style: TvButtonStyle = TvButtonStyle.Secondary,
+    /** An icon before the label (drawn in the button's content colour). */
+    leading: (@Composable () -> Unit)? = null,
 ) {
     val shape = RoundedCornerShape(8.dp)
     val (container, content) = when (style) {
@@ -56,6 +60,10 @@ fun TvButton(
         ),
         border = ButtonDefaults.border(focusedBorder = ring, pressedBorder = ring),
     ) {
+        if (leading != null) {
+            leading()
+            Spacer(Modifier.width(10.dp))
+        }
         // A button never wraps: when the row is tight the label ellipsizes instead of
         // breaking into a column of letters.
         Text(text, style = MaterialTheme.typography.labelLarge, maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis)

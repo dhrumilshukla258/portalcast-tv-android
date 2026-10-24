@@ -333,7 +333,7 @@ class DiscoverViewModel(
 
     fun applyFilter(query: DiscoverQuery) {
         val q = query.copy(type = _state.value.type)
-        if (q.genres.isEmpty() && q.country.isNullOrBlank() && q.language.isNullOrBlank() && q.theme.isNullOrBlank()) {
+        if (q.genres.isEmpty() && q.notGenres.isEmpty() && q.country.isNullOrBlank() && q.language.isNullOrBlank() && q.theme.isNullOrBlank()) {
             clearFilter()
             return
         }

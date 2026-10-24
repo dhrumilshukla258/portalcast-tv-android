@@ -223,7 +223,7 @@ fun DiscoverScreen(
             if (grid != null) {
                 TopBar(
                     sectionChips = sectionChips,
-                    activeFilters = FilterDim.entries.count { grid.query.valueOf(it) != null },
+                    activeFilters = grid.query.activeCount(),
                     filtersFocus = filtersButton,
                     onOpenFilters = { filtersOpen = true },
                     modifier = Modifier.onSizeChanged { topBarHeightPx = it.height },
@@ -233,7 +233,7 @@ fun DiscoverScreen(
                 Column(Modifier.fillMaxWidth().fillMaxHeight(HERO_FRACTION)) {
                     TopBar(
                         sectionChips = sectionChips,
-                        activeFilters = FilterDim.entries.count { state.grid?.query.valueOf(it) != null },
+                        activeFilters = state.grid?.query.activeCount(),
                         filtersFocus = filtersButton,
                         onOpenFilters = { filtersOpen = true },
                         modifier = Modifier.onSizeChanged { topBarHeightPx = it.height },
@@ -277,14 +277,19 @@ fun DiscoverScreen(
                 query = state.grid?.query,
                 topPx = topBarHeightPx,
                 leftPx = ((selectorX[dim] ?: screenX) - screenX).toInt().coerceAtLeast(0),
+                // Genres: each press cycles required / left out / off and the list stays open
+                // (Back closes it), so several can be set, as on the web.
+                onCycle = if (dim == FilterDim.Genre) { value ->
+                    vm.applyFilter((state.grid?.query ?: DiscoverQuery(type = state.type)).cycleGenre(value))
+                } else null,
+                onApply = { openFilter = null; filtersOpen = false; refocusFilters = true },
                 onPick = { value ->
                     val base = state.grid?.query ?: DiscoverQuery(type = state.type)
                     vm.applyFilter(base.with(dim, value))
-                    // A pick shows its results: the panel closes and focus rests on the Filters
-                    // button, the results right under it (the same as the phone).
-                    openFilter = null
-                    filtersOpen = false
-                    refocusFilters = true
+                    // The Filters column stays open after a pick (owner, 2026-10-24); it closes on
+                    // Back or "Show titles". A one-value list goes back to the column, as on the
+                    // phone; Genre stays on its list ("Any" included).
+                    if (dim != FilterDim.Genre) { openFilter = null; returnFocusTo = dim }
                 },
                 onDismiss = { openFilter = null; returnFocusTo = dim },
             )
@@ -605,7 +610,7 @@ private fun FilterGridContent(
 ) {
     val hidden by com.portalcast.tv.ui.components.HiddenTitles.ids.collectAsStateWithLifecycle()
     val label = listOfNotNull(
-        grid.query.genres.takeIf { it.isNotEmpty() }?.joinToString(" + "),
+        (grid.query.genres + grid.query.notGenres.map { "not $it" }).takeIf { it.isNotEmpty() }?.joinToString(" + "),
         grid.query.country,
         grid.query.language,
     ).joinToString(" · ")

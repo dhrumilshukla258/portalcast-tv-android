@@ -229,6 +229,7 @@ interface ApiService {
         @Query("theme") theme: String? = null,
         @Query("network") network: String? = null,
         @Query("page") page: Int = 1,
+        @Query("notGenre") notGenre: String? = null,
     ): DiscoverBrowseResponse
 
     @GET("api/v2/discover/recommendations")

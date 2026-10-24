@@ -74,6 +74,16 @@ data class DiscoverQuery(
     val language: String? = null,
     val theme: String? = null,
     val network: String? = null,
+    /** Genres a title must not have ("not Horror"). Older servers ignore them. */
+    val notGenres: List<String> = emptyList(),
 ) {
     val genreParam: String? get() = genres.takeIf { it.isNotEmpty() }?.joinToString(",")
+    val notGenreParam: String? get() = notGenres.takeIf { it.isNotEmpty() }?.joinToString(",")
+
+    /** A genre pressed in the list, as on the web: required, then left out, then off. */
+    fun cycleGenre(value: String): DiscoverQuery = when (value) {
+        in genres -> copy(genres = genres - value, notGenres = notGenres + value)
+        in notGenres -> copy(notGenres = notGenres - value)
+        else -> copy(genres = genres + value)
+    }
 }
