@@ -38,6 +38,10 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
+        // Android 7.1+ only: older versions draw no gradients in a vector drawable (the P and
+        // its arcs would be invisible) and run the animation on the main thread, where startup
+        // work makes it jump. They open straight into the app.
+        if (Build.VERSION.SDK_INT < 25) Intro.shown = true
         if (!Intro.shown) {
             Intro.shown = true
             // An AnimatedVectorDrawable in a plain View, not Compose: Android runs it on the
@@ -53,14 +57,10 @@ class MainActivity : ComponentActivity() {
             val avd = view.drawable as? AnimatedVectorDrawable
             // Removed when it ends: it starts at its first frame, which can come seconds after
             // this on a slow start. It is transparent by then, so a late removal shows nothing.
-            if (avd != null && Build.VERSION.SDK_INT >= 23) {
-                avd.registerAnimationCallback(object : Animatable2.AnimationCallback() {
-                    override fun onAnimationEnd(drawable: Drawable?) { endIntro() }
-                })
-                view.postDelayed({ endIntro() }, INTRO_MS + 8_000) // a safety net only
-            } else {
-                view.postDelayed({ endIntro() }, INTRO_MS + 1_500)
-            }
+            avd?.registerAnimationCallback(object : Animatable2.AnimationCallback() {
+                override fun onAnimationEnd(drawable: Drawable?) { endIntro() }
+            })
+            view.postDelayed({ endIntro() }, INTRO_MS + 8_000) // a safety net only
             avd?.start()
         }
     }
