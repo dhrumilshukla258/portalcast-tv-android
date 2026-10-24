@@ -22,9 +22,11 @@ object AnswerVersions {
         private set
 
     private val CATALOG_PATHS = Regex(
-        "^/api/v2/(discover/(facets|details|variants|browse|rows|recommendations)|people/\\d+|search/people|movie-groups|series-groups|groups|movies|series)$",
+        "^/api/v2/(discover/(facets|details|variants|browse)|people/\\d+|search/people|movie-groups|series-groups|groups|movies|series)$",
     )
-    private const val HOME_PATH = "/api/v2/home"
+    /** Personal answers: kept by the Home version, which moves with the viewer's history (rows and
+     *  recommendations kept by the catalog version stayed until the catalog next changed). */
+    private val PERSONAL_PATHS = Regex("^/api/v2/(home|discover/(rows|recommendations))$")
     private val TITLE_PARAMS = listOf("seasonId", "episodeId")
 
     /** From a network answer of the server. */
@@ -41,7 +43,7 @@ object AnswerVersions {
         if (url.queryParameter("v") != null) return request
         val path = url.encodedPath
         val version = when {
-            path == HOME_PATH -> home
+            PERSONAL_PATHS.matches(path) -> home
             CATALOG_PATHS.matches(path) -> catalog
             else -> null
         } ?: return request

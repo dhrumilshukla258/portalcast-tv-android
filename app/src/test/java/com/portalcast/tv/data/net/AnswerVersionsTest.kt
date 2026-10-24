@@ -32,6 +32,14 @@ class AnswerVersionsTest {
     }
 
     @Test
+    fun `rows and recommendations are kept by the Home version, not the catalog's`() {
+        AnswerVersions.report(answer("http://s/api/v2/health", "X-Catalog-Version" to "c1", "X-Home-Version" to "h1"))
+        assertEquals("h1", AnswerVersions.pin(req("http://s/api/v2/discover/recommendations?type=movie")).url.queryParameter("v"))
+        assertEquals("h1", AnswerVersions.pin(req("http://s/api/v2/discover/rows")).url.queryParameter("v"))
+        assertEquals("c1", AnswerVersions.pin(req("http://s/api/v2/discover/facets")).url.queryParameter("v"))
+    }
+
+    @Test
     fun `a title's own answer never carries the version (play links)`() {
         AnswerVersions.report(answer("http://s/api/v2/health", "X-Catalog-Version" to "c1", "X-Home-Version" to "h1"))
         assertNull(AnswerVersions.pin(req("http://s/api/v2/movies?movieId=123&category=*")).url.queryParameter("v"))
