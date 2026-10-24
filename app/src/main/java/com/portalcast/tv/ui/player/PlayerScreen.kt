@@ -4,6 +4,7 @@ package com.portalcast.tv.ui.player
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -38,6 +39,7 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
@@ -94,6 +96,8 @@ fun PlayerScreen(
     var controlsFocused by remember { mutableStateOf(false) }
     var nextFocused by remember { mutableStateOf(false) }
     var controlsTick by remember { mutableIntStateOf(0) }
+    // OK / play-pause on the remote: a big icon of the new state that grows and fades (Netflix).
+    var flash by remember { mutableStateOf(Flash(playing = true, nonce = 0)) }
     // Focus to move once the target is composed (the row appears with the overlay).
     var focusTarget by remember { mutableStateOf<FocusRequester?>(null) }
 
@@ -189,13 +193,17 @@ fun PlayerScreen(
                 val held = event.nativeKeyEvent.repeatCount > 0
                 val step = PlayerViewModel.SEEK_STEP_MS
                 when (event.key) {
-                    Key.DirectionCenter, Key.Enter, Key.NumPadEnter, Key.MediaPlayPause -> { vm.togglePlayPause(); true }
-                    Key.MediaPlay -> { vm.play(); true }
-                    Key.MediaPause -> { vm.pause(); true }
+                    Key.DirectionCenter, Key.Enter, Key.NumPadEnter, Key.MediaPlayPause -> {
+                        if (!live) flash = Flash(playing = !(state.status == PlayerStatus.Playing || state.status == PlayerStatus.Buffering), nonce = flash.nonce + 1)
+                        vm.togglePlayPause(); true
+                    }
+                    Key.MediaPlay -> { if (!live) flash = Flash(playing = true, nonce = flash.nonce + 1); vm.play(); true }
+                    Key.MediaPause -> { if (!live) flash = Flash(playing = false, nonce = flash.nonce + 1); vm.pause(); true }
                     Key.MediaStop -> { exit(); true }
                     Key.DirectionLeft, Key.MediaRewind -> { if (live) vm.showOverlay() else if (held) vm.scrubHeld(forward = false) else vm.seekBy(-step); true }
                     Key.DirectionRight, Key.MediaFastForward -> { if (live) vm.showOverlay() else if (held) vm.scrubHeld(forward = true) else vm.seekBy(step); true }
-                    // Up/Down bring up the control row for movies/episodes (focus on play/pause).
+                    // Movies/episodes: the bar has focus (Left/Right seek, OK pauses); Up goes to
+                    // the buttons above it, as on Netflix.
                     Key.DirectionUp -> { if (live) vm.channelStep(-LIVE_DOWN_KEY_DELTA) else enterControls(); true }
                     Key.Captions -> { if (!live) vm.openSubtitlePanel(); true }
                     Key.DirectionDown -> {
@@ -203,7 +211,7 @@ fun PlayerScreen(
                             live -> vm.channelStep(LIVE_DOWN_KEY_DELTA)
                             // Near the end with the row hidden, Down picks the floating "Next episode".
                             state.showNextEpisode && !state.overlayVisible -> runCatching { nextFocus.requestFocus() }
-                            else -> enterControls()
+                            else -> vm.showOverlay()
                         }
                         true
                     }
@@ -254,7 +262,7 @@ fun PlayerScreen(
             }
             session != null -> {
                 if (state.overlayVisible) {
-                    VodOverlay(state) {
+                    VodOverlay(state, barFocused = !controlsFocused) {
                         PlayerControlRow(
                             state = state,
                             vm = vm,
@@ -280,9 +288,36 @@ fun PlayerScreen(
         }
 
         if (!hasError) StatusPills(state)
+        if (!hasError) PlayPauseFlash(flash)
         state.subtitleText?.let { SubtitleLine(it) }
         state.subtitlePanel?.let { SubtitlePanel(it, state.subtitleDelayMs, state.externalSubtitles, vm) }
 
+    }
+}
+
+/** The play/pause flash: the state it shows and a counter that restarts it on every press. */
+private data class Flash(val playing: Boolean, val nonce: Int)
+
+@Composable
+private fun BoxScope.PlayPauseFlash(flash: Flash) {
+    if (flash.nonce == 0) return
+    val progress = remember { androidx.compose.animation.core.Animatable(1f) }
+    LaunchedEffect(flash.nonce) {
+        progress.snapTo(0f)
+        progress.animateTo(1f, androidx.compose.animation.core.tween(650, easing = androidx.compose.animation.core.LinearOutSlowInEasing))
+    }
+    val t = progress.value
+    if (t >= 1f) return
+    Box(
+        Modifier
+            .align(Alignment.Center)
+            .size(112.dp)
+            .graphicsLayer { val scale = 0.85f + 0.45f * t; scaleX = scale; scaleY = scale; alpha = 1f - t }
+            .clip(androidx.compose.foundation.shape.CircleShape)
+            .background(Color.Black.copy(alpha = 0.45f)),
+        contentAlignment = Alignment.Center,
+    ) {
+        androidx.tv.material3.Icon(if (flash.playing) PlayerIcons.Play else PlayerIcons.Pause, contentDescription = null, modifier = Modifier.size(56.dp), tint = Color.White)
     }
 }
 
@@ -328,7 +363,7 @@ private fun Pill(text: String, modifier: Modifier = Modifier, color: Color = App
 }
 
 @Composable
-private fun BoxScope.VodOverlay(state: PlayerUiState, controlRow: @Composable () -> Unit) {
+private fun BoxScope.VodOverlay(state: PlayerUiState, barFocused: Boolean, controlRow: @Composable () -> Unit) {
     val session = state.session ?: return
     val (title, subtitle) = when (session) {
         is PlaybackSession.Movie -> session.item.displayTitle to listOfNotNull(session.item.displayYear, session.item.displayGenres).joinToString(" · ")
@@ -359,14 +394,18 @@ private fun BoxScope.VodOverlay(state: PlayerUiState, controlRow: @Composable ()
         if (subtitle.isNotBlank()) Text(subtitle, style = MaterialTheme.typography.bodyLarge, color = AppColors.TextMuted)
         // What the decoder is actually playing: small and quiet, for whoever wants it.
         state.videoStats?.let { Text(it, style = MaterialTheme.typography.labelMedium, color = AppColors.TextMuted.copy(alpha = 0.7f), modifier = Modifier.padding(top = 2.dp)) }
-        Spacer(Modifier.height(if (scrub != null) 44.dp else 18.dp))
+        // Netflix's order: the buttons, then the bar, then the times under it.
+        Spacer(Modifier.height(10.dp))
+        controlRow()
+        Spacer(Modifier.height(if (scrub != null) 40.dp else 8.dp))
         ProgressBar(
             fraction = if (state.durationMs > 0) shownMs.toFloat() / state.durationMs else 0f,
             buffered = if (state.durationMs > 0) state.bufferedMs.toFloat() / state.durationMs else 0f,
+            focused = barFocused,
             // Where the bar is going and how far that is from where the picture is.
             scrubLabel = scrub?.let { "${formatTime(it)}  ·  ${if (it >= state.positionMs) "+" else "−"}${formatTime(kotlin.math.abs(it - state.positionMs))}" },
         )
-        Spacer(Modifier.height(10.dp))
+        Spacer(Modifier.height(8.dp))
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
             Text(formatTime(shownMs), style = MaterialTheme.typography.bodyMedium, color = AppColors.Text)
             Text(
@@ -374,32 +413,32 @@ private fun BoxScope.VodOverlay(state: PlayerUiState, controlRow: @Composable ()
                 style = MaterialTheme.typography.bodyMedium, color = AppColors.TextMuted,
             )
         }
-        Spacer(Modifier.height(12.dp))
-        controlRow()
     }
 }
 
 /**
- * Thin at rest; while Left/Right is held it grows, with a handle and, above it, where it will
- * land ([scrubLabel]).
+ * The seek bar. With focus ([focused]: Left/Right seek, OK pauses) it is brighter, with a big
+ * white handle ringed in the focus colour, like the focused buttons; held Left/Right grows it and
+ * shows where it will land ([scrubLabel]). Without focus it is thin, with a small handle.
  */
 @Composable
-private fun ProgressBar(fraction: Float, buffered: Float, scrubLabel: String? = null) {
+private fun ProgressBar(fraction: Float, buffered: Float, focused: Boolean = false, scrubLabel: String? = null) {
     val f = fraction.coerceIn(0f, 1f)
-    val barHeight = if (scrubLabel != null) 8.dp else 4.dp
+    val barHeight = if (scrubLabel != null) 8.dp else if (focused) 6.dp else 3.dp
     androidx.compose.foundation.layout.BoxWithConstraints(Modifier.fillMaxWidth().height(20.dp), contentAlignment = Alignment.CenterStart) {
         val x = maxWidth * f
         Box(Modifier.fillMaxWidth().height(barHeight).clip(RoundedCornerShape(barHeight / 2)).background(Color.White.copy(alpha = 0.22f))) {
             Box(Modifier.fillMaxHeight().fillMaxWidth(buffered.coerceIn(0f, 1f)).background(Color.White.copy(alpha = 0.35f)))
             Box(Modifier.fillMaxHeight().fillMaxWidth(f).background(AppColors.Primary))
         }
-        val knob = if (scrubLabel != null) 18.dp else 12.dp
+        val knob = if (scrubLabel != null) 22.dp else if (focused) 20.dp else 10.dp
         Box(
             Modifier
                 .offset(x = (x - knob / 2).coerceAtLeast(0.dp))
                 .size(knob)
                 .clip(androidx.compose.foundation.shape.CircleShape)
-                .background(Color.White),
+                .background(Color.White)
+                .then(if (focused || scrubLabel != null) Modifier.border(3.dp, AppColors.Focus, androidx.compose.foundation.shape.CircleShape) else Modifier),
         )
         if (scrubLabel != null) {
             // The bubble follows the handle and stays on screen at either end.

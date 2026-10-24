@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
@@ -52,7 +53,7 @@ private fun icon(name: String, path: String) = ImageVector.Builder(name, 24.dp, 
     .addPath(addPathNodes(path), fill = SolidColor(Color.White))
     .build()
 
-private object PlayerIcons {
+internal object PlayerIcons {
     val Play = icon("play", "M8,5v14l11,-7z")
     val Pause = icon("pause", "M6,19h4V5H6v14zM14,5v14h4V5h-4z")
     val Replay = icon("replay", "M12,5V1L7,6l5,5V7c3.31,0 6,2.69 6,6s-2.69,6 -6,6 -6,-2.69 -6,-6H4c0,4.42 3.58,8 8,8s8,-3.58 8,-8 -3.58,-8 -8,-8z")
@@ -72,12 +73,13 @@ class PlayerControlFocus {
 }
 
 /**
- * Jellyfin-style control row under the progress bar: back 10 s, play/pause, forward 10 s and
- * next episode on the left; subtitles (CC) and audio on the right, each opening a popup above
- * it. Left/Right move between buttons, OK presses one, Up (or Back) returns to the video.
+ * Netflix-style row of small buttons at the bottom left, ABOVE the progress bar: play/pause,
+ * back 10 s, forward 10 s, next episode, subtitles (CC) and audio; the focused one's name shows
+ * above it. Left/Right move between buttons, OK presses one, Down (or Back) returns to the bar
+ * (owner, 2026-10-24: the big centre buttons covered the picture).
  *
  * @param onActivity any key while a button has focus (keeps the row up).
- * @param onLeave Up from the row: focus goes back to the video.
+ * @param onLeave Down from the row: focus goes back to the bar.
  */
 @Composable
 fun PlayerControlRow(
@@ -91,43 +93,43 @@ fun PlayerControlRow(
     val playing = state.status == PlayerStatus.Playing || state.status == PlayerStatus.Buffering
     val step = PlayerViewModel.SEEK_STEP_MS
     val hasNext = (state.session as? PlaybackSession.Episode)?.nextEpisode != null
-    // Play, seek and next episode in the centre; subtitles and audio at the far right (owner,
-    // 2026-10-22).
-    Box(
+    Row(
         Modifier
             .fillMaxWidth()
             .onFocusChanged { onFocusChanged(it.hasFocus) }
             .onPreviewKeyEvent { e ->
                 if (e.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
                 onActivity()
-                if (e.key == Key.DirectionUp) { onLeave(); true } else false
+                when (e.key) {
+                    Key.DirectionDown -> { onLeave(); true }
+                    Key.DirectionUp -> true // nothing above the row
+                    else -> false
+                }
             },
+        verticalAlignment = Alignment.Bottom,
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
     ) {
-      Row(Modifier.align(Alignment.TopCenter), verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-        ControlButton("Back ${step / 1000} s", onClick = { vm.seekBy(-step) }) { SeekIcon(forward = false, seconds = step / 1000) }
-        ControlButton(if (playing) "Pause" else "Play", onClick = vm::togglePlayPause, modifier = Modifier.focusRequester(focus.playPause), large = true) {
-            Icon(if (playing) PlayerIcons.Pause else PlayerIcons.Play, contentDescription = null, modifier = Modifier.size(30.dp))
+        ControlButton(if (playing) "Pause" else "Play", onClick = vm::togglePlayPause, modifier = Modifier.focusRequester(focus.playPause)) {
+            Icon(if (playing) PlayerIcons.Pause else PlayerIcons.Play, contentDescription = null, modifier = Modifier.size(24.dp))
         }
+        ControlButton("Back ${step / 1000} s", onClick = { vm.seekBy(-step) }) { SeekIcon(forward = false, seconds = step / 1000) }
         ControlButton("Forward ${step / 1000} s", onClick = { vm.seekBy(step) }) { SeekIcon(forward = true, seconds = step / 1000) }
         if (hasNext) {
-            ControlButton("Next episode", onClick = vm::playNextEpisode) { Icon(PlayerIcons.SkipNext, contentDescription = null, modifier = Modifier.size(26.dp)) }
+            ControlButton("Next episode", onClick = vm::playNextEpisode) { Icon(PlayerIcons.SkipNext, contentDescription = null, modifier = Modifier.size(22.dp)) }
         }
-      }
-      Row(Modifier.align(Alignment.TopEnd), verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
         ControlButton(
             if (state.externalSubtitles) "Subtitles · online" else "Subtitles",
             onClick = { vm.openSubtitlePanel() },
             modifier = Modifier.focusRequester(focus.subtitles),
             active = state.externalSubtitles,
-        ) { Icon(PlayerIcons.ClosedCaption, contentDescription = null, modifier = Modifier.size(26.dp)) }
+        ) { Icon(PlayerIcons.ClosedCaption, contentDescription = null, modifier = Modifier.size(22.dp)) }
         ControlButton("Audio", onClick = { vm.openSubtitlePanel(audioOnly = true) }, modifier = Modifier.focusRequester(focus.audio)) {
-            Icon(PlayerIcons.Audio, contentDescription = null, modifier = Modifier.size(24.dp))
+            Icon(PlayerIcons.Audio, contentDescription = null, modifier = Modifier.size(20.dp))
         }
-      }
     }
 }
 
-/** A round icon button with its name under it while focused (the slot keeps its height). */
+/** A small round icon button with its name ABOVE it while focused (the slot keeps its height). */
 @Composable
 private fun ControlButton(
     label: String,
@@ -138,8 +140,22 @@ private fun ControlButton(
     content: @Composable () -> Unit,
 ) {
     var focused by remember { mutableStateOf(false) }
-    val size = if (large) 56.dp else 46.dp
-    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.width(110.dp)) {
+    val size = if (large) 48.dp else 40.dp
+    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.width(64.dp)) {
+        // The name sits above, wider than the slot, so it can be read over the picture.
+        Box(Modifier.height(24.dp).width(64.dp), contentAlignment = Alignment.BottomCenter) {
+            if (focused) {
+                Text(
+                    label,
+                    style = MaterialTheme.typography.labelMedium,
+                    color = AppColors.Text,
+                    maxLines = 1,
+                    softWrap = false,
+                    modifier = Modifier.wrapContentWidth(unbounded = true),
+                )
+            }
+        }
+        Spacer(Modifier.height(4.dp))
         Surface(
             onClick = onClick,
             modifier = modifier.size(size).onFocusChanged { focused = it.isFocused },
@@ -147,7 +163,7 @@ private fun ControlButton(
             scale = ClickableSurfaceDefaults.scale(focusedScale = 1.12f),
             border = ClickableSurfaceDefaults.border(focusedBorder = Border(BorderStroke(2.dp, AppColors.Focus), shape = CircleShape)),
             colors = ClickableSurfaceDefaults.colors(
-                containerColor = Color.White.copy(alpha = 0.14f),
+                containerColor = Color.Transparent,
                 contentColor = AppColors.Text,
                 focusedContainerColor = AppColors.Primary,
                 focusedContentColor = AppColors.OnPrimary,
@@ -162,13 +178,6 @@ private fun ControlButton(
                 .size(width = 18.dp, height = 3.dp)
                 .background(if (active) AppColors.Primary else Color.Transparent, RoundedCornerShape(2.dp)),
         )
-        Text(
-            if (focused) label else "",
-            style = MaterialTheme.typography.labelMedium,
-            color = AppColors.Text,
-            maxLines = 1,
-            modifier = Modifier.padding(top = 2.dp).height(18.dp),
-        )
     }
 }
 
@@ -179,7 +188,7 @@ private fun SeekIcon(forward: Boolean, seconds: Long) {
         Icon(
             PlayerIcons.Replay,
             contentDescription = null,
-            modifier = Modifier.size(28.dp).graphicsLayer { scaleX = if (forward) -1f else 1f },
+            modifier = Modifier.size(24.dp).graphicsLayer { scaleX = if (forward) -1f else 1f },
         )
         Text(seconds.toString(), fontSize = 8.sp, fontWeight = FontWeight.Bold, modifier = Modifier.offset(y = 2.dp))
     }
