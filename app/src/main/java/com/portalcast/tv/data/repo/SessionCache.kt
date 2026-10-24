@@ -51,7 +51,7 @@ internal class SessionCache<T : Any>(
     suspend fun get(forceRefresh: Boolean = false, load: suspend () -> Result<T>): Result<T> {
         if (!forceRefresh) peek()?.let { return Result.success(it) }
         if (!forceRefresh && stored != null) {
-            stored.disk.read(stored.namespace, "", stored.serializer)?.let { v ->
+            stored.disk.read(stored.namespace, stored.key(""), stored.serializer)?.let { v ->
                 put(v)
                 revalidate(load)
                 return Result.success(v)
@@ -61,7 +61,7 @@ internal class SessionCache<T : Any>(
             if (!forceRefresh) peek()?.let { return@withLock Result.success(it) }
             load().onSuccess { v ->
                 put(v)
-                stored?.let { st -> st.disk.write(st.namespace, "", st.serializer, v) }
+                stored?.let { st -> st.disk.write(st.namespace, st.key(""), st.serializer, v) }
             }
         }
     }
@@ -75,7 +75,7 @@ internal class SessionCache<T : Any>(
             try {
                 load().onSuccess { v ->
                     put(v)
-                    if (st.disk.write(st.namespace, "", st.serializer, v)) st.disk.changed(st.namespace)
+                    if (st.disk.write(st.namespace, st.key(""), st.serializer, v)) st.disk.changed(st.namespace)
                 }
             } finally {
                 revalidating = false

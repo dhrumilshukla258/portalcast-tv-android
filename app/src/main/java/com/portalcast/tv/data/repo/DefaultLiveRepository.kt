@@ -30,8 +30,8 @@ class DefaultLiveRepository(
     // Each in its own slot: both were stored as (NS, "") and overwrote each other, and channels
     // read back as groups (a group shows its "name") filled the Live TV column with channel names
     // ("21 Jump Street FHD") after a restart (owner, 2026-10-24).
-    private val groupsCache = SessionCache(session, clock = clock, stored = disk?.let { Stored(it, GROUPS_NS, ListSerializer(ChannelGroup.serializer())) })
-    private val channelsCache = SessionCache(session, clock = clock, stored = disk?.let { Stored(it, CHANNELS_NS, ListSerializer(Channel.serializer())) })
+    private val groupsCache = SessionCache(session, clock = clock, stored = disk?.let { Stored(it, GROUPS_NS, "groups", ListSerializer(ChannelGroup.serializer())) })
+    private val channelsCache = SessionCache(session, clock = clock, stored = disk?.let { Stored(it, CHANNELS_NS, "channels", ListSerializer(Channel.serializer())) })
     private val epgCache = SessionCache<EpgData>(session, ttlMs = EPG_TTL_MS, clock = clock)
     @Volatile private var windowUnsupported = false
 

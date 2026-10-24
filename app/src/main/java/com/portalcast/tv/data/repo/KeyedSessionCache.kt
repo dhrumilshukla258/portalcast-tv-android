@@ -52,7 +52,7 @@ internal class KeyedSessionCache<K : Any, V : Any>(
     suspend fun get(key: K, forceRefresh: Boolean = false, load: suspend () -> Result<V>): Result<V> {
         if (!forceRefresh) peek(key)?.let { return Result.success(it) }
         if (!forceRefresh && stored != null) {
-            stored.disk.read(stored.namespace, key.toString(), stored.serializer)?.let { v ->
+            stored.disk.read(stored.namespace, stored.key(key.toString()), stored.serializer)?.let { v ->
                 put(key, v)
                 revalidate(key, load)
                 return Result.success(v)
@@ -75,7 +75,7 @@ internal class KeyedSessionCache<K : Any, V : Any>(
             result.onSuccess { entries[key] = Entry(sessionKey(), clock(), it) }
             if (inFlight[key] === deferred) inFlight.remove(key)
         }
-        if (stored != null) result.onSuccess { stored.disk.write(stored.namespace, key.toString(), stored.serializer, it) }
+        if (stored != null) result.onSuccess { stored.disk.write(stored.namespace, stored.key(key.toString()), stored.serializer, it) }
         deferred.complete(result)
         return result
     }
@@ -88,7 +88,7 @@ internal class KeyedSessionCache<K : Any, V : Any>(
             try {
                 load().onSuccess { v ->
                     put(key, v)
-                    if (st.disk.write(st.namespace, key.toString(), st.serializer, v)) st.disk.changed(st.namespace)
+                    if (st.disk.write(st.namespace, st.key(key.toString()), st.serializer, v)) st.disk.changed(st.namespace)
                 }
             } finally {
                 synchronized(lock) { revalidating.remove(key) }

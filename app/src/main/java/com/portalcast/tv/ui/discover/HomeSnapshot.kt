@@ -22,20 +22,30 @@ data class HomeSnapshot(
     val savedAt: Long = 0,
 )
 
-/** Files in the app's private storage; a broken or old file is simply not used. */
-class HomeSnapshotStore(private val dir: File) {
-    private fun file(key: String) = File(dir, "home-${key.replace(Regex("[^a-z]"), "")}.json")
+/**
+ * Files in the app's private storage; a broken or old file is simply not used. Named by user,
+ * server and kind ([identity] as in DiskCache): a file left by someone else (signed out while the
+ * app was not running) is never shown to the next person; signed out, nothing is read or written.
+ */
+class HomeSnapshotStore(private val dir: File, private val identity: () -> String? = { null }) {
+    private fun file(key: String): File? {
+        val id = identity() ?: return null
+        val digest = java.security.MessageDigest.getInstance("SHA-1").digest("$id\u0000home\u0000$key".toByteArray())
+        return File(dir, "home-" + digest.joinToString("") { "%02x".format(it) } + ".json")
+    }
 
     fun read(key: String): HomeSnapshot? = runCatching {
-        AppJson.decodeFromString(HomeSnapshot.serializer(), file(key).readText())
+        val f = file(key) ?: return null
+        AppJson.decodeFromString(HomeSnapshot.serializer(), f.readText())
     }.getOrNull()
 
     fun write(key: String, snapshot: HomeSnapshot) {
+        val f = file(key) ?: return
         runCatching {
             dir.mkdirs()
-            val tmp = File(dir, "${file(key).name}.tmp")
+            val tmp = File(dir, "${f.name}.tmp")
             tmp.writeText(AppJson.encodeToString(HomeSnapshot.serializer(), snapshot))
-            tmp.renameTo(file(key))
+            tmp.renameTo(f)
         }
     }
 

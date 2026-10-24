@@ -29,10 +29,10 @@ class DefaultDiscoverRepository(
     // are per user but just as stable over that window.
     private val facetsCache = KeyedSessionCache<String, DiscoverFacets>(session, maxEntries = 4)
     // Pages, versions and More Like This also kept in storage (DiskCache).
-    private val browseCache = KeyedSessionCache<String, DiscoverBrowseResponse>(session, stored = disk?.let { Stored(it, NS, DiscoverBrowseResponse.serializer()) })
+    private val browseCache = KeyedSessionCache<String, DiscoverBrowseResponse>(session, stored = disk?.let { Stored(it, NS, "browse", DiscoverBrowseResponse.serializer()) })
     private val recsCache = KeyedSessionCache<String, RecommendationsResponse>(session, maxEntries = 4)
     private val homeCache = KeyedSessionCache<String, HomeResponse>(session, maxEntries = 4)
-    private val variantsCache = KeyedSessionCache<String, List<MediaItem>>(session, maxEntries = 60, stored = disk?.let { Stored(it, "$NS.variants", ListSerializer(MediaItem.serializer())) })
+    private val variantsCache = KeyedSessionCache<String, List<MediaItem>>(session, maxEntries = 60, stored = disk?.let { Stored(it, "$NS.variants", "variants", ListSerializer(MediaItem.serializer())) })
 
     fun clearCaches() { facetsCache.clear(); browseCache.clear(); recsCache.clear(); homeCache.clear(); variantsCache.clear(); similarCache.clear() }
 
@@ -61,7 +61,7 @@ class DefaultDiscoverRepository(
         recsCache.get(type.orEmpty()) { apiCall(ApiPaths.DISCOVER_RECOMMENDATIONS) { api.discoverRecommendations(type) } }
 
     // More Like This changes only with the catalog: kept like Discover's other answers.
-    private val similarCache = KeyedSessionCache<String, List<MediaItem>>(session, maxEntries = 30, stored = disk?.let { Stored(it, "$NS.similar", ListSerializer(MediaItem.serializer())) })
+    private val similarCache = KeyedSessionCache<String, List<MediaItem>>(session, maxEntries = 30, stored = disk?.let { Stored(it, "$NS.similar", "similar", ListSerializer(MediaItem.serializer())) })
 
     override suspend fun similar(contentId: String): Result<List<MediaItem>> =
         similarCache.get(contentId) { apiCall(ApiPaths.SIMILAR) { api.similar(contentId).data } }

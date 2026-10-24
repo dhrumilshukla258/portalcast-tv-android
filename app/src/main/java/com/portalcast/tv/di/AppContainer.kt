@@ -64,7 +64,7 @@ class AppContainer(app: Application) {
     )
 
     /** The last Home seen, shown at once on a cold start (ui/discover/HomeSnapshot.kt). */
-    val homeSnapshots = com.portalcast.tv.ui.discover.HomeSnapshotStore(java.io.File(app.filesDir, "home-snapshots"))
+    val homeSnapshots = com.portalcast.tv.ui.discover.HomeSnapshotStore(java.io.File(app.filesDir, "home-snapshots"), identity = { sessionStore.session.value?.user?.id?.let { "$it@${sessionStore.serverUrl.value}" } })
         .also { store ->
             // Signed out (or a new server): the saved Home and pages go, so the next viewer never
             // sees them.

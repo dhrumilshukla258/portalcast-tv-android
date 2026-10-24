@@ -26,13 +26,13 @@ class StoredCacheTest {
         val ser = ListSerializer(String.serializer())
 
         // First run: the server's answer is returned and stored.
-        val first = KeyedSessionCache<String, List<String>>(null, stored = Stored(disk(dir), "series", ser))
+        val first = KeyedSessionCache<String, List<String>>(null, stored = Stored(disk(dir), "series", "seasons", ser))
         assertEquals(listOf("S1"), first.get("seasons|42") { Result.success(listOf("S1")) }.getOrThrow())
 
         // "Restart": a new cache over the same folder. The stored copy comes back without waiting
         // for the server, which now has a second season.
         val store = disk(dir)
-        val second = KeyedSessionCache<String, List<String>>(null, stored = Stored(store, "series", ser))
+        val second = KeyedSessionCache<String, List<String>>(null, stored = Stored(store, "series", "seasons", ser))
         // Listening before the check starts (UNDISPATCHED): a check that finishes first would
         // otherwise announce the change before anyone listens (it timed out on a fast CI machine).
         val changed = async(start = CoroutineStart.UNDISPATCHED) { withTimeout(5_000) { store.updates.first() } }
@@ -44,16 +44,16 @@ class StoredCacheTest {
         assertEquals("series", changed.await())
         assertEquals(1, asked)
         assertEquals(listOf("S1", "S2"), second.peek("seasons|42"))
-        assertEquals(listOf("S1", "S2"), store.read("series", "seasons|42", ser))
+        assertEquals(listOf("S1", "S2"), store.read("series", Stored(store, "series", "seasons", ser).key("seasons|42"), ser))
     }
 
     @Test
     fun `another account never sees what was stored`() = runBlocking {
         val dir = Files.createTempDirectory("pc-store").toFile()
         val ser = ListSerializer(String.serializer())
-        KeyedSessionCache<String, List<String>>(null, stored = Stored(disk(dir, "1@s"), "live", ser)).get("k") { Result.success(listOf("mine")) }
-        assertEquals(null, disk(dir, "2@s").read("live", "k", ser))
-        assertEquals(null, disk(dir, null).read("live", "k", ser))
+        KeyedSessionCache<String, List<String>>(null, stored = Stored(disk(dir, "1@s"), "live", "test", ser)).get("k") { Result.success(listOf("mine")) }
+        assertEquals(null, disk(dir, "2@s").read("live", Stored(disk(dir, "2@s"), "live", "test", ser).key("k"), ser))
+        assertEquals(null, disk(dir, null).read("live", Stored(disk(dir, null), "live", "test", ser).key("k"), ser))
         assertTrue(dir.listFiles()!!.isNotEmpty())
     }
 }

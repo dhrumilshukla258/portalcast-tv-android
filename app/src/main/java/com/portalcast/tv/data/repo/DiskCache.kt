@@ -90,5 +90,13 @@ class DiskCache(
     }
 }
 
-/** Turns on storage for one cache: its [namespace] (a kind of answer) and how to (de)serialize it. */
-class Stored<V>(val disk: DiskCache, val namespace: String, val serializer: KSerializer<V>)
+/**
+ * Turns on storage for one cache: its [namespace] (a kind of answer, announced on
+ * [DiskCache.updates]), its [slot] within it, and how to (de)serialize it. Every cache has its
+ * own slot, part of each file's key, so two caches of one kind never share a file: Live TV's
+ * groups and channels did (both kept under key ""), and channels showed up as groups.
+ */
+class Stored<V>(val disk: DiskCache, val namespace: String, val slot: String, val serializer: KSerializer<V>) {
+    /** The file key of [key] in this cache. */
+    fun key(key: String): String = "$slot\u0000$key"
+}

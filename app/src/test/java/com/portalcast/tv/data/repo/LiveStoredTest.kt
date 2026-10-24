@@ -7,6 +7,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.builtins.ListSerializer
+import kotlinx.serialization.builtins.serializer
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
 import org.junit.Test
@@ -31,14 +32,31 @@ class LiveStoredTest {
 
         // First run: groups, then channels, as Live TV loads them.
         val store = disk(dir)
-        SessionCache(null, stored = Stored(store, DefaultLiveRepository.GROUPS_NS, groupsSer)).get { Result.success(groups) }
-        SessionCache(null, stored = Stored(store, DefaultLiveRepository.CHANNELS_NS, channelsSer)).get { Result.success(channels) }
+        SessionCache(null, stored = Stored(store, DefaultLiveRepository.GROUPS_NS, "groups", groupsSer)).get { Result.success(groups) }
+        SessionCache(null, stored = Stored(store, DefaultLiveRepository.CHANNELS_NS, "channels", channelsSer)).get { Result.success(channels) }
 
         // "Restart": the stored copies are shown before the server answers.
         val again = disk(dir)
-        val shownGroups = SessionCache(null, stored = Stored(again, DefaultLiveRepository.GROUPS_NS, groupsSer)).get { Result.success(emptyList()) }.getOrThrow()
-        val shownChannels = SessionCache(null, stored = Stored(again, DefaultLiveRepository.CHANNELS_NS, channelsSer)).get { Result.success(emptyList()) }.getOrThrow()
+        val shownGroups = SessionCache(null, stored = Stored(again, DefaultLiveRepository.GROUPS_NS, "groups", groupsSer)).get { Result.success(emptyList()) }.getOrThrow()
+        val shownChannels = SessionCache(null, stored = Stored(again, DefaultLiveRepository.CHANNELS_NS, "channels", channelsSer)).get { Result.success(emptyList()) }.getOrThrow()
         assertEquals(listOf("ENGLISH TV SHOWS | 24/7"), shownGroups.map { it.displayTitle })
         assertEquals(listOf("21 Jump Street FHD"), shownChannels.map { it.name })
+    }
+}
+
+/** Two caches of one kind never share a file, even with the same key (Series' groups are kept
+ *  under "", and a season list of a series with an empty id would have overwritten them). */
+class StoredSlotTest {
+    @Test
+    fun `the same key in two slots of one kind stays apart`() = runBlocking {
+        val dir = Files.createTempDirectory("pc-slots").toFile()
+        val store = DiskCache(dir, AppJson, CoroutineScope(Dispatchers.Default), identity = { "1@http://server" })
+        val ser = ListSerializer(String.serializer())
+        val groups = Stored(store, "series", "groups", ser)
+        val seasons = Stored(store, "series", "seasons", ser)
+        store.write("series", groups.key(""), ser, listOf("a group"))
+        store.write("series", seasons.key(""), ser, listOf("a season"))
+        assertEquals(listOf("a group"), store.read("series", groups.key(""), ser))
+        assertEquals(listOf("a season"), store.read("series", seasons.key(""), ser))
     }
 }
