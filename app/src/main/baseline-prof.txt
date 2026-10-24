@@ -1,0 +1,5 @@
+# Baseline profile: compile all of the app's own code ahead of time at install, so screens
+# do not stutter while the JIT warms up (a fresh install showed the JIT thread busy and
+# janky frames). The libraries (Compose, Media3...) ship their own profiles; this adds ours.
+HSPLcom/portalcast/tv/**;->**(**)**
+Lcom/portalcast/tv/**;
