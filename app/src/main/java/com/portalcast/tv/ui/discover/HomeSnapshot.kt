@@ -4,6 +4,8 @@ import com.portalcast.tv.data.model.HomeResponse
 import com.portalcast.tv.data.model.MediaItem
 import com.portalcast.tv.data.model.ProgressRecord
 import com.portalcast.tv.data.net.AppJson
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
 import java.io.File
 
@@ -34,13 +36,15 @@ class HomeSnapshotStore(private val dir: File, private val identity: () -> Strin
         return File(dir, "home-" + digest.joinToString("") { "%02x".format(it) } + ".json")
     }
 
-    fun read(key: String): HomeSnapshot? = runCatching {
-        val f = file(key) ?: return null
-        AppJson.decodeFromString(HomeSnapshot.serializer(), f.readText())
-    }.getOrNull()
+    // Off the main thread: reading and parsing a saved Home at a cold start held it while the
+    // first screen was being built (the TV drew 8 frames in the intro's 1.8 s).
+    suspend fun read(key: String): HomeSnapshot? = withContext(Dispatchers.IO) {
+        val f = file(key) ?: return@withContext null
+        runCatching { AppJson.decodeFromString(HomeSnapshot.serializer(), f.readText()) }.getOrNull()
+    }
 
-    fun write(key: String, snapshot: HomeSnapshot) {
-        val f = file(key) ?: return
+    suspend fun write(key: String, snapshot: HomeSnapshot) = withContext(Dispatchers.IO) {
+        val f = file(key) ?: return@withContext
         runCatching {
             dir.mkdirs()
             val tmp = File(dir, "${f.name}.tmp")

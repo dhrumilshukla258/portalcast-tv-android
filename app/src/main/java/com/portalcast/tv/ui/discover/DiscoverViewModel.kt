@@ -12,6 +12,7 @@ import com.portalcast.tv.data.repo.DiscoverRepository
 import com.portalcast.tv.data.repo.UserRepository
 import com.portalcast.tv.ui.components.userMessage
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.async
@@ -19,6 +20,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
 
@@ -171,16 +173,21 @@ class DiscoverViewModel(
         rowsJob = null
         val gen = ++generation
         val type = _state.value.type
-        // Cold start: the last Home seen, at once, while the fresh one loads (replaced below).
-        val snap = if (_state.value.rows.isEmpty()) snapshots?.read(type ?: "all") else null
-        val snapRows = snap?.let { rowsFrom(it.home, null, it.whatsNew, it.totalTitles, null) }.orEmpty()
-        _state.update {
-            it.copy(
-                loading = snapRows.isEmpty(), error = null, emptyHint = null, rows = snapRows,
-                continueWatching = if (it.continueWatching.isEmpty() && snap != null) continueEntries(snap.continueWatching, type) else it.continueWatching,
-            )
-        }
+        val cold = _state.value.rows.isEmpty()
+        _state.update { it.copy(loading = true, error = null, emptyHint = null, rows = emptyList()) }
         val scope = rowsScope()
+        // Cold start: the last Home seen, as soon as it is read (off the main thread), while the
+        // fresh one loads; never over fresh rows that arrived first.
+        if (cold) scope.launch {
+            val snap = snapshots?.read(type ?: "all") ?: return@launch
+            val snapRows = withContext(Dispatchers.Default) { rowsFrom(snap.home, null, snap.whatsNew, snap.totalTitles, null) }
+            val entries = withContext(Dispatchers.Default) { continueEntries(snap.continueWatching, type) }
+            if (gen != generation) return@launch
+            _state.update {
+                if (it.rows.isNotEmpty() || !it.loading) it.copy(continueWatching = it.continueWatching.ifEmpty { entries })
+                else it.copy(loading = snapRows.isEmpty(), rows = snapRows, continueWatching = it.continueWatching.ifEmpty { entries })
+            }
+        }
         scope.launch { loadContinueWatching() }
         scope.launch {
             // The server's prepared rows (GET /api/v2/home); an older server has none, and the
