@@ -77,9 +77,11 @@ fun IntroScreen(onDone: () -> Unit) {
                     }
                 }
                 // Symbol: translate(0 40) scale(.84) translate(-46 -52), slid right while it is alone.
+                // Compose scales around the pivot (translate(t + pivot) scale translate(-pivot)), so the
+                // logo's translation is t = (0, 40) - pivot = (-46, -12), not the pivot-less (-38.64, -3.68).
                 Group(
-                    translationX = -38.64f + slide / 1.1f,
-                    translationY = -3.68f,
+                    translationX = -46f + slide / 1.1f,
+                    translationY = -12f,
                     scaleX = 0.84f * (0.85f + 0.15f * p.value),
                     scaleY = 0.84f * (0.85f + 0.15f * p.value),
                     pivotX = 46f, pivotY = 52f,
