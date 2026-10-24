@@ -3,6 +3,7 @@ package com.portalcast.tv
 import android.graphics.drawable.Animatable2
 import android.graphics.drawable.AnimatedVectorDrawable
 import android.graphics.drawable.Drawable
+import android.media.MediaPlayer
 import android.os.Build
 import android.os.Bundle
 import android.view.ViewGroup
@@ -13,6 +14,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.core.view.doOnPreDraw
 import com.portalcast.tv.ui.nav.AppNavHost
 import com.portalcast.tv.ui.theme.PortalcastTheme
 
@@ -27,6 +29,9 @@ private const val INTRO_MS = 1840L
 class MainActivity : ComponentActivity() {
     /** The intro over the app while it plays; null once it is gone. */
     private var intro: ImageView? = null
+
+    /** The intro's tone (res/raw/intro_tone.wav, tools/gen_intro_tone.py), at the media volume. */
+    private var tone: MediaPlayer? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -62,10 +67,31 @@ class MainActivity : ComponentActivity() {
             })
             view.postDelayed({ endIntro() }, INTRO_MS + 8_000) // a safety net only
             avd?.start()
+            // The tone, loaded now and started on the intro's first frame (when the animation
+            // starts too), so they stay together however long the first frame takes.
+            tone = runCatching { MediaPlayer.create(this, R.raw.intro_tone) }.getOrNull()?.apply {
+                setOnCompletionListener { stopTone() }
+            }
+            view.doOnPreDraw { tone?.start() }
         }
     }
 
+    private fun stopTone() {
+        val t = tone ?: return
+        tone = null
+        runCatching { if (t.isPlaying) t.stop() }
+        t.release()
+    }
+
+    override fun onStop() {
+        super.onStop()
+        stopTone() // the app left during the intro: no sound in the background
+    }
+
     private fun endIntro() {
+        // A key skips the picture and the sound together; the end of the animation leaves the
+        // tone to finish its fade.
+        if (intro != null && tone?.isPlaying == true && (intro?.drawable as? AnimatedVectorDrawable)?.isRunning == true) stopTone()
         val view = intro ?: return
         intro = null
         (view.drawable as? AnimatedVectorDrawable)?.stop()

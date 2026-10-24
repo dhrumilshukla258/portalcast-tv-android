@@ -6,6 +6,7 @@ import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -156,6 +157,10 @@ fun HomeScreen(
     // The chip just chosen (Movies / Series / Cast): focus returns to it on the next screen.
     val chipRequesters = remember { SectionTabs.associateWith { FocusRequester() } }
     var chipFocus by remember { mutableStateOf<HomeTab?>(null) }
+    // Where focus waits, invisible, while a chip switches the section: the chip pressed leaves the
+    // screen with its section, and focus fell onto the Home tab for a frame or two (a visible
+    // flicker, owner 2026-10-24) before going to the new screen's chip.
+    val parking = remember { FocusRequester() }
     LaunchedEffect(chipFocus, tab) {
         val t = chipFocus ?: return@LaunchedEffect
         // Up to ~6 s: the next screen draws its chips once it has loaded, which after a server
@@ -253,6 +258,7 @@ fun HomeScreen(
 
     com.portalcast.tv.ui.components.IptvStatusPoller()
     Box(Modifier.fillMaxSize()) {
+        Box(Modifier.size(1.dp).focusRequester(parking).focusable())
         // No rotating backdrop behind the tabs (owner, 2026-10-22: a plain black-blue page).
         Column(Modifier.fillMaxSize()) {
             Row(
@@ -330,6 +336,7 @@ fun HomeScreen(
                             val next = if (t == current) HomeTab.DISCOVER else t
                             // The next screen draws its own chips: focus goes back onto this one.
                             chipFocus = t
+                            runCatching { parking.requestFocus() }
                             select(next)
                         },
                         modifier = Modifier.focusRequester(chipRequesters.getValue(t)),
