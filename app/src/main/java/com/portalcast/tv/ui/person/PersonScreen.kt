@@ -15,6 +15,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.layout.Box
 import com.portalcast.tv.ui.components.TvButton
+import com.portalcast.tv.ui.components.showWholeWhenFocused
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.foundation.layout.Arrangement
@@ -139,21 +140,25 @@ fun PersonScreen(id: Int, onOpenMovie: (MediaItem) -> Unit, onOpenSeries: (Media
             for (f in facts) Text(f, style = MaterialTheme.typography.bodyMedium, color = AppColors.TextMuted, modifier = Modifier.padding(top = 4.dp))
             p.biography?.let { bio ->
                 Spacer(Modifier.height(14.dp))
-                // 8 lines here; when it is longer, "Read more" opens all of it (owner, 2026-10-22:
-                // the end of long biographies was hidden and could not be scrolled to).
+                // 6 lines here; when it is longer, "Read more" opens all of it (owner, 2026-10-22:
+                // the end of long biographies was hidden and could not be scrolled to). 8 lines made
+                // the column taller than the screen: the photo went off the top and Read more sat
+                // half under the bottom edge (owner, 2026-10-23).
                 var cut by remember(bio) { mutableStateOf(false) }
                 var showBio by remember { mutableStateOf(false) }
                 Text(
                     bio,
                     style = MaterialTheme.typography.bodyMedium,
                     color = AppColors.Text,
-                    maxLines = 8,
+                    maxLines = 6,
                     overflow = TextOverflow.Ellipsis,
                     onTextLayout = { cut = it.hasVisualOverflow },
                 )
                 if (cut) {
-                    Spacer(Modifier.height(10.dp))
-                    TvButton(text = "Read more", onClick = { showBio = true })
+                    // Shown whole with room under it, focus ring included.
+                    Box(Modifier.showWholeWhenFocused().padding(top = 10.dp, bottom = 12.dp, start = 4.dp)) {
+                        TvButton(text = "Read more", onClick = { showBio = true })
+                    }
                 }
                 if (showBio) com.portalcast.tv.ui.components.ReadMoreDialog(p.name, bio, onDismiss = { showBio = false })
             }

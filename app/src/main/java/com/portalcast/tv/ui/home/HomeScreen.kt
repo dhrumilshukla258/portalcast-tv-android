@@ -155,7 +155,9 @@ fun HomeScreen(
     var chipFocus by remember { mutableStateOf<HomeTab?>(null) }
     LaunchedEffect(chipFocus, tab) {
         val t = chipFocus ?: return@LaunchedEffect
-        repeat(20) {
+        // Up to ~6 s: the next screen draws its chips once it has loaded, which after a server
+        // restart took over a second, and focus then fell to the Home tab (owner, 2026-10-23).
+        repeat(120) {
             withFrameNanos { }
             if (runCatching { chipRequesters.getValue(t).requestFocus() }.isSuccess) { chipFocus = null; return@LaunchedEffect }
             delay(40)
@@ -192,16 +194,12 @@ fun HomeScreen(
     // Focus recovery: when the focused element disappears (e.g. a Retry button replaced by the
     // content it loaded) nothing on screen has focus and the remote does nothing visible.
     // Move focus into the content (first focusable child), falling back to the tabs.
-    LaunchedEffect(contentFocused, tabsFocused, restorePending) {
-        if (current == null || contentFocused || tabsFocused || restorePending) return@LaunchedEffect
+    LaunchedEffect(contentFocused, tabsFocused, restorePending, chipFocus) {
+        if (current == null || contentFocused || tabsFocused || restorePending || chipFocus != null) return@LaunchedEffect
         delay(250)
         runCatching { contentRequester.requestFocus() }
         withFrameNanos { }
         if (!contentFocused && !tabsFocused) focusTabs()
-    }
-
-    BackHandler {
-        if (tabsFocused) (context as? Activity)?.finish() else focusTabs()
     }
 
     if (current == null) return
@@ -225,6 +223,21 @@ fun HomeScreen(
         // Movies / Series / Cast are open (they are Home's), and that used to switch to Home.
         if (t == tab || t == tab?.let(::topTabOf)) return
         pendingSwitch[0] = scope.launch { delay(TAB_SWITCH_DELAY_MS); select(t) }
+    }
+
+    // Back: from the content to the tabs, from another tab to Home (Movies, Series and Cast
+    // are Home's), from Home out of the app, as TV apps do (owner, 2026-10-23: Back on Live TV
+    // closed the app instead of going Home).
+    BackHandler {
+        when {
+            !tabsFocused -> focusTabs()
+            current != HomeTab.DISCOVER -> {
+                pendingSwitch[0]?.cancel()
+                select(HomeTab.DISCOVER)
+                runCatching { tabRequesters.getValue(HomeTab.DISCOVER).requestFocus() }
+            }
+            else -> (context as? Activity)?.finish()
+        }
     }
 
     com.portalcast.tv.ui.components.IptvStatusPoller()
