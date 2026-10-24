@@ -27,8 +27,11 @@ class DefaultLiveRepository(
 
     // Groups and channels also kept in storage (DiskCache): Live TV opens at once after a
     // restart, then checks with the server. The guide is not (large, and it moves every hour).
-    private val groupsCache = SessionCache(session, clock = clock, stored = disk?.let { Stored(it, NS, ListSerializer(ChannelGroup.serializer())) })
-    private val channelsCache = SessionCache(session, clock = clock, stored = disk?.let { Stored(it, NS, ListSerializer(Channel.serializer())) })
+    // Each in its own slot: both were stored as (NS, "") and overwrote each other, and channels
+    // read back as groups (a group shows its "name") filled the Live TV column with channel names
+    // ("21 Jump Street FHD") after a restart (owner, 2026-10-24).
+    private val groupsCache = SessionCache(session, clock = clock, stored = disk?.let { Stored(it, GROUPS_NS, ListSerializer(ChannelGroup.serializer())) })
+    private val channelsCache = SessionCache(session, clock = clock, stored = disk?.let { Stored(it, CHANNELS_NS, ListSerializer(Channel.serializer())) })
     private val epgCache = SessionCache<EpgData>(session, ttlMs = EPG_TTL_MS, clock = clock)
     @Volatile private var windowUnsupported = false
 
@@ -112,6 +115,9 @@ class DefaultLiveRepository(
     companion object {
         /** [DiskCache.updates] kind for Live TV answers. */
         const val NS = "live"
+        /** Where groups and channels are stored (the shared [NS] slot is never read again). */
+        const val GROUPS_NS = "$NS.groups"
+        const val CHANNELS_NS = "$NS.channels"
         const val WINDOW_HOURS = 6
         const val EPG_TTL_MS = 30 * 60 * 1000L
         const val MAX_RECENT = 20

@@ -61,7 +61,7 @@ class LiveViewModel(
     init {
         load()
         cacheUpdates?.let { flow ->
-            viewModelScope.launch { flow.collect { ns -> if (ns == DefaultLiveRepository.NS) load() } }
+            viewModelScope.launch { flow.collect { ns -> if (ns == DefaultLiveRepository.GROUPS_NS || ns == DefaultLiveRepository.CHANNELS_NS) load() } }
         }
     }
 
