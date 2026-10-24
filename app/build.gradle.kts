@@ -66,6 +66,8 @@ android {
 
     testOptions {
         unitTests.isReturnDefaultValues = true
+        // Compose UI tests on the JVM (Robolectric): focus and remote-key flows without a device.
+        unitTests.isIncludeAndroidResources = true
     }
 }
 
@@ -120,4 +122,9 @@ dependencies {
     testImplementation("junit:junit:4.13.2")
     testImplementation("com.squareup.okhttp3:mockwebserver:4.12.0")
     testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.8.1")
+    // Focus / remote-key tests of screens (test only; the manifest adds a test activity to debug builds).
+    testImplementation(platform("androidx.compose:compose-bom:2024.12.01"))
+    testImplementation("androidx.compose.ui:ui-test-junit4")
+    testImplementation("org.robolectric:robolectric:4.13")
+    debugImplementation("androidx.compose.ui:ui-test-manifest")
 }

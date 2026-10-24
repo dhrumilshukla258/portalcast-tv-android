@@ -217,6 +217,8 @@ fun HomeScreen(
     // A tab switch follows focus once it rests; a newer focus cancels the pending one. Held
     // outside Compose state: a d-pad step across the tabs recomposes nothing.
     val pendingSwitch = remember { arrayOfNulls<Job>(1) }
+    // Which end of the tab row has focus: -1 the first tab, 1 Settings, 0 between (no recomposition).
+    val tabEdge = remember { IntArray(1) }
     fun focusOnTab(t: HomeTab) {
         pendingSwitch[0]?.cancel()
         // Resting on the tab the screen belongs to does nothing: focus lands on Home while
@@ -251,6 +253,16 @@ fun HomeScreen(
                     .background(Brush.verticalGradient(0f to AppColors.Background, 1f to AppColors.Background.copy(alpha = 0.6f)))
                     .onFocusChanged { tabsFocused = it.hasFocus }
                     .onPreviewKeyEvent { e ->
+                        // Focus leaves the tabs only Down. Done here, not with an exit focus
+                        // property: with one, Compose 1.7 dropped Down into a list that restores
+                        // its last item (focusMemory), so after Live TV -> a channel -> Up, Down
+                        // stayed on the tab (owner, 2026-10-24; LiveFocusTest).
+                        if (e.type == KeyEventType.KeyDown) when (e.key) {
+                            Key.DirectionUp -> return@onPreviewKeyEvent true
+                            Key.DirectionLeft -> if (tabEdge[0] < 0) return@onPreviewKeyEvent true
+                            Key.DirectionRight -> if (tabEdge[0] > 0) return@onPreviewKeyEvent true
+                            else -> Unit
+                        }
                         if (e.type == KeyEventType.KeyDown && e.key == Key.DirectionDown) {
                             scope.launch {
                                 withFrameNanos { }
@@ -269,7 +281,6 @@ fun HomeScreen(
                     // Entering the tabs (Up from the content) always lands on the CURRENT tab.
                     .focusProperties {
                         enter = { tabRequesters.getValue(topTabOf(current)) }
-                        exit = { dir -> if (dir == FocusDirection.Down) FocusRequester.Default else FocusRequester.Cancel }
                     }
                     .focusGroup()
                     .padding(horizontal = 48.dp),
@@ -284,7 +295,7 @@ fun HomeScreen(
                         selected = t == topTabOf(current),
                         // Center switches at once; resting on a tab switches after a moment.
                         onClick = { pendingSwitch[0]?.cancel(); select(t) },
-                        onFocused = { focusOnTab(t) },
+                        onFocused = { tabEdge[0] = if (t == TopTabs.first()) -1 else 0; focusOnTab(t) },
                         modifier = Modifier.focusRequester(tabRequesters.getValue(t)),
                     )
                 }
@@ -294,7 +305,7 @@ fun HomeScreen(
                     icon = Icons.Filled.Settings,
                     selected = false,
                     onClick = onOpenSettings,
-                    onFocused = { pendingSwitch[0]?.cancel() },
+                    onFocused = { tabEdge[0] = 1; pendingSwitch[0]?.cancel() },
                     modifier = Modifier.focusRequester(settingsRequester),
                 )
             }
