@@ -21,6 +21,7 @@ import com.portalcast.tv.ui.components.uniqueKeys
 import com.portalcast.tv.ui.components.rememberedIn
 import com.portalcast.tv.ui.components.rememberFocusMemory
 import com.portalcast.tv.ui.components.focusMemory
+import com.portalcast.tv.ui.components.showWholeWhenFocused
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.ui.graphics.Color
@@ -255,7 +256,7 @@ fun SeriesDetailScreen(
                                 it,
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = AppColors.Text,
-                                maxLines = if (hasBackdrop) 5 else 4,
+                                maxLines = 3, // the column fits the screen: 5 lines pushed the title off the top (owner, 2026-10-23)
                                 overflow = TextOverflow.Ellipsis,
                                 modifier = Modifier.padding(top = 4.dp),
                             )
@@ -303,7 +304,8 @@ fun SeriesDetailScreen(
                 // button (cast opens in a dialog). More Like This opens its row under the page.
                 val peopleDetails = titleDetails
                 var showPeople by remember { mutableStateOf(false) }
-                Row(Modifier.padding(top = 10.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                // Shown whole with room under it: the focus ring was cut at the bottom of the column.
+                Row(Modifier.showWholeWhenFocused().padding(top = 10.dp, bottom = 10.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     if (peopleDetails != null && peopleDetails.peopleEntries().any { it.person.id != null }) {
                         TvButton(text = "Cast & crew", onClick = { showPeople = true })
                     }

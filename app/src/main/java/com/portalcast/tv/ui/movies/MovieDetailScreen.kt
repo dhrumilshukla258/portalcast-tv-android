@@ -43,6 +43,7 @@ import com.portalcast.tv.ui.components.PosterAspect
 import com.portalcast.tv.ui.components.TvButton
 import com.portalcast.tv.ui.components.TvButtonStyle
 import com.portalcast.tv.ui.components.backdropArt
+import com.portalcast.tv.ui.components.showWholeWhenFocused
 import com.portalcast.tv.ui.components.posterPath
 import com.portalcast.tv.ui.components.rememberImageUrl
 import com.portalcast.tv.ui.discover.MoreLikeThis
@@ -110,6 +111,11 @@ fun MovieDetailScreen(
             Spacer(Modifier.width(40.dp))
             com.portalcast.tv.ui.components.MinimalScrolling {
             Column(Modifier.weight(1f).verticalScroll(rememberScrollState())) {
+                // The title, facts and overview go with the buttons: back up to Play or My List
+                // from Cast & crew or More Like This, the page shows them all again instead of
+                // stopping at the buttons with the title off the top (owner, 2026-10-23). The block
+                // fits the screen: the overview is capped at 6 lines.
+                Column(Modifier.showWholeWhenFocused()) {
                 MovieInfo(item, details)
                 Spacer(Modifier.height(28.dp))
                 if (state.progressLoaded) {
@@ -145,6 +151,7 @@ fun MovieDetailScreen(
                     }
                 } else {
                     Text("Loading…", color = AppColors.TextMuted, style = MaterialTheme.typography.bodyLarge)
+                }
                 }
                 state.playError?.let {
                     Spacer(Modifier.height(16.dp))
