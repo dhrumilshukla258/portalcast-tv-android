@@ -224,7 +224,8 @@ fun SportsScreen(
             val count = days.sumOf { it.games.size }
             Text("$count ${if (count == 1) "game" else "games"} in the next 30 days", style = MaterialTheme.typography.bodyMedium, color = AppColors.TextMuted)
             Spacer(Modifier.weight(1f))
-            Text("Schedule: ${answer.source.name}", style = MaterialTheme.typography.bodySmall, color = AppColors.TextMuted)
+            // The games come from the free schedule AND the server's IPTV guide (owner, 2026-10-24).
+            Text("Schedule: ${answer.source.name}" + if (answer.guide) " and your TV guide" else "", style = MaterialTheme.typography.bodySmall, color = AppColors.TextMuted)
         }
         LazyRow(
             horizontalArrangement = Arrangement.spacedBy(10.dp),

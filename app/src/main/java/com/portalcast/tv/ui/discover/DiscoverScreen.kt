@@ -282,13 +282,12 @@ fun DiscoverScreen(
                 onCycle = if (dim == FilterDim.Genre) { value ->
                     vm.applyFilter((state.grid?.query ?: DiscoverQuery(type = state.type)).cycleGenre(value))
                 } else null,
-                onApply = { openFilter = null; filtersOpen = false; refocusFilters = true },
                 onPick = { value ->
                     val base = state.grid?.query ?: DiscoverQuery(type = state.type)
                     vm.applyFilter(base.with(dim, value))
-                    // The Filters column stays open after a pick (owner, 2026-10-24); it closes on
-                    // Back or "Show titles". A one-value list goes back to the column, as on the
-                    // phone; Genre stays on its list ("Any" included).
+                    // Picks apply at once and the Filters column stays open (owner, 2026-10-24);
+                    // Back closes it, the filters staying set. A one-value list goes back to the
+                    // column, as on the phone; Genre stays on its list ("Any" included).
                     if (dim != FilterDim.Genre) { openFilter = null; returnFocusTo = dim }
                 },
                 onDismiss = { openFilter = null; returnFocusTo = dim },

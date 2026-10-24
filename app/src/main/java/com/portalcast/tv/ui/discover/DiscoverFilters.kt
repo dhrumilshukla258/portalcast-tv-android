@@ -145,8 +145,6 @@ internal fun BoxScope.FilterDropdown(
     onDismiss: () -> Unit,
     /** Genre: a press cycles the value (required, left out, off) and the list stays open. */
     onCycle: ((String) -> Unit)? = null,
-    /** Genre: "Show titles" at the top of the list closes the column on the results. */
-    onApply: (() -> Unit)? = null,
 ) {
     val options = facets.optionsFor(dim)
     val current = query.valueOf(dim)
@@ -192,9 +190,6 @@ internal fun BoxScope.FilterDropdown(
                 color = AppColors.TextMuted,
                 modifier = Modifier.padding(start = 10.dp, bottom = 8.dp),
             )
-            if (onApply != null && (included.isNotEmpty() || excluded.isNotEmpty())) {
-                TvButton(text = "Show titles", onClick = onApply, style = TvButtonStyle.Primary, modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp))
-            }
         }
         LazyColumn(state = listState, modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             itemsIndexed(listOf<FacetValue?>(null) + options, key = { i, o -> o?.value ?: "any-$i" }) { i, o ->
@@ -272,8 +267,6 @@ internal fun BoxScope.FilterMenu(
     onDismiss: () -> Unit,
     /** Movies / Series: the NAS library's titles of that type. */
     onMyLibrary: (() -> Unit)? = null,
-    /** "Show titles": closes the column on the results (picks never close it). */
-    onApply: () -> Unit = onDismiss,
 ) {
     val dims = FilterDim.entries.filter { facets.optionsFor(it).isNotEmpty() }
     val first = remember { FocusRequester() }
@@ -302,10 +295,6 @@ internal fun BoxScope.FilterMenu(
             fontWeight = FontWeight.SemiBold,
             modifier = Modifier.padding(start = 10.dp, top = 4.dp, bottom = 6.dp),
         )
-        // At the top of the column (owner, 2026-10-24).
-        if (FilterDim.entries.any { query.valueOf(it) != null }) {
-            TvButton(text = "Show titles", onClick = onApply, style = TvButtonStyle.Primary, modifier = Modifier.fillMaxWidth())
-        }
         dims.forEachIndexed { i, dim ->
             val value = query.valueOf(dim)
             TvButton(
