@@ -16,6 +16,8 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Modifier
@@ -178,33 +180,51 @@ private fun MovieInfo(item: MediaItem, details: com.portalcast.tv.data.model.Tit
         Text(meta, style = MaterialTheme.typography.titleSmall, color = AppColors.TextMuted)
     }
     com.portalcast.tv.ui.components.DetailFacts(item, details, series = false)
-    item.overview?.let {
-        Spacer(Modifier.height(18.dp))
-        Text(
-            it,
-            style = MaterialTheme.typography.bodyLarge,
-            color = AppColors.Text,
-            maxLines = 6,
-            overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.widthIn(max = 760.dp),
-        )
+    // As the series page: the overview and credits cut, in one block that takes focus; OK opens
+    // all of it (owner, 2026-10-25: "make the movie page like read more"). Short, so Play fits.
+    val castLine = (details?.cast?.takeIf { it.isNotEmpty() }?.joinToString(", ") { c -> c.role?.takeIf { r -> r.isNotBlank() }?.let { r -> "${c.name} ($r)" } ?: c.name }
+        ?: item.actors ?: item.cast)?.trim()?.takeIf { it.isNotEmpty() && it != "-" && it != "N/A" }
+    val lines = listOfNotNull(
+        clean(item.director)?.let { "Director: $it" },
+        castLine?.let { "Cast: $it" },
+        clean(item.country)?.let { "Country: $it" },
+    )
+    val overview = clean(item.overview)
+    if (overview == null && lines.isEmpty()) return
+    var showAbout by remember { mutableStateOf(false) }
+    if (showAbout) {
+        val all = listOfNotNull(overview, *lines.toTypedArray(), details?.studios?.takeIf { it.isNotBlank() }?.let { "Studio: $it" }).joinToString("\n\n")
+        com.portalcast.tv.ui.components.ReadMoreDialog(item.displayTitle, all, onDismiss = { showAbout = false })
     }
-    Credit("Director", item.director)
-    // With photos when the server has them; the plain list otherwise.
-    if (details?.cast.isNullOrEmpty()) Credit("Cast", item.actors ?: item.cast)
-    Credit("Country", item.country)
+    androidx.tv.material3.Surface(
+        onClick = { showAbout = true },
+        modifier = Modifier.padding(top = 12.dp).widthIn(max = 780.dp),
+        shape = androidx.tv.material3.ClickableSurfaceDefaults.shape(shape = RoundedCornerShape(10.dp)),
+        scale = androidx.tv.material3.ClickableSurfaceDefaults.scale(focusedScale = 1f),
+        border = androidx.tv.material3.ClickableSurfaceDefaults.border(
+            focusedBorder = androidx.tv.material3.Border(androidx.compose.foundation.BorderStroke(2.dp, AppColors.Focus), shape = RoundedCornerShape(10.dp)),
+        ),
+        colors = androidx.tv.material3.ClickableSurfaceDefaults.colors(
+            containerColor = androidx.compose.ui.graphics.Color.Transparent,
+            focusedContainerColor = AppColors.GlassFillFocused,
+            contentColor = AppColors.Text,
+            focusedContentColor = AppColors.Text,
+        ),
+    ) {
+        Column(Modifier.padding(horizontal = 6.dp, vertical = 4.dp)) {
+            overview?.let {
+                Text(it, style = MaterialTheme.typography.bodyLarge, color = AppColors.Text, maxLines = 3, overflow = TextOverflow.Ellipsis)
+            }
+            if (lines.isNotEmpty()) {
+                Spacer(Modifier.height(8.dp))
+                for (line in lines) {
+                    Text(line, style = MaterialTheme.typography.bodySmall, color = AppColors.TextMuted, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                }
+            }
+            Text("OK: more about the film", style = MaterialTheme.typography.labelSmall, color = AppColors.TextMuted, modifier = Modifier.padding(top = 6.dp))
+        }
+    }
 }
 
-@Composable
-private fun Credit(label: String, value: String?) {
-    val v = value?.trim()?.takeUnless { it.isEmpty() || it == "-" || it == "N/A" } ?: return
-    Spacer(Modifier.height(10.dp))
-    Text(
-        "$label: $v",
-        style = MaterialTheme.typography.bodyMedium,
-        color = AppColors.TextMuted,
-        maxLines = 2,
-        overflow = TextOverflow.Ellipsis,
-        modifier = Modifier.widthIn(max = 760.dp),
-    )
-}
+private fun clean(v: String?): String? = v?.trim()?.takeUnless { it.isEmpty() || it == "-" || it == "N/A" }
+
