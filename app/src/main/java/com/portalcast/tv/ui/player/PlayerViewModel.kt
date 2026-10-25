@@ -495,8 +495,8 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
     private var scrubLastMs = 0L
 
     /**
-     * Left/Right held (VOD): the bar moves without seeking, a little faster for the first moment,
-     * then steadily (owner, 2026-10-23); [scrubRelease] seeks once. Each key repeat used to seek,
+     * Left/Right held (VOD): the bar moves without seeking, speeding up to a steady top speed
+     * that depends on the title's length (scrubStepMs); [scrubRelease] seeks once. Each key repeat used to seek,
      * which rebuffered an IPTV stream at every step.
      */
     fun scrubHeld(forward: Boolean) {
@@ -510,7 +510,7 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
             scrubLastMs = now
             _state.update { it.copy(scrubMs = player.currentPosition) }
         } else {
-            val delta = scrubStepMs(heldMs = now - scrubStartMs, sinceLastMs = now - scrubLastMs)
+            val delta = scrubStepMs(heldMs = now - scrubStartMs, sinceLastMs = now - scrubLastMs, durationMs = duration)
             scrubLastMs = now
             _state.update { it.copy(scrubMs = (from + if (forward) delta else -delta).coerceIn(0L, duration)) }
         }
@@ -736,15 +736,24 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
 
     companion object {
         const val SEEK_STEP_MS = 10_000L
-        /** Holding Left/Right moves the bar at 20x, rising to 60x over 1.5 s, then steady. */
-        const val SCRUB_START_SPEED = 20f
-        const val SCRUB_STEADY_SPEED = 60f
-        const val SCRUB_RAMP_MS = 1_500L
+        /**
+         * Holding Left/Right: the bar starts at 30x and speeds up over 3 s to a top speed that
+         * crosses the whole title in about 10 s (at least 120x), then stays there. A 2-hour film
+         * tops out at 720x, 12 minutes a second (owner, 2026-10-25: 60x took 2 minutes of holding).
+         */
+        const val SCRUB_START_SPEED = 30f
+        const val SCRUB_MIN_TOP_SPEED = 120f
+        const val SCRUB_CROSS_MS = 10_000L
+        const val SCRUB_RAMP_MS = 3_000L
+
+        /** Top speed for a title of [durationMs]. */
+        fun scrubTopSpeed(durationMs: Long): Float = maxOf(SCRUB_MIN_TOP_SPEED, durationMs.toFloat() / SCRUB_CROSS_MS)
 
         /** Video time to move for [sinceLastMs] of real time, [heldMs] into the hold. */
-        fun scrubStepMs(heldMs: Long, sinceLastMs: Long): Long {
+        fun scrubStepMs(heldMs: Long, sinceLastMs: Long, durationMs: Long): Long {
             val ramp = (heldMs.toFloat() / SCRUB_RAMP_MS).coerceIn(0f, 1f)
-            val speed = SCRUB_START_SPEED + (SCRUB_STEADY_SPEED - SCRUB_START_SPEED) * ramp
+            // Eased in (ramp squared): the first second stays near the start speed, so short holds are precise.
+            val speed = SCRUB_START_SPEED + (scrubTopSpeed(durationMs) - SCRUB_START_SPEED) * ramp * ramp
             // A late key repeat (a busy frame) never jumps more than a quarter second's worth.
             return (speed * sinceLastMs.coerceIn(0L, 250L)).toLong()
         }
