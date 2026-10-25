@@ -12,6 +12,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.core.view.doOnPreDraw
@@ -26,6 +27,9 @@ private object Intro {
 /** The intro's length (res/drawable/intro_logo.xml, tools/gen_intro_avd.py). */
 private const val INTRO_MS = 1840L
 
+/** When the logo has stopped moving (the slide ends at 1.26 s): the app's screens are built then. */
+private const val APP_AFTER_MS = 1300L
+
 class MainActivity : ComponentActivity() {
     /** The intro over the app while it plays; null once it is gone. */
     private var intro: ImageView? = null
@@ -33,21 +37,31 @@ class MainActivity : ComponentActivity() {
     /** The intro's tone (res/raw/intro_tone.wav, tools/gen_intro_tone.py), at the media volume. */
     private var tone: MediaPlayer? = null
 
+    /**
+     * False while the intro's logo moves. A trace on the owner's TV (2026-10-24) showed the intro
+     * drawn only 23 times in 4 s, with gaps of up to 0.6 s exactly while the main thread built
+     * Home (0.27 s, then 0.56 s): even on the RenderThread the animation waits for that work. So
+     * the app is composed once the slide is over, during the hold and the fade.
+     */
+    private val appReady = mutableStateOf(true)
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // Android 7.1+ only: older versions draw no gradients in a vector drawable (the P and
+        // its arcs would be invisible) and run the animation on the main thread. They open
+        // straight into the app.
+        if (Build.VERSION.SDK_INT < 25) Intro.shown = true
+        val playIntro = !Intro.shown
+        appReady.value = !playIntro
         setContent {
             PortalcastTheme {
                 // The app loads underneath while the intro plays; any key skips it (and is not passed on).
                 Box(Modifier.fillMaxSize().onPreviewKeyEvent { if (intro != null) { endIntro(); true } else false }) {
-                    AppNavHost(container = appContainer)
+                    if (appReady.value) AppNavHost(container = appContainer)
                 }
             }
         }
-        // Android 7.1+ only: older versions draw no gradients in a vector drawable (the P and
-        // its arcs would be invisible) and run the animation on the main thread, where startup
-        // work makes it jump. They open straight into the app.
-        if (Build.VERSION.SDK_INT < 25) Intro.shown = true
-        if (!Intro.shown) {
+        if (playIntro) {
             Intro.shown = true
             // An AnimatedVectorDrawable in a plain View, not Compose: Android runs it on the
             // RenderThread, so it stays smooth while the main thread builds the first screen.
@@ -72,7 +86,10 @@ class MainActivity : ComponentActivity() {
             tone = runCatching { MediaPlayer.create(this, R.raw.intro_tone) }.getOrNull()?.apply {
                 setOnCompletionListener { stopTone() }
             }
-            view.doOnPreDraw { tone?.start() }
+            view.doOnPreDraw {
+                tone?.start()
+                view.postDelayed({ appReady.value = true }, APP_AFTER_MS)
+            }
         }
     }
 
@@ -89,6 +106,7 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun endIntro() {
+        appReady.value = true
         // A key skips the picture and the sound together; the end of the animation leaves the
         // tone to finish its fade.
         if (intro != null && tone?.isPlaying == true && (intro?.drawable as? AnimatedVectorDrawable)?.isRunning == true) stopTone()
