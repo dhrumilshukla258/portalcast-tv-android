@@ -19,6 +19,8 @@ import androidx.compose.ui.window.Dialog
 import com.portalcast.tv.ui.components.rememberedIn
 import com.portalcast.tv.ui.components.rememberFocusMemory
 import com.portalcast.tv.ui.components.focusMemory
+import com.portalcast.tv.ui.components.pinOnFocus
+import com.portalcast.tv.ui.components.paceHeldUpDown
 import androidx.compose.ui.layout.positionInWindow
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.runtime.mutableFloatStateOf
@@ -125,7 +127,7 @@ private val RowTitleHeight = 34.dp
  *
  * Layout: a fixed hero in the top [HERO_FRACTION] of the screen (the focused item's
  * backdrop, title, meta line and overview), the rows in a LazyColumn below it. The
- * focused row always scrolls to sit directly under the hero ([PivotRowToTop]).
+ * focused row always scrolls to sit directly under the hero ([RowPinner]).
  * Focus changes only write [HeroFocus]; nothing but the hero reads it.
  *
  * Items handed to the callbacks are regular list items ready for the detail screens:
@@ -369,7 +371,11 @@ private fun RowsContent(
     // cards) its other ~6 cards were composed inside one frame (up to 48 ms on the TV).
     // Prefetching a full row's worth spreads that over idle frame time instead.
     val listState = rememberLazyListState(prefetchStrategy = remember { LazyListPrefetchStrategy(nestedPrefetchItemCount = 8) })
-    val pivot = remember(listState) { PivotRowToTop { listState.layoutInfo.viewportSize.height } }
+    // The focused row sits at the top, scrolled there by the list itself (RowPinner): cards
+    // focusing do not scroll the page (NoBringIntoView), only their own row, sideways.
+    val pinner = com.portalcast.tv.ui.components.rememberRowPinner(listState)
+    val rowSpec = androidx.compose.foundation.gestures.LocalBringIntoViewSpec.current
+    val firstRow = (if (cw.isNotEmpty()) 1 else 0) + (if (state.error != null || state.emptyHint != null) 1 else 0)
     val cardPad = with(LocalDensity.current) { remember { PadRectHorizontally(40.dp.toPx()) } }
     // Stable per-screen lambdas: cards get the same instances every recomposition.
     val onFocusItem: (MediaItem) -> Unit = remember(hero) { { item -> hero.item = item; hero.progress = null } }
@@ -394,8 +400,11 @@ private fun RowsContent(
         val base = Modifier.onFocusChanged { if (it.isFocused) vm.lastFocusedKey = key }
         if (key == restoreKey) base.focusRequester(restoreRequester) else base
     }
-    BoxWithConstraints(modifier) {
-    CompositionLocalProvider(LocalPosterWidth provides homePosterWidth(maxHeight)) {
+    BoxWithConstraints(modifier.paceHeldUpDown()) {
+    CompositionLocalProvider(
+        LocalPosterWidth provides homePosterWidth(maxHeight),
+        androidx.compose.foundation.gestures.LocalBringIntoViewSpec provides com.portalcast.tv.ui.components.NoBringIntoView,
+    ) {
     LazyColumn(
         Modifier.fillMaxSize(),
         state = listState,
@@ -413,7 +422,8 @@ private fun RowsContent(
                     onFocusEntry = onFocusContinue,
                     cardPad = cardPad,
                     cardModifier = cardModifier,
-                    modifier = Modifier.bringIntoViewResponder(pivot),
+                    rowSpec = rowSpec,
+                    modifier = Modifier.pinOnFocus(pinner, 0),
                 )
             }
         }
@@ -436,7 +446,8 @@ private fun RowsContent(
                 onRowNearEnd = onRowNearEnd,
                 cardPad = cardPad,
                 cardModifier = cardModifier,
-                modifier = Modifier.bringIntoViewResponder(pivot),
+                rowSpec = rowSpec,
+                modifier = Modifier.pinOnFocus(pinner, firstRow + i),
             )
         }
     }
@@ -460,6 +471,7 @@ private fun ContinueWatchingRow(
     onFocusEntry: (ContinueEntry) -> Unit,
     cardPad: PadRectHorizontally,
     cardModifier: (String) -> Modifier,
+    rowSpec: androidx.compose.foundation.gestures.BringIntoViewSpec,
     modifier: Modifier,
 ) {
     val memory = rememberFocusMemory()
@@ -471,6 +483,8 @@ private fun ContinueWatchingRow(
     }
     Column(modifier) {
         RowTitle("Continue Watching")
+        // The row scrolls sideways as before (the page around it does not: NoBringIntoView).
+        CompositionLocalProvider(androidx.compose.foundation.gestures.LocalBringIntoViewSpec provides rowSpec) {
         LazyRow(
             modifier = Modifier.focusMemory(memory),
             contentPadding = PaddingValues(horizontal = 48.dp, vertical = 12.dp),
@@ -490,6 +504,7 @@ private fun ContinueWatchingRow(
                     modifier = cardModifier("cw|${e.key}").rememberedIn(memory).bringIntoViewResponder(cardPad),
                 )
             }
+        }
         }
     }
 }
@@ -535,6 +550,7 @@ private fun MediaRow(
     onRowNearEnd: (String) -> Unit,
     cardPad: PadRectHorizontally,
     cardModifier: (String) -> Modifier,
+    rowSpec: androidx.compose.foundation.gestures.BringIntoViewSpec,
     modifier: Modifier,
 ) {
     val listState = rememberLazyListState()
@@ -556,6 +572,7 @@ private fun MediaRow(
             PlaceholderRow()
             return@Column
         }
+        CompositionLocalProvider(androidx.compose.foundation.gestures.LocalBringIntoViewSpec provides rowSpec) {
         LazyRow(
             state = listState,
             modifier = Modifier.focusMemory(memory),
@@ -578,6 +595,7 @@ private fun MediaRow(
                     modifier = cardModifier("${row.key}|${item.id}").rememberedIn(memory).bringIntoViewResponder(cardPad),
                 )
             }
+        }
         }
     }
 }
