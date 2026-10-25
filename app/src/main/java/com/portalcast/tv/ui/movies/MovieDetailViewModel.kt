@@ -40,6 +40,13 @@ class MovieDetailViewModel(
     )
 
     private val held: MediaItem? = SelectedItemHolder.get(movieId)
+
+    /**
+     * A local-library file ("LF<id>"): opening a Discover card already resolved the title to it,
+     * so it is the file to play. Resolving it again as a movie id gave My Library's first title
+     * on servers before 2026-10-25, and no local movie played (owner).
+     */
+    private val isLocalFile = LOCAL_FILE_ID.matches(movieId)
     private val _state = MutableStateFlow(State(item = held, loading = held == null))
     val state: StateFlow<State> = _state
 
@@ -58,6 +65,11 @@ class MovieDetailViewModel(
         // "nothing_to_play" (found on a real portal). Only when the lookup fails and the item has
         // a cmd (a Discover-resolved item, whose id already IS the file id) is the item used as is.
         _state.update { it.copy(loading = it.item == null, error = null) }
+        if (isLocalFile && held != null) {
+            _state.update { it.copy(loading = false, file = held) }
+            refreshProgress()
+            return
+        }
         viewModelScope.launch {
             vod.resolveFile(movieId, effectiveCategory).fold(
                 onSuccess = { file ->
@@ -145,3 +157,5 @@ fun MediaItem.mergedWith(file: MediaItem): MediaItem = copy(
     trailerKey = trailerKey ?: file.trailerKey,
     categoryId = categoryId ?: file.categoryId,
 )
+
+private val LOCAL_FILE_ID = Regex("^LF[0-9]+$")
