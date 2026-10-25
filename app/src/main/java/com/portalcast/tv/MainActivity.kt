@@ -19,11 +19,6 @@ import androidx.core.view.doOnPreDraw
 import com.portalcast.tv.ui.nav.AppNavHost
 import com.portalcast.tv.ui.theme.PortalcastTheme
 
-/** The intro plays once per process: a cold start, not a return to the app. */
-private object Intro {
-    var shown = false
-}
-
 /** The intro's length (res/drawable/intro_logo.xml, tools/gen_intro_avd.py). */
 private const val INTRO_MS = 1840L
 
@@ -50,8 +45,10 @@ class MainActivity : ComponentActivity() {
         // Android 7.1+ only: older versions draw no gradients in a vector drawable (the P and
         // its arcs would be invisible) and run the animation on the main thread. They open
         // straight into the app.
-        if (Build.VERSION.SDK_INT < 25) Intro.shown = true
-        val playIntro = !Intro.shown
+        // Every time the app is opened (owner, 2026-10-24: also after exiting with Back, when the
+        // process lived on): a new screen, not one Android restores (savedInstanceState), which
+        // is a return to where the viewer was (Home button, a background restart).
+        val playIntro = Build.VERSION.SDK_INT >= 25 && savedInstanceState == null
         appReady.value = !playIntro
         setContent {
             PortalcastTheme {
@@ -62,7 +59,6 @@ class MainActivity : ComponentActivity() {
             }
         }
         if (playIntro) {
-            Intro.shown = true
             // An AnimatedVectorDrawable in a plain View, not Compose: Android runs it on the
             // RenderThread, so it stays smooth while the main thread builds the first screen.
             // Drawn with Compose it got 8 frames in 1.8 s on the TV (each 0.3-2 s: startup work
