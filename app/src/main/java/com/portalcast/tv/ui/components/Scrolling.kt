@@ -31,7 +31,11 @@ private val MinimalBringIntoView = object : BringIntoViewSpec {
         val end = offset + size
         return when {
             offset >= 0f && end <= containerSize -> 0f
-            offset < 0f || size > containerSize -> offset
+            // Taller than the screen (a detail page's facts block with a big logo and many facts):
+            // its end, where the focused buttons are, stays on screen; showing its top hid Play
+            // below the screen (owner, 2026-10-25: Sonic 2).
+            size > containerSize -> end - containerSize
+            offset < 0f -> offset
             else -> end - containerSize
         }
     }
