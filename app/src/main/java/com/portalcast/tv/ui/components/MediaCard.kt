@@ -78,15 +78,16 @@ fun MediaCard(
     val shape = RoundedCornerShape(10.dp)
     val interaction = remember { MutableInteractionSource() }
     val focused by interaction.collectIsFocusedAsState()
+    val origin = rememberOriginTracker()
     // The focused poster grows 5 % past its bottom edge: the title sits below that, so the
     // enlarged poster never covers it (measured, since grid cells have no fixed width).
     var cardHeightPx by remember { mutableIntStateOf(0) }
     val titleGap = 8.dp + with(LocalDensity.current) { (cardHeightPx * (FOCUSED_SCALE - 1f) / 2f).toDp() }
     Column(modifier.then(if (width == Dp.Unspecified) Modifier.fillMaxWidth() else Modifier.width(width)).dimWhenIptvOffline(isLocal = badge != null)) {
         Card(
-            onClick = onClick,
+            onClick = { origin.record(); onClick() },
             onLongClick = onLongClick,
-            modifier = Modifier.fillMaxWidth().aspectRatio(aspectRatio).onSizeChanged { cardHeightPx = it.height },
+            modifier = Modifier.fillMaxWidth().aspectRatio(aspectRatio).onSizeChanged { cardHeightPx = it.height }.trackOrigin(origin),
             shape = CardDefaults.shape(shape = shape),
             scale = CardDefaults.scale(focusedScale = FOCUSED_SCALE, pressedScale = 1.05f),
             border = CardDefaults.border(

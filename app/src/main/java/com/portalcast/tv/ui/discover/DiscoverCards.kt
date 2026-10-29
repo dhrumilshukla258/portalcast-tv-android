@@ -2,6 +2,8 @@
 
 package com.portalcast.tv.ui.discover
 
+import com.portalcast.tv.ui.components.rememberOriginTracker
+import com.portalcast.tv.ui.components.trackOrigin
 import com.portalcast.tv.ui.components.dimWhenIptvOffline
 import com.portalcast.tv.ui.components.LocalBadge
 import androidx.compose.foundation.BorderStroke
@@ -134,13 +136,15 @@ internal fun ContinueCard(
             ImageRequest.Builder(context).data(it).size(w, w * 9 / 16).build()
         }
     }
+    val origin = rememberOriginTracker()
     Column(modifier.width(WideCardWidth)) {
         Card(
-            onClick = onClick,
+            onClick = { origin.record(); onClick() },
             onLongClick = onLongClick,
             modifier = Modifier
                 .fillMaxWidth()
                 .aspectRatio(16f / 9f)
+                .trackOrigin(origin)
                 .onFocusChanged {
                     if (focused != it.isFocused) focused = it.isFocused
                     if (it.isFocused) onFocused()
@@ -247,13 +251,15 @@ internal fun PosterCard(
             ImageRequest.Builder(context).data(url).size(w, w * 3 / 2).build()
         }
     }
+    val origin = rememberOriginTracker()
     Column(modifier.width(posterWidth).dimWhenIptvOffline(isLocal = badge != null)) {
         Card(
-            onClick = onClick,
+            onClick = { origin.record(); onClick() },
             onLongClick = onLongClick,
             modifier = Modifier
                 .fillMaxWidth()
                 .posterAspect()
+                .trackOrigin(origin)
                 .onFocusChanged {
                     if (focused != it.isFocused) focused = it.isFocused
                     if (it.isFocused) onFocused()

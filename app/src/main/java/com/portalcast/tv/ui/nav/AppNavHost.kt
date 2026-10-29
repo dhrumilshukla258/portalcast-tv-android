@@ -111,6 +111,8 @@ fun AppNavHost(container: AppContainer) {
         composable(
             Routes.HOME,
             arguments = listOf(navArgument("tab") { type = NavType.StringType; defaultValue = HomeTab.DISCOVER.route }),
+            exitTransition = TitleTransitions.exit,
+            popEnterTransition = TitleTransitions.popEnter,
         ) { entry ->
             val tab = HomeTab.fromRoute(entry.arguments?.getString("tab"))
             HomeScreen(
@@ -129,6 +131,10 @@ fun AppNavHost(container: AppContainer) {
                 navArgument("id") { type = NavType.StringType },
                 navArgument("category") { type = NavType.StringType; defaultValue = "*" },
             ),
+            enterTransition = TitleTransitions.enter,
+            popExitTransition = TitleTransitions.popExit,
+            exitTransition = TitleTransitions.exit,
+            popEnterTransition = TitleTransitions.popEnter,
         ) { entry ->
             MovieDetailScreen(
                 id = entry.arguments?.getString("id").orEmpty(),
@@ -146,6 +152,10 @@ fun AppNavHost(container: AppContainer) {
                 navArgument("id") { type = NavType.StringType },
                 navArgument("category") { type = NavType.StringType; defaultValue = "*" },
             ),
+            enterTransition = TitleTransitions.enter,
+            popExitTransition = TitleTransitions.popExit,
+            exitTransition = TitleTransitions.exit,
+            popEnterTransition = TitleTransitions.popEnter,
         ) { entry ->
             SeriesDetailScreen(
                 id = entry.arguments?.getString("id").orEmpty(),
@@ -157,7 +167,12 @@ fun AppNavHost(container: AppContainer) {
             )
         }
 
-        composable(Routes.PERSON, arguments = listOf(navArgument("id") { type = NavType.IntType })) { entry ->
+        composable(
+            Routes.PERSON,
+            arguments = listOf(navArgument("id") { type = NavType.IntType }),
+            exitTransition = TitleTransitions.exit,
+            popEnterTransition = TitleTransitions.popEnter,
+        ) { entry ->
             com.portalcast.tv.ui.person.PersonScreen(
                 id = entry.arguments?.getInt("id") ?: 0,
                 onOpenMovie = openMovieFromCard,
