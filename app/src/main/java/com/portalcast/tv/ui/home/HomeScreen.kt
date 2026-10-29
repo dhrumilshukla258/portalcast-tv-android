@@ -241,15 +241,18 @@ fun HomeScreen(
     // closed the app instead of going Home).
     BackHandler {
         when {
-            !tabsFocused -> focusTabs()
+            current != HomeTab.DISCOVER && !tabsFocused -> focusTabs()
             current != HomeTab.DISCOVER -> {
                 pendingSwitch[0]?.cancel()
                 select(HomeTab.DISCOVER)
                 runCatching { tabRequesters.getValue(HomeTab.DISCOVER).requestFocus() }
             }
-            // Out of the app only with a second Back within 2 s (owner, 2026-10-24).
+            // Out of the app with a second Back within 2 s (owner, 2026-10-24), also from Home's
+            // rows: the first Back there goes up to the tabs and says so (owner 2026-10-29: two
+            // Backs did not exit, the first one only reached the tabs).
             android.os.SystemClock.uptimeMillis() - lastBackAt[0] < EXIT_BACK_WINDOW_MS -> (context as? Activity)?.finish()
             else -> {
+                if (!tabsFocused) focusTabs()
                 lastBackAt[0] = android.os.SystemClock.uptimeMillis()
                 android.widget.Toast.makeText(context, "Press Back again to exit", android.widget.Toast.LENGTH_SHORT).show()
             }
@@ -351,9 +354,18 @@ fun HomeScreen(
                     .focusRequester(contentRequester)
                     // Focus leaves the content only Up, and then always onto the CURRENT tab. Without
                     // this, Up from the top landed on whichever tab was nearest above, and Down on the
-                    // last row (or Left/Right at an edge) had nowhere sensible to go.
+                    // last row (or Left/Right at an edge) had nowhere sensible to go. Only the
+                    // remote's keys: Compose also asks this when the app moves focus itself
+                    // (Back to the tabs, the chip parking), and a Cancel there left focus on the
+                    // title, so Back from the rows did nothing (owner, 2026-10-29).
                     .focusProperties {
-                        exit = { dir -> if (dir == FocusDirection.Up) tabRequesters.getValue(topTabOf(current)) else FocusRequester.Cancel }
+                        exit = { dir ->
+                            when (dir) {
+                                FocusDirection.Up -> tabRequesters.getValue(topTabOf(current))
+                                FocusDirection.Down, FocusDirection.Left, FocusDirection.Right -> FocusRequester.Cancel
+                                else -> FocusRequester.Default
+                            }
+                        }
                     }
                     .focusGroup(),
             ) {
