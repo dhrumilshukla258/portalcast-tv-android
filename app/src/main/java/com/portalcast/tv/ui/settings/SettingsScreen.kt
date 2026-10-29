@@ -20,6 +20,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
@@ -55,6 +56,10 @@ fun SettingsScreen(onBack: () -> Unit) {
     val serverUrl by vm.serverUrl.collectAsStateWithLifecycle()
     val user by vm.user.collectAsStateWithLifecycle()
     val directLive by vm.directLiveStreams.collectAsStateWithLifecycle()
+    val externalPlayer by vm.externalPlayer.collectAsStateWithLifecycle()
+    val context = LocalContext.current
+    val players = remember { com.portalcast.tv.playback.ExternalPlayer.installedPlayers(context) }
+    var choosingPlayer by remember { androidx.compose.runtime.mutableStateOf(false) }
     val subs by vm.subtitleAccounts.collectAsStateWithLifecycle()
     val firstItem = remember { FocusRequester() }
 
@@ -108,6 +113,71 @@ fun SettingsScreen(onBack: () -> Unit) {
                     focusedBorder = Border(BorderStroke(2.dp, AppColors.Focus), shape = RowShape),
                 ),
             )
+            Spacer(Modifier.height(8.dp))
+
+            // Settings › Player: the built-in player, Android's chooser, or an installed app.
+            val playerOptions = listOf(
+                com.portalcast.tv.playback.ExternalPlayer.BUILT_IN to "Built-in player",
+                com.portalcast.tv.playback.ExternalPlayer.ASK to "Ask every time",
+            ) + players.map { it.packageName to it.label }
+            val playerLabel = playerOptions.firstOrNull { it.first == externalPlayer }?.second ?: externalPlayer
+            ListItem(
+                selected = false,
+                onClick = { choosingPlayer = !choosingPlayer },
+                modifier = Modifier.fillMaxWidth(),
+                headlineContent = { Text("Player") },
+                supportingContent = {
+                    Text(
+                        if (externalPlayer == com.portalcast.tv.playback.ExternalPlayer.BUILT_IN) "Built-in player"
+                        else "$playerLabel. It gets this server's stream link only; where you stop is saved when you come back.",
+                    )
+                },
+                shape = ListItemDefaults.shape(shape = RowShape),
+                colors = ListItemDefaults.colors(
+                    containerColor = AppColors.Surface,
+                    contentColor = AppColors.Text,
+                    focusedContainerColor = AppColors.SurfaceVariant,
+                    focusedContentColor = AppColors.Text,
+                    pressedContainerColor = AppColors.SurfaceVariant,
+                    pressedContentColor = AppColors.Text,
+                ),
+                border = ListItemDefaults.border(
+                    focusedBorder = Border(BorderStroke(2.dp, AppColors.Focus), shape = RowShape),
+                ),
+            )
+            if (choosingPlayer) {
+                for ((value, label) in playerOptions) {
+                    ListItem(
+                        selected = value == externalPlayer,
+                        onClick = { vm.setExternalPlayer(value); choosingPlayer = false },
+                        modifier = Modifier.fillMaxWidth().padding(start = 24.dp, top = 4.dp),
+                        headlineContent = { Text(label) },
+                        trailingContent = { if (value == externalPlayer) Text("✓", color = AppColors.Focus) },
+                        shape = ListItemDefaults.shape(shape = RowShape),
+                        colors = ListItemDefaults.colors(
+                            containerColor = AppColors.Surface,
+                            contentColor = AppColors.Text,
+                            focusedContainerColor = AppColors.SurfaceVariant,
+                            focusedContentColor = AppColors.Text,
+                            selectedContainerColor = AppColors.Surface,
+                            selectedContentColor = AppColors.Text,
+                            pressedContainerColor = AppColors.SurfaceVariant,
+                            pressedContentColor = AppColors.Text,
+                        ),
+                        border = ListItemDefaults.border(
+                            focusedBorder = Border(BorderStroke(2.dp, AppColors.Focus), shape = RowShape),
+                        ),
+                    )
+                }
+                if (players.isEmpty()) {
+                    Text(
+                        "No other video player is installed. VLC, MX Player or Just Player from the store will show up here.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = AppColors.TextMuted,
+                        modifier = Modifier.padding(start = 24.dp, top = 8.dp),
+                    )
+                }
+            }
             Spacer(Modifier.height(28.dp))
 
             SubtitleAccountsSection(subs, vm)

@@ -35,6 +35,8 @@ import androidx.compose.ui.focus.focusRequester
 import kotlinx.coroutines.delay
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.mutableStateOf
+import com.portalcast.tv.appContainer
+import kotlinx.coroutines.flow.first
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.runtime.withFrameNanos
@@ -103,9 +105,31 @@ fun PlayerScreen(
 
     SideEffect { vm.liveChannelRefresher = refreshLiveChannel }
 
+    // Settings › Player: another app plays it; its reported position is saved when it returns.
+    val context = androidx.compose.ui.platform.LocalContext.current
+    var externalSession by remember { mutableStateOf<com.portalcast.tv.playback.PlaybackSession?>(null) }
+    val externalLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.StartActivityForResult(),
+    ) { r ->
+        externalSession?.let { vm.finishExternal(it, com.portalcast.tv.playback.ExternalPlayer.result(r.data)) }
+        onBack()
+    }
     LaunchedEffect(Unit) {
         val session = PlaybackHolder.current
-        if (session == null) onBack() else vm.start(session, PlaybackHolder.resumeFromMs)
+        if (session == null) { onBack(); return@LaunchedEffect }
+        val choice = context.appContainer.localPrefs.externalPlayer.first()
+        if (choice != com.portalcast.tv.playback.ExternalPlayer.BUILT_IN) {
+            val prepared = vm.prepareExternal(session, PlaybackHolder.resumeFromMs)
+            if (prepared != null) {
+                val launched = runCatching {
+                    externalSession = session
+                    externalLauncher.launch(com.portalcast.tv.playback.ExternalPlayer.intent(prepared.first, session.label, prepared.second, choice))
+                }.isSuccess
+                if (launched) return@LaunchedEffect
+                externalSession = null // the chosen app is gone: the built-in player instead
+            }
+        }
+        vm.start(session, PlaybackHolder.resumeFromMs)
     }
     LaunchedEffect(Unit) { vm.navigateBack.collect { onBack() } }
 

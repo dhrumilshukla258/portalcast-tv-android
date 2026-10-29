@@ -603,6 +603,25 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
         load(s, pos, forceRefresh = true)
     }
 
+    // ---- another player (playback/ExternalPlayer.kt) ----------------------------------
+
+    /** The stream and where to resume, for another app; null when the stream cannot be resolved. */
+    suspend fun prepareExternal(target: PlaybackSession, resumeFromMs: Long?): Pair<com.portalcast.tv.playback.ResolvedStream, Long?>? {
+        val resume = resumeFromMs ?: if (target.isLive) null else reporter.resumePositionMs(target)
+        return resolver.resolve(target, false).getOrNull()?.let { it to resume }
+    }
+
+    /** Back from the other app: where it says the viewer stopped is saved, as the built-in player would. */
+    fun finishExternal(target: PlaybackSession, r: com.portalcast.tv.playback.ExternalPlayer.Result) {
+        if (target.isLive) return
+        val pos = r.positionMs ?: return
+        val dur = r.durationMs ?: 0L
+        container.appScope.launch {
+            if (r.completed || (dur > 0 && pos.toDouble() / dur >= DefaultProgressReporter.COMPLETION_FRACTION)) reporter.markCompleted(target, dur)
+            else reporter.flush(target, pos, dur)
+        }
+    }
+
     /** Back: persist the position (on a scope that outlives this ViewModel) and let the screen pop. */
     fun flushForExit() {
         if (exitFlushed) return

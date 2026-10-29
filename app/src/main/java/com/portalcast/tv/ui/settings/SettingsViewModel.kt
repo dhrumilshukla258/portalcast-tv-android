@@ -54,6 +54,14 @@ class SettingsViewModel(
 
     fun toggleDirectLiveStreams() = setDirectLiveStreams(!directLiveStreams.value)
 
+    /** Settings › Player (playback/ExternalPlayer.kt). */
+    val externalPlayer: StateFlow<String> = prefs.externalPlayer
+        .stateIn(viewModelScope, SharingStarted.Eagerly, "")
+
+    fun setExternalPlayer(choice: String) {
+        viewModelScope.launch { prefs.setExternalPlayer(choice) }
+    }
+
     /** Clears the stored session; the nav gate returns to pairing. */
     fun signOut() {
         viewModelScope.launch { auth.logout() }
