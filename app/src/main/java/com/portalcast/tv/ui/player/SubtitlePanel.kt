@@ -51,6 +51,8 @@ data class SubtitlePanelState(
     /** What is on now: "Off", "English (built-in)", "Online · <release>". */
     val activeLabel: String = "Off",
     val language: String = "en",
+    /** What the online search looks for: prefilled ("Title (2010)", "Show S01E02"), editable. */
+    val query: String = "",
     val searching: Boolean = false,
     /** null = not searched yet. */
     val results: List<com.portalcast.tv.data.model.SubtitleResult>? = null,
@@ -119,6 +121,23 @@ fun BoxScope.SubtitlePanel(
             items(panel.embedded, key = { "emb:" + it.id }) { t ->
                 TvButton(text = (if (t.selected) "✓ " else "") + t.label + " (built-in)", onClick = { vm.selectEmbeddedSubtitle(t.id) },
                     style = TvButtonStyle.Secondary, modifier = Modifier.fillMaxWidth())
+            }
+            item {
+                // The search, editable: OK opens the keyboard; its Search key searches. "S01E02"
+                // and "(2010)" in the text set the episode and year.
+                androidx.compose.foundation.text.BasicTextField(
+                    value = panel.query,
+                    onValueChange = { vm.setSubtitleQuery(it) },
+                    singleLine = true,
+                    textStyle = MaterialTheme.typography.bodyLarge.copy(color = AppColors.Text),
+                    cursorBrush = androidx.compose.ui.graphics.SolidColor(AppColors.Focus),
+                    keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(imeAction = androidx.compose.ui.text.input.ImeAction.Search),
+                    keyboardActions = androidx.compose.foundation.text.KeyboardActions(onSearch = { vm.searchOnlineSubtitles() }),
+                    modifier = Modifier.fillMaxWidth()
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(AppColors.SurfaceVariant)
+                        .padding(horizontal = 12.dp, vertical = 10.dp),
+                )
             }
             item {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {

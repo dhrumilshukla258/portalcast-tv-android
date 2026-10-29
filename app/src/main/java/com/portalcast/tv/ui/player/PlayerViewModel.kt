@@ -188,7 +188,7 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
         _state.update {
             it.copy(
                 overlayVisible = true,
-                subtitlePanel = (it.subtitlePanel ?: SubtitlePanelState(language = subtitlePrefs.language))
+                subtitlePanel = (it.subtitlePanel ?: SubtitlePanelState(language = subtitlePrefs.language, query = defaultSubtitleQuery()))
                     .copy(audioOnly = audioOnly, embedded = embeddedTracks(), audio = audioTracks(), activeLabel = activeLabel()),
             )
         }
@@ -310,16 +310,30 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
         _state.update { st -> st.subtitlePanel?.let { st.copy(subtitlePanel = it.copy(language = next, results = null, message = null)) } ?: st }
     }
 
+    /** The search the panel starts with: "Title (2010)" for a film, "Show S01E02" for an episode. */
+    private fun defaultSubtitleQuery(): String = when (val s = session) {
+        is PlaybackSession.Movie -> listOfNotNull(s.item.displayTitle, s.item.displayYear?.takeIf { it.isNotBlank() }?.let { "($it)" }).joinToString(" ")
+        is PlaybackSession.Episode -> {
+            val idx = s.siblings.indexOfFirst { it.id == s.episode.id }.coerceAtLeast(0)
+            val ep = EpisodeInfo.number(s.episode, idx)
+            buildString {
+                append(s.series.displayTitle)
+                if (s.seasonNumber != null && ep != null) append(" S%02dE%02d".format(s.seasonNumber, ep))
+            }
+        }
+        else -> ""
+    }
+
+    fun setSubtitleQuery(q: String) {
+        _state.update { st -> st.subtitlePanel?.let { st.copy(subtitlePanel = it.copy(query = q.take(200))) } ?: st }
+    }
+
     fun searchOnlineSubtitles() {
         val s = session ?: return
-        val (title, year, season, episode) = when (s) {
-            is PlaybackSession.Movie -> SearchQuery(s.item.displayTitle, s.item.displayYear, null, null)
-            is PlaybackSession.Episode -> {
-                val idx = s.siblings.indexOfFirst { it.id == s.episode.id }.coerceAtLeast(0)
-                SearchQuery(s.series.displayTitle, null, s.seasonNumber, EpisodeInfo.number(s.episode, idx))
-            }
-            is PlaybackSession.Live -> return
-        }
+        if (s is PlaybackSession.Live) return
+        val typed = _state.value.subtitlePanel?.query?.takeIf { it.isNotBlank() } ?: defaultSubtitleQuery()
+        val (title, year, season, episode) = parseSubtitleQuery(typed)
+        if (title.isBlank()) return
         val lang = subtitlePrefs.language
         _state.update { st -> st.subtitlePanel?.let { st.copy(subtitlePanel = it.copy(searching = true, message = null)) } ?: st }
         viewModelScope.launch {
@@ -337,7 +351,7 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    private data class SearchQuery(val title: String, val year: String?, val season: Int?, val episode: Int?)
+    data class SearchQuery(val title: String, val year: String?, val season: Int?, val episode: Int?)
 
     fun pickOnlineSubtitle(r: com.portalcast.tv.data.model.SubtitleResult) {
         viewModelScope.launch { loadOnlineSubtitle(r.downloadKey, label = r.releaseName, remember = true) }
@@ -755,6 +769,23 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
 
     companion object {
         const val SEEK_STEP_MS = 10_000L
+        private val EPISODE_RE = Regex("""(?i)\bS(\d{1,4})\s*E(\d{1,4})\b""")
+        private val YEAR_RE = Regex("""\((\d{4})\)""")
+
+        /** "Dark S01E02" -> Dark, season 1, episode 2; "Heat (1995)" -> Heat, 1995. */
+        fun parseSubtitleQuery(text: String): SearchQuery {
+            val ep = EPISODE_RE.find(text)
+            val yr = YEAR_RE.find(text)
+            var title = text
+            listOfNotNull(ep, yr).sortedByDescending { it.range.first }.forEach { title = title.removeRange(it.range) }
+            return SearchQuery(
+                title.replace(Regex("""\s+"""), " ").trim(),
+                yr?.groupValues?.get(1),
+                ep?.groupValues?.get(1)?.toIntOrNull(),
+                ep?.groupValues?.get(2)?.toIntOrNull(),
+            )
+        }
+
         /**
          * Holding Left/Right: the bar starts at 30x and speeds up over 3 s to a top speed that
          * crosses the whole title in about 10 s (at least 120x), then stays there. A 2-hour film
