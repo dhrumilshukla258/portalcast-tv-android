@@ -333,7 +333,8 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
     private fun loadFileSubtitles() {
         val url = streamUrl ?: return
         val t = streamToken() ?: return
-        if (!url.contains("/api/local/")) return
+        // `lib=1`: a Jellyfin file played straight from Jellyfin (it still carries this server's token).
+        if (!url.contains("/api/local/") && !Regex("[?&]lib=1(&|$)").containsMatchIn(url)) return
         viewModelScope.launch {
             val files = runCatching { container.api.mediaInfo(t).external }.getOrDefault(emptyList()).filter { it.url.startsWith("/api/") }
             _state.update { st -> st.subtitlePanel?.let { st.copy(subtitlePanel = it.copy(files = files)) } ?: st }
