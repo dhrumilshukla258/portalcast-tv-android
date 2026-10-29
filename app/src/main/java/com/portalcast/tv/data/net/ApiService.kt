@@ -54,7 +54,17 @@ interface ApiService {
         @Query("season") season: Int? = null,
         @Query("episode") episode: Int? = null,
         @Query("lang") lang: String? = null,
+        /** The playing stream's token: the server hashes the file (exact matches first) and asks Jellyfin. */
+        @Query("t") t: String? = null,
     ): com.portalcast.tv.data.model.SubtitleSearchResponse
+
+    /** A library file's tracks and the subtitle files beside it (`external`, servers from 2026-10-29). */
+    @GET("api/media/info")
+    suspend fun mediaInfo(@Query("t") t: String): com.portalcast.tv.data.model.MediaInfo
+
+    /** A subtitle file on this server by its path (an `external` entry's url). */
+    @GET
+    suspend fun fetchText(@retrofit2.http.Url url: String): okhttp3.ResponseBody
 
     /**
      * WebVTT text of one subtitle (stored by the server after the first download). New servers

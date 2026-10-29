@@ -46,6 +46,9 @@ data class SubtitlePanelState(
     /** Opened from the audio button: only the audio tracks are listed. */
     val audioOnly: Boolean = false,
     val embedded: List<TextTrackOption> = emptyList(),
+    /** Subtitle files beside a library video (Jellyfin's, a folder's .srt): listed first. */
+    val files: List<com.portalcast.tv.data.model.FileSubtitle> = emptyList(),
+    val bestBusy: Boolean = false,
     /** Audio tracks of the file; shown only when there is more than one. */
     val audio: List<TextTrackOption> = emptyList(),
     /** What is on now: "Off", "English (built-in)", "Online · <release>". */
@@ -118,6 +121,10 @@ fun BoxScope.SubtitlePanel(
                 TvButton(text = (if (panel.activeLabel == "Off") "✓ " else "") + "Off", onClick = vm::subtitlesOff,
                     style = TvButtonStyle.Secondary, modifier = Modifier.fillMaxWidth().focusRequester(first))
             }
+            items(panel.files, key = { "file:" + it.url }) { f ->
+                TvButton(text = (if (panel.activeLabel == "File · ${f.label}") "✓ " else "") + f.label + " (file)", onClick = { vm.pickFileSubtitle(f) },
+                    style = TvButtonStyle.Secondary, modifier = Modifier.fillMaxWidth())
+            }
             items(panel.embedded, key = { "emb:" + it.id }) { t ->
                 TvButton(text = (if (t.selected) "✓ " else "") + t.label + " (built-in)", onClick = { vm.selectEmbeddedSubtitle(t.id) },
                     style = TvButtonStyle.Secondary, modifier = Modifier.fillMaxWidth())
@@ -141,6 +148,8 @@ fun BoxScope.SubtitlePanel(
             }
             item {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    TvButton(text = if (panel.bestBusy) "Finding…" else "Best match", onClick = vm::addBestMatch,
+                        style = TvButtonStyle.Primary, enabled = !panel.bestBusy && !panel.searching)
                     TvButton(text = if (panel.searching) "Searching…" else "Search online", onClick = vm::searchOnlineSubtitles,
                         style = TvButtonStyle.Primary, enabled = !panel.searching)
                     TvButton(text = "Language: $langName", onClick = vm::cycleSubtitleLanguage, style = TvButtonStyle.Secondary)
@@ -155,7 +164,8 @@ fun BoxScope.SubtitlePanel(
                     append(r.releaseName ?: "Subtitle")
                     append("  ·  ").append((r.language ?: "").uppercase(Locale.US))
                     if (r.downloadCount > 0) append("  ·  ").append(r.downloadCount).append("↓")
-                    append("  ·  ").append(when (r.source) { "subdl" -> "SubDL"; "gestdown" -> "Gestdown"; else -> "OpenSubtitles" })
+                    append("  ·  ").append(when (r.source) { "subdl" -> "SubDL"; "gestdown" -> "Gestdown"; "jellyfin" -> "Jellyfin"; else -> "OpenSubtitles" })
+                    if (r.exactMatch) append("  ·  ✓ exact match")
                 }
                 TvButton(text = label, onClick = { vm.pickOnlineSubtitle(r) }, style = TvButtonStyle.Secondary,
                     enabled = panel.loadingFile == null, modifier = Modifier.fillMaxWidth())

@@ -192,6 +192,7 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
                     .copy(audioOnly = audioOnly, embedded = embeddedTracks(), audio = audioTracks(), activeLabel = activeLabel()),
             )
         }
+        if (!audioOnly) loadFileSubtitles()
     }
 
     /**
@@ -324,6 +325,42 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
         else -> ""
     }
 
+    /** The stream playing (its `t` token names the file for the subtitle search and media info). */
+    private var streamUrl: String? = null
+    private fun streamToken(): String? = streamUrl?.let { runCatching { android.net.Uri.parse(it).getQueryParameter("t") }.getOrNull() }
+
+    /** The subtitle files beside a library video, shown first in the panel. */
+    private fun loadFileSubtitles() {
+        val url = streamUrl ?: return
+        val t = streamToken() ?: return
+        if (!url.contains("/api/local/")) return
+        viewModelScope.launch {
+            val files = runCatching { container.api.mediaInfo(t).external }.getOrDefault(emptyList()).filter { it.url.startsWith("/api/") }
+            _state.update { st -> st.subtitlePanel?.let { st.copy(subtitlePanel = it.copy(files = files)) } ?: st }
+        }
+    }
+
+    fun pickFileSubtitle(f: com.portalcast.tv.data.model.FileSubtitle) {
+        viewModelScope.launch {
+            val text = runCatching { container.api.fetchText(f.url.removePrefix("/")).use { it.string() } }.getOrNull()
+            showCues(text, "File · ${f.label}", rememberId = null)
+        }
+    }
+
+    /** One press: the top result (made for this file first, Jellyfin's first) is loaded and shown. */
+    fun addBestMatch() {
+        val panel = _state.value.subtitlePanel ?: return
+        if (panel.bestBusy) return
+        _state.update { st -> st.subtitlePanel?.let { st.copy(subtitlePanel = it.copy(bestBusy = true, message = null)) } ?: st }
+        viewModelScope.launch {
+            val results = runSearch()
+            val best = results?.firstOrNull()
+            _state.update { st -> st.subtitlePanel?.let { st.copy(subtitlePanel = it.copy(bestBusy = false, results = results,
+                message = if (results != null && best == null) "Nothing found for this search." else it.message)) } ?: st }
+            if (best != null) loadOnlineSubtitle(best.downloadKey, label = best.releaseName, remember = true)
+        }
+    }
+
     fun setSubtitleQuery(q: String) {
         _state.update { st -> st.subtitlePanel?.let { st.copy(subtitlePanel = it.copy(query = q.take(200))) } ?: st }
     }
@@ -332,12 +369,10 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
         val s = session ?: return
         if (s is PlaybackSession.Live) return
         val typed = _state.value.subtitlePanel?.query?.takeIf { it.isNotBlank() } ?: defaultSubtitleQuery()
-        val (title, year, season, episode) = parseSubtitleQuery(typed)
-        if (title.isBlank()) return
-        val lang = subtitlePrefs.language
+        if (parseSubtitleQuery(typed).title.isBlank()) return
         _state.update { st -> st.subtitlePanel?.let { st.copy(subtitlePanel = it.copy(searching = true, message = null)) } ?: st }
         viewModelScope.launch {
-            val result = runCatching { container.api.searchSubtitles(title, year, season, episode, lang) }
+            val result = runCatching { searchNow() }
             _state.update { st ->
                 val p = st.subtitlePanel ?: return@update st
                 result.fold(
@@ -353,6 +388,18 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
 
     data class SearchQuery(val title: String, val year: String?, val season: Int?, val episode: Int?)
 
+    private suspend fun searchNow(): com.portalcast.tv.data.model.SubtitleSearchResponse {
+        val typed = _state.value.subtitlePanel?.query?.takeIf { it.isNotBlank() } ?: defaultSubtitleQuery()
+        val (title, year, season, episode) = parseSubtitleQuery(typed)
+        return container.api.searchSubtitles(title, year, season, episode, subtitlePrefs.language, streamToken())
+    }
+
+    /** The results, or null when the search failed (the message says why). */
+    private suspend fun runSearch(): List<com.portalcast.tv.data.model.SubtitleResult>? =
+        runCatching { searchNow().results }.onFailure { e ->
+            _state.update { st -> st.subtitlePanel?.let { st.copy(subtitlePanel = it.copy(message = "Search failed: ${ApiError.from(e).message}")) } ?: st }
+        }.getOrNull()
+
     fun pickOnlineSubtitle(r: com.portalcast.tv.data.model.SubtitleResult) {
         viewModelScope.launch { loadOnlineSubtitle(r.downloadKey, label = r.releaseName, remember = true) }
     }
@@ -360,8 +407,13 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
     private suspend fun loadOnlineSubtitle(subId: String, label: String?, remember: Boolean) {
         _state.update { st -> st.subtitlePanel?.let { st.copy(subtitlePanel = it.copy(loadingFile = subId)) } ?: st }
         val osFileId = subId.removePrefix("os:").takeIf { subId.startsWith("os:") }?.toLongOrNull()
-        val text = runCatching { container.api.downloadSubtitle(subId, osFileId).use { it.string() } }
-        val parsed = text.getOrNull()?.let { SubtitleCues.parse(it) }.orEmpty()
+        val text = runCatching { container.api.downloadSubtitle(subId, osFileId).use { it.string() } }.getOrNull()
+        showCues(text, "Online · ${label ?: "subtitle"}", rememberId = if (remember) subId else null)
+    }
+
+    /** Draws a downloaded or file subtitle (app-rendered, so its timing can be shifted). */
+    private fun showCues(text: String?, activeLabel: String, rememberId: String?) {
+        val parsed = text?.let { SubtitleCues.parse(it) }.orEmpty()
         if (parsed.isEmpty()) {
             _state.update { st -> st.subtitlePanel?.let { st.copy(subtitlePanel = it.copy(loadingFile = null, message = "Couldn't load that subtitle. Try another.")) } ?: st }
             return
@@ -370,10 +422,10 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
         player.trackSelectionParameters = player.trackSelectionParameters.buildUpon()
             .setTrackTypeDisabled(C.TRACK_TYPE_TEXT, true).build()
         cues = parsed
-        if (remember) subtitleKey?.let { subtitlePrefs.setSubtitleId(it, subId) }
+        if (rememberId != null) subtitleKey?.let { subtitlePrefs.setSubtitleId(it, rememberId) }
         _state.update { st ->
             st.copy(externalSubtitles = true,
-                subtitlePanel = st.subtitlePanel?.copy(loadingFile = null, activeLabel = "Online · ${label ?: "subtitle"}"))
+                subtitlePanel = st.subtitlePanel?.copy(loadingFile = null, activeLabel = activeLabel))
         }
         subtitleJob?.cancel()
         subtitleJob = viewModelScope.launch {
@@ -464,6 +516,7 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
             if (session != target) return@launch
             resolved.fold(
                 onSuccess = { stream ->
+                    streamUrl = stream.url
                     player.setMediaItem(factory.mediaItem(stream))
                     if (resume != null && resume > 0) player.seekTo(resume)
                     player.prepare()

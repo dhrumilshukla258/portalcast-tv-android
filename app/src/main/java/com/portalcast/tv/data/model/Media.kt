@@ -172,12 +172,21 @@ data class SubtitleResult(
     val fileId: Long = 0,
     /** "os:<fileId>" | "subdl:<path>" (servers from 2026-10-19); null on older servers. */
     val downloadId: String? = null,
-    /** "opensubtitles" | "subdl" | "gestdown" (servers from 2026-10-29). */
+    /** "opensubtitles" | "subdl" | "gestdown" | "jellyfin" (servers from 2026-10-29). */
     val source: String? = null,
     val language: String? = null,
     val releaseName: String? = null,
     val downloadCount: Int = 0,
+    /** Made for exactly the file playing (servers from 2026-10-29). */
+    val exactMatch: Boolean = false,
 )
+
+/** A subtitle file beside a library video: Jellyfin's external subtitles, a folder's .srt. */
+@Serializable
+data class FileSubtitle(val label: String = "Subtitle", val language: String? = null, val forced: Boolean = false, val url: String = "")
+
+@Serializable
+data class MediaInfo(val external: List<FileSubtitle> = emptyList())
 
 @Serializable
 data class SubtitleSearchResponse(val success: Boolean = false, val results: List<SubtitleResult> = emptyList())
