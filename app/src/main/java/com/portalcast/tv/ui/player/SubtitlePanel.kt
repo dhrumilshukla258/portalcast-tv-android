@@ -136,7 +136,7 @@ fun BoxScope.SubtitlePanel(
                     append(r.releaseName ?: "Subtitle")
                     append("  ·  ").append((r.language ?: "").uppercase(Locale.US))
                     if (r.downloadCount > 0) append("  ·  ").append(r.downloadCount).append("↓")
-                    append("  ·  ").append(if (r.source == "subdl") "SubDL" else "OpenSubtitles")
+                    append("  ·  ").append(when (r.source) { "subdl" -> "SubDL"; "gestdown" -> "Gestdown"; else -> "OpenSubtitles" })
                 }
                 TvButton(text = label, onClick = { vm.pickOnlineSubtitle(r) }, style = TvButtonStyle.Secondary,
                     enabled = panel.loadingFile == null, modifier = Modifier.fillMaxWidth())

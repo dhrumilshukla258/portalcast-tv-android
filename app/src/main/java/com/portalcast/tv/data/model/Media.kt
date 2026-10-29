@@ -172,7 +172,7 @@ data class SubtitleResult(
     val fileId: Long = 0,
     /** "os:<fileId>" | "subdl:<path>" (servers from 2026-10-19); null on older servers. */
     val downloadId: String? = null,
-    /** "opensubtitles" | "subdl". */
+    /** "opensubtitles" | "subdl" | "gestdown" (servers from 2026-10-29). */
     val source: String? = null,
     val language: String? = null,
     val releaseName: String? = null,
