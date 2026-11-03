@@ -96,10 +96,14 @@ class DefaultProgressReporter(
         }
     }
 
+    /** A movie's older row under another id (its file's), kept in step: movie id -> row id. */
+    private val legacyRows = java.util.concurrent.ConcurrentHashMap<String, String>()
+
     override suspend fun resumePositionMs(session: PlaybackSession): Long? {
         val wanted = resumeRowId(session) ?: return null
         val rows = users.progress().getOrNull() ?: return null
-        val row = rows.firstOrNull { it.mediaId == wanted } ?: return null
+        val row = (if (session is PlaybackSession.Movie) com.portalcast.tv.ui.components.ProgressRows.movieRow(rows, wanted) else rows.firstOrNull { it.mediaId == wanted }) ?: return null
+        if (session is PlaybackSession.Movie && row.mediaId != wanted) legacyRows[wanted] = row.mediaId
         if (row.completed || row.progress <= RESUME_MIN_SEC) return null
         return (row.progress * 1000).toLong()
     }
@@ -178,7 +182,7 @@ class DefaultProgressReporter(
 
     private fun rowIds(session: PlaybackSession): List<String> = when (session) {
         is PlaybackSession.Live -> emptyList()
-        is PlaybackSession.Movie -> listOf(session.item.id)
+        is PlaybackSession.Movie -> listOfNotNull(session.item.id, legacyRows[session.item.id]).distinct()
         is PlaybackSession.Episode -> listOf(session.fileId, session.series.id).distinct()
     }
 

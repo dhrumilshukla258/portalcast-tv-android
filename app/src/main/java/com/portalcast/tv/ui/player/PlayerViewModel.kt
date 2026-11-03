@@ -122,8 +122,9 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
     private var reResolved = false
     private var completed = false
     private var exitFlushed = false
-    /** The app is off screen (onAppHidden / onAppShown). */
+    /** The app is off screen (onAppHidden / onAppShown), since [hiddenAt] (elapsed ms). */
     private var hidden = false
+    private var hiddenAt = 0L
 
     private val listener = object : Player.Listener {
         override fun onPlaybackStateChanged(playbackState: Int) {
@@ -561,23 +562,35 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
     fun onAppHidden() {
         if (hidden) return
         hidden = true
+        hiddenAt = android.os.SystemClock.elapsedRealtime()
         val s = session ?: return
         if (s.isLive) player.stop() else pause()
     }
 
-    /** Back in the app: a movie or episode waits, paused with its controls; live TV plays on. */
+    /**
+     * Back in the app: playback carries on (owner 2026-11-03: coming back to a player that did
+     * not play). After [STALE_AFTER_MS] away the stream is asked for again at the same spot:
+     * a provider's link or connection left idle that long often no longer answers, which left
+     * a black player. Live TV goes back to the live edge.
+     */
     fun onAppShown() {
         if (!hidden) return
         hidden = false
         val s = session ?: return
-        if (_state.value.error != null) return
+        val away = android.os.SystemClock.elapsedRealtime() - hiddenAt
         if (s.isLive) {
+            if (_state.value.error != null) { retry(); return }
             player.seekToDefaultPosition()
             player.prepare()
             player.playWhenReady = true
-        } else {
-            showOverlay(autoHide = false)
+            return
         }
+        if (_state.value.error != null || away > STALE_AFTER_MS || player.playbackState == Player.STATE_IDLE) {
+            retry()
+        } else {
+            player.play()
+        }
+        showOverlay()
     }
 
     /** VOD only. */
@@ -855,6 +868,8 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
 
     companion object {
         const val SEEK_STEP_MS = 10_000L
+        /** Away longer than this, the stream is asked for again on return. */
+        const val STALE_AFTER_MS = 30_000L
         private val EPISODE_RE = Regex("""(?i)\bS(\d{1,4})\s*E(\d{1,4})\b""")
         private val YEAR_RE = Regex("""\((\d{4})\)""")
 

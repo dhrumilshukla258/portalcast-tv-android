@@ -252,6 +252,19 @@ class DiscoverViewModelTest {
     }
 
     @Test
+    fun `a movie saved under its file id opens under its title id, one card per title`() {
+        // A real row (2026-11-02): Stalker title 561155, its file 3229567.
+        val meta = ProgressMeta(id = "3229567", playbackFileId = "3229567", mediaId = "3229567", itemId = "3229567", categoryId = "18",
+            type = "movie", title = "Paatki", currentTime = 281.68, duration = 7561.48, progressPercent = 4, catalogId = "movie_561155")
+        val entry = DiscoverViewModel.toContinueEntry(record("3229567", meta))!!
+        assertEquals("561155", entry.target.id)
+        assertEquals("3229567", entry.key) // removing the card removes that row
+        val rows = listOf(ProgressRecord(mediaId = "3229567", progress = 281.68, meta = meta.toJson()))
+        assertEquals(281_680L, com.portalcast.tv.ui.components.ProgressRows.movieRow(rows, "561155")?.let(com.portalcast.tv.ui.components.ProgressRows::resumableMs))
+        assertNull(com.portalcast.tv.ui.components.ProgressRows.movieRow(rows, "999"))
+    }
+
+    @Test
     fun `continue watching cards show the wide art and the time left`() {
         val ep = DiscoverViewModel.toContinueEntry(ProgressRecord(
             mediaId = "ep55",

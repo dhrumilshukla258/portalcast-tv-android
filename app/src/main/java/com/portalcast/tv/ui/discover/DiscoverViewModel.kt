@@ -240,6 +240,8 @@ class DiscoverViewModel(
 
     private fun continueEntries(records: List<com.portalcast.tv.data.model.ProgressRecord>, type: String?): List<ContinueEntry> =
         records.mapNotNull { toContinueEntry(it) }.filter { type == null || (if (type == "series") it.isSeries else !it.isSeries) }
+            // One card per title (a movie can have rows under its id and its file's id).
+            .distinctBy { (if (it.isSeries) "s:" else "m:") + it.target.id }
 
     /** The server's rows (or the old single recommendations row), then What's new. */
     private fun rowsFrom(
@@ -497,7 +499,10 @@ class DiscoverViewModel(
                 meta.catalogId?.takeIf { it.startsWith("series_") }?.removePrefix("series_")?.takeIf { it.isNotBlank() }
                     ?: meta.mediaId?.takeIf { it.isNotBlank() } ?: record.mediaId
             } else {
-                meta.mediaId?.takeIf { it.isNotBlank() } ?: record.mediaId
+                // The title's id when known: on some portals mediaId is a file's id, which opens
+                // no movie (owner 2026-11-03: Continue Watching did not play, search did).
+                meta.catalogId?.takeIf { it.startsWith("movie_") }?.removePrefix("movie_")?.takeIf { it.isNotBlank() }
+                    ?: meta.mediaId?.takeIf { it.isNotBlank() } ?: record.mediaId
             }
             val subtitle = if (isSeries) {
                 listOfNotNull(meta.series_number?.let { "S$it" }, meta.episodeTitle?.takeIf { it.isNotBlank() })

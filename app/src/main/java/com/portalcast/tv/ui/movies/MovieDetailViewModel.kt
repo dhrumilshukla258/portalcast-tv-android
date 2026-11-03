@@ -93,7 +93,7 @@ class MovieDetailViewModel(
         viewModelScope.launch {
             val rows = users.progress(forceRefresh = true).getOrNull()
             val id = _state.value.item?.id?.takeIf { it.isNotBlank() } ?: movieId
-            _state.update { it.copy(progressLoaded = true, resumeMs = rows?.let { r -> ProgressRows.resumableMs(r, id) }) }
+            _state.update { it.copy(progressLoaded = true, resumeMs = rows?.let { r -> ProgressRows.movieRow(r, id)?.let(ProgressRows::resumableMs) }) }
         }
     }
 

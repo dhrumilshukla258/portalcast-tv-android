@@ -14,6 +14,18 @@ object ProgressRows {
         return resumableMs(row)
     }
 
+    /**
+     * A movie's progress row: the one keyed by its id, else one saved under its file's id that
+     * names this movie as its title (`meta.catalogId` = "movie_<id>"). On a portal whose movies
+     * have a title id and separate file ids, the web app saves under the file's id.
+     */
+    fun movieRow(rows: List<ProgressRecord>, movieId: String): ProgressRecord? {
+        if (movieId.isBlank()) return null
+        val raw = movieId.removePrefix("movie_")
+        return rows.firstOrNull { it.mediaId == movieId }
+            ?: rows.firstOrNull { it.parsedMeta?.catalogId == "movie_$raw" }
+    }
+
     /** Resume position in ms of one row, or null when completed or ≤ 2 s. */
     fun resumableMs(row: ProgressRecord): Long? {
         if (row.completed || row.progress <= RESUME_MIN_SEC) return null
