@@ -334,6 +334,8 @@ fun HomeScreen(
                     SectionChip(
                         label = t.title,
                         selected = t == current,
+                        // Home shows movies and series: both lightly filled there (owner 2026-11-03).
+                        included = current == HomeTab.DISCOVER && t != HomeTab.PEOPLE,
                         onClick = {
                             pendingSwitch[0]?.cancel()
                             val next = if (t == current) HomeTab.DISCOVER else t
@@ -464,9 +466,12 @@ private fun TopTab(
     }
 }
 
-/** A chip of Home's sections row: filled white when chosen, outlined otherwise; the focus ring. */
+/**
+ * A chip of Home's sections row: filled white when chosen, lightly filled when Home includes it
+ * ([included]: Movies and Series on Home, as on the web), outlined otherwise; the focus ring.
+ */
 @Composable
-private fun SectionChip(label: String, selected: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier) {
+private fun SectionChip(label: String, selected: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier, included: Boolean = false) {
     val shape = RoundedCornerShape(50)
     Surface(
         onClick = onClick,
@@ -474,13 +479,13 @@ private fun SectionChip(label: String, selected: Boolean, onClick: () -> Unit, m
         shape = ClickableSurfaceDefaults.shape(shape = shape),
         scale = ClickableSurfaceDefaults.scale(focusedScale = 1.05f),
         border = ClickableSurfaceDefaults.border(
-            border = Border(BorderStroke(1.dp, if (selected) Color.Transparent else Color.White.copy(alpha = 0.25f)), shape = shape),
+            border = Border(BorderStroke(1.dp, if (selected) Color.Transparent else Color.White.copy(alpha = if (included) 0.4f else 0.25f)), shape = shape),
             focusedBorder = Border(BorderStroke(2.dp, AppColors.Focus), shape = shape),
         ),
         colors = ClickableSurfaceDefaults.colors(
-            containerColor = if (selected) Color.White else Color.Transparent,
+            containerColor = if (selected) Color.White else if (included) Color.White.copy(alpha = 0.15f) else Color.Transparent,
             contentColor = if (selected) AppColors.Background else AppColors.Text,
-            focusedContainerColor = if (selected) Color.White else Color.White.copy(alpha = 0.12f),
+            focusedContainerColor = if (selected) Color.White else Color.White.copy(alpha = if (included) 0.24f else 0.12f),
             focusedContentColor = if (selected) AppColors.Background else AppColors.Text,
         ),
     ) {
