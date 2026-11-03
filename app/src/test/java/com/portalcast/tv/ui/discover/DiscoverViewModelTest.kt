@@ -39,7 +39,10 @@ class DiscoverViewModelTest {
     private val dispatcher = StandardTestDispatcher()
 
     @Before
-    fun setUp() = Dispatchers.setMain(dispatcher)
+    fun setUp() {
+        Dispatchers.setMain(dispatcher)
+        SharedFilter.set(null)
+    }
 
     @After
     fun tearDown() = Dispatchers.resetMain()
@@ -362,6 +365,41 @@ class DiscoverViewModelTest {
         assertFalse(vm.state.value.grid!!.hasMore)
         vm.clearFilter()
         assertNull(vm.state.value.grid)
+    }
+
+    @Test
+    fun `filters set on Movies are kept on Series and cleared everywhere`() = runTest(dispatcher) {
+        val repo = FakeDiscoverRepository().apply { filterPages = MutableList(4) { page("movie_1") } }
+        val movies = DiscoverViewModel(repo, FakeUserRepository(), "movie")
+        val series = DiscoverViewModel(repo, FakeUserRepository(), "series")
+        movies.onScreenShown()
+        movies.applyFilter(DiscoverQuery(genres = listOf("Action", "Adventure"), notGenres = listOf("War"), language = "gu"))
+        advanceUntilIdle()
+
+        series.onScreenShown()
+        advanceUntilIdle()
+        val q = series.state.value.grid!!.query
+        assertEquals("series", q.type)
+        assertEquals(listOf("Action & Adventure"), q.genres)
+        assertEquals(listOf("War & Politics"), q.notGenres)
+        assertEquals("gu", q.language)
+
+        // Back on Movies: its own genres, unchanged by the trip through Series.
+        movies.onScreenShown()
+        assertEquals(listOf("Action", "Adventure"), movies.state.value.grid!!.query.genres)
+
+        series.clearFilter()
+        movies.onScreenShown()
+        assertNull(movies.state.value.grid)
+    }
+
+    @Test
+    fun `a channel alone is a filter`() = runTest(dispatcher) {
+        val repo = FakeDiscoverRepository().apply { filterPages = mutableListOf(page("series_1")) }
+        val vm = DiscoverViewModel(repo, FakeUserRepository(), "series")
+        vm.applyFilter(DiscoverQuery(network = "Zee5"))
+        advanceUntilIdle()
+        assertEquals("Zee5", vm.state.value.grid!!.query.network)
     }
 }
 

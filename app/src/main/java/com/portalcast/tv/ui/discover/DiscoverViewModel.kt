@@ -134,6 +134,8 @@ class DiscoverViewModel(
     private val rowPermits = Semaphore(MAX_ROW_FETCHES)
 
     private var started = false
+    /** [SharedFilter.version] this tab last showed; -1: none yet (a new tab takes what is set). */
+    private var sharedSeen = -1
     private var generation = 0
     private var rowsJob: Job? = null
     private var gridJob: Job? = null
@@ -146,6 +148,7 @@ class DiscoverViewModel(
 
     /** Screen entered composition: first time loads everything, later only refreshes Continue Watching. */
     fun onScreenShown() {
+        syncSharedFilter()
         if (!started) {
             started = true
             reload()
@@ -338,12 +341,35 @@ class DiscoverViewModel(
 
     // ---- filtered grid ---------------------------------------------------------
 
+    /** The viewer picked filters: shown here, and kept for the other tabs ([SharedFilter]). */
     fun applyFilter(query: DiscoverQuery) {
         val q = query.copy(type = _state.value.type)
-        if (q.genres.isEmpty() && q.notGenres.isEmpty() && q.country.isNullOrBlank() && q.language.isNullOrBlank() && q.theme.isNullOrBlank()) {
+        if (q.isEmpty()) {
             clearFilter()
             return
         }
+        SharedFilter.set(q)
+        sharedSeen = SharedFilter.version
+        showFilter(q)
+    }
+
+    /** The filters last set on Home, Movies or Series, if they changed since this tab showed. */
+    private fun syncSharedFilter() {
+        if (sharedSeen == SharedFilter.version) return
+        sharedSeen = SharedFilter.version
+        val shared = SharedFilter.query
+        val q = shared?.let { SharedFilter.forType(it, _state.value.type) }?.takeUnless { it.isEmpty() }
+        if (q == null) {
+            if (_state.value.grid != null) dropFilter()
+        } else if (q != _state.value.grid?.query) {
+            showFilter(q)
+        }
+    }
+
+    private fun DiscoverQuery.isEmpty() = genres.isEmpty() && notGenres.isEmpty() && country.isNullOrBlank() &&
+        language.isNullOrBlank() && theme.isNullOrBlank() && network.isNullOrBlank()
+
+    private fun showFilter(q: DiscoverQuery) {
         gridJob?.cancel()
         _state.update { it.copy(grid = FilterGrid(q)) }
         gridJob = viewModelScope.launch {
@@ -375,6 +401,12 @@ class DiscoverViewModel(
     }
 
     fun clearFilter() {
+        SharedFilter.set(null)
+        sharedSeen = SharedFilter.version
+        dropFilter()
+    }
+
+    private fun dropFilter() {
         gridJob?.cancel()
         _state.update { it.copy(grid = null) }
     }

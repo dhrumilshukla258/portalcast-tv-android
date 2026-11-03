@@ -122,6 +122,8 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
     private var reResolved = false
     private var completed = false
     private var exitFlushed = false
+    /** The app is off screen (onAppHidden / onAppShown). */
+    private var hidden = false
 
     private val listener = object : Player.Listener {
         override fun onPlaybackStateChanged(playbackState: Int) {
@@ -520,8 +522,10 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
                     streamUrl = stream.url
                     player.setMediaItem(factory.mediaItem(stream))
                     if (resume != null && resume > 0) player.seekTo(resume)
-                    player.prepare()
-                    player.playWhenReady = true
+                    // Live TV off screen waits for onAppShown to start downloading.
+                    if (!(hidden && target.isLive)) player.prepare()
+                    // Not while the app is off screen (the stream resolved after Home was pressed).
+                    player.playWhenReady = !hidden
                     _state.update { it.copy(status = PlayerStatus.Loading, error = null) }
                 },
                 onFailure = { t -> fail(messageFor(t)) },
@@ -546,6 +550,34 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
         player.pause()
         showOverlay(autoHide = false)
         flushAsync()
+    }
+
+    /**
+     * The app left the screen (Home on the remote, another app). Nothing plays behind the
+     * launcher (owner 2026-11-03): a movie or episode pauses where it is and saves the spot; live
+     * TV stops downloading (the provider's connection is freed) and goes back to the live edge on
+     * return. A stream still loading stays paused too ([load] checks [hidden]).
+     */
+    fun onAppHidden() {
+        if (hidden) return
+        hidden = true
+        val s = session ?: return
+        if (s.isLive) player.stop() else pause()
+    }
+
+    /** Back in the app: a movie or episode waits, paused with its controls; live TV plays on. */
+    fun onAppShown() {
+        if (!hidden) return
+        hidden = false
+        val s = session ?: return
+        if (_state.value.error != null) return
+        if (s.isLive) {
+            player.seekToDefaultPosition()
+            player.prepare()
+            player.playWhenReady = true
+        } else {
+            showOverlay(autoHide = false)
+        }
     }
 
     /** VOD only. */

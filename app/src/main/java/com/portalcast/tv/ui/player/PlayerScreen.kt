@@ -133,6 +133,21 @@ fun PlayerScreen(
     }
     LaunchedEffect(Unit) { vm.navigateBack.collect { onBack() } }
 
+    // Home on the remote (or another app over this one): nothing keeps playing behind it, and
+    // coming back is the same every time (PlayerViewModel.onAppHidden / onAppShown).
+    val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
+    androidx.compose.runtime.DisposableEffect(lifecycleOwner) {
+        val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
+            when (event) {
+                androidx.lifecycle.Lifecycle.Event.ON_STOP -> vm.onAppHidden()
+                androidx.lifecycle.Lifecycle.Event.ON_START -> vm.onAppShown()
+                else -> Unit
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+
     val exit = { vm.flushForExit(); onBack() }
     // Focus goes back to the video before the row hides: a hidden focused button leaves the remote dead.
     val leaveControls = { hide: Boolean ->
