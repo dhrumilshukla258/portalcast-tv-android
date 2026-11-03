@@ -168,7 +168,7 @@ class SeriesDetailViewModel(
                     // Portals list seasons newest first; show Season 1 first.
                     val seasons = EpisodeInfo.sortSeasons(raw)
                     val wanted = _state.value.continueRow?.parsedMeta?.seasonId
-                    val pick = seasons.firstOrNull { it.id == wanted }?.id ?: seasons.firstOrNull()?.id
+                    val pick = SeasonIds.find(seasons, wanted) { it.id }?.id ?: seasons.firstOrNull()?.id
                     _state.update { it.copy(seasonsLoading = false, seasons = seasons) }
                     if (pick != null) selectSeason(pick, force = true)
                 },
@@ -304,7 +304,7 @@ class SeriesDetailViewModel(
 
     private fun State.withContinueEpisode(): State {
         val meta = continueRow?.parsedMeta ?: return copy(continueEpisode = null)
-        val inSelected = meta.seasonId == null || meta.seasonId == selectedSeasonId
+        val inSelected = meta.seasonId == null || SeasonIds.matches(selectedSeasonId, meta.seasonId)
         return copy(continueEpisode = if (inSelected) SeriesProgress.findEpisode(meta, episodes.items) else null)
     }
 

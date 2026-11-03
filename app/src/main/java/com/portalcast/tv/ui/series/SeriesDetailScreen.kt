@@ -286,7 +286,7 @@ fun SeriesDetailScreen(
                             // Season from the season list (not episode.seriesNumber: on Stalker
                             // that is the portal's episode selector), episode number parsed.
                             val meta = continueRow.parsedMeta
-                            val seasonIdx = state.seasons.indexOfFirst { it.id == meta?.seasonId }
+                            val seasonIdx = state.seasons.indexOf(SeasonIds.find(state.seasons, meta?.seasonId) { it.id })
                             val seasonNo = state.seasons.getOrNull(seasonIdx)?.let { EpisodeInfo.seasonNumber(it, seasonIdx) }
                             val ep = state.continueEpisode
                             val epNo = ep?.takeIf { EpisodeInfo.hasOwnNumber(it) }?.let { EpisodeInfo.number(it, 0) }
