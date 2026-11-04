@@ -1,6 +1,7 @@
 package com.portalcast.tv.playback
 
 import com.portalcast.tv.ui.player.formatDelay
+import com.portalcast.tv.ui.player.subtitleFailureMessage
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
@@ -33,6 +34,11 @@ class SubtitleCuesTest {
         // not compile at all: the app closed on the first subtitle file (owner 2026-11-04).
         val c = SubtitleCues.parse("1\n00:00:01,000 --> 00:00:02,000\n{\\an8}<b>Top</b> line {\\i1}too{\\i0}\n")
         assertEquals("Top line too", c.single().text)
+    }
+
+    @Test fun `a failed pick names OpenSubtitles and says the current subtitles stay on`() {
+        assertEquals("OpenSubtitles didn't send that file. Your current subtitles stay on.", subtitleFailureMessage("os:6591885", showing = true))
+        assertEquals("That subtitle didn't load. Try another one.", subtitleFailureMessage("gd:abc", showing = false))
     }
 
     @Test fun `parses srt with comma millis and hours`() {

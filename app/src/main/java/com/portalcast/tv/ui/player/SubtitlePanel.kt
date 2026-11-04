@@ -62,7 +62,18 @@ data class SubtitlePanelState(
     val message: String? = null,
     /** downloadKey of the result being loaded. */
     val loadingFile: String? = null,
+    /** downloadKeys that did not load while playing this: marked in the list, skipped by Best match. */
+    val failed: Set<String> = emptySet(),
 )
+
+/**
+ * What a failed pick says (owner 2026-11-04: a subtitle was on, and "Couldn't load that subtitle"
+ * stayed under it after other picks failed). Names OpenSubtitles when it was its file, and says
+ * whether the subtitles already on stay on.
+ */
+internal fun subtitleFailureMessage(downloadKey: String, showing: Boolean): String =
+    (if (downloadKey.startsWith("os:")) "OpenSubtitles didn't send that file." else "That subtitle didn't load.") +
+        (if (showing) " Your current subtitles stay on." else " Try another one.")
 
 /** "+0.50 s" / "−1.25 s" / "In sync". */
 fun formatDelay(ms: Long): String = when {
@@ -166,6 +177,7 @@ fun BoxScope.SubtitlePanel(
                     if (r.downloadCount > 0) append("  ·  ").append(r.downloadCount).append("↓")
                     append("  ·  ").append(when (r.source) { "subdl" -> "SubDL"; "gestdown" -> "Gestdown"; "jellyfin" -> "Jellyfin"; else -> "OpenSubtitles" })
                     if (r.exactMatch) append("  ·  ✓ exact match")
+                    if (r.downloadKey in panel.failed) append("  ·  didn't load")
                 }
                 TvButton(text = label, onClick = { vm.pickOnlineSubtitle(r) }, style = TvButtonStyle.Secondary,
                     enabled = panel.loadingFile == null, modifier = Modifier.fillMaxWidth())

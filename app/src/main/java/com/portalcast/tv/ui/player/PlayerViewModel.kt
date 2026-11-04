@@ -364,9 +364,16 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
             val results = runSearch()
             _state.update { st -> st.subtitlePanel?.let { st.copy(subtitlePanel = it.copy(bestBusy = false, results = results,
                 message = if (results != null && results.isEmpty()) "Nothing found for this search." else it.message)) } ?: st }
-            val tries = results.orEmpty().take(BEST_MATCH_TRIES)
-            for ((i, r) in tries.withIndex()) {
-                if (loadOnlineSubtitle(r.downloadKey, label = r.releaseName, remember = true, reportFailure = i == tries.lastIndex)) break
+            // Files that already failed this time are not tried again.
+            val failed = _state.value.subtitlePanel?.failed.orEmpty()
+            val tries = results.orEmpty().filterNot { it.downloadKey in failed }.take(BEST_MATCH_TRIES)
+            var loaded = false
+            for (r in tries) {
+                if (loadOnlineSubtitle(r.downloadKey, label = r.releaseName, remember = true, reportFailure = false)) { loaded = true; break }
+            }
+            if (!loaded && !results.isNullOrEmpty()) {
+                _state.update { st -> st.subtitlePanel?.let { st.copy(subtitlePanel = it.copy(
+                    message = "None of the top matches loaded." + if (st.externalSubtitles) " Your current subtitles stay on." else " Try one from the list.")) } ?: st }
             }
         }
     }
@@ -419,7 +426,10 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
         _state.update { st -> st.subtitlePanel?.let { st.copy(subtitlePanel = it.copy(loadingFile = subId)) } ?: st }
         val osFileId = subId.removePrefix("os:").takeIf { subId.startsWith("os:") }?.toLongOrNull()
         val text = runCatching { container.api.downloadSubtitle(subId, osFileId).use { it.string() } }.getOrNull()
-        return showCues(text, "Online · ${label ?: "subtitle"}", rememberId = if (remember) subId else null, reportFailure = reportFailure)
+        if (showCues(text, "Online · ${label ?: "subtitle"}", rememberId = if (remember) subId else null, reportFailure = false)) return true
+        _state.update { st -> st.subtitlePanel?.let { p -> st.copy(subtitlePanel = p.copy(failed = p.failed + subId,
+            message = if (reportFailure) subtitleFailureMessage(subId, showing = st.externalSubtitles) else p.message)) } ?: st }
+        return false
     }
 
     /** Draws a downloaded or file subtitle (app-rendered, so its timing can be shifted); false when [text] has none. */
@@ -435,9 +445,10 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
             .setTrackTypeDisabled(C.TRACK_TYPE_TEXT, true).build()
         cues = parsed
         if (rememberId != null) subtitleKey?.let { subtitlePrefs.setSubtitleId(it, rememberId) }
+        // Loaded: an earlier failure's message goes.
         _state.update { st ->
             st.copy(externalSubtitles = true,
-                subtitlePanel = st.subtitlePanel?.copy(loadingFile = null, activeLabel = activeLabel))
+                subtitlePanel = st.subtitlePanel?.copy(loadingFile = null, activeLabel = activeLabel, message = null))
         }
         subtitleJob?.cancel()
         subtitleJob = viewModelScope.launch {
