@@ -28,6 +28,13 @@ class SubtitleCuesTest {
         assertEquals("Second\nline", c[1].text)
     }
 
+    @Test fun `strips SSA override tags such as an8`() {
+        // The old pattern compiled on the JVM but matched nothing here, and on Android it did
+        // not compile at all: the app closed on the first subtitle file (owner 2026-11-04).
+        val c = SubtitleCues.parse("1\n00:00:01,000 --> 00:00:02,000\n{\\an8}<b>Top</b> line {\\i1}too{\\i0}\n")
+        assertEquals("Top line too", c.single().text)
+    }
+
     @Test fun `parses srt with comma millis and hours`() {
         val c = SubtitleCues.parse(srt)
         assertEquals(listOf(1000L, 3_600_250L), c.map { it.startMs })

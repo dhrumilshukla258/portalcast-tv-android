@@ -351,17 +351,23 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    /** One press: the top result (made for this file first, Jellyfin's first) is loaded and shown. */
+    /**
+     * One press: the top result (made for this file first, Jellyfin's first) is loaded and
+     * shown; when it cannot be downloaded the next ones are tried, up to [BEST_MATCH_TRIES]
+     * (owner 2026-11-04: OpenSubtitles' downloads failed and each try said "Try another").
+     */
     fun addBestMatch() {
         val panel = _state.value.subtitlePanel ?: return
         if (panel.bestBusy) return
         _state.update { st -> st.subtitlePanel?.let { st.copy(subtitlePanel = it.copy(bestBusy = true, message = null)) } ?: st }
         viewModelScope.launch {
             val results = runSearch()
-            val best = results?.firstOrNull()
             _state.update { st -> st.subtitlePanel?.let { st.copy(subtitlePanel = it.copy(bestBusy = false, results = results,
-                message = if (results != null && best == null) "Nothing found for this search." else it.message)) } ?: st }
-            if (best != null) loadOnlineSubtitle(best.downloadKey, label = best.releaseName, remember = true)
+                message = if (results != null && results.isEmpty()) "Nothing found for this search." else it.message)) } ?: st }
+            val tries = results.orEmpty().take(BEST_MATCH_TRIES)
+            for ((i, r) in tries.withIndex()) {
+                if (loadOnlineSubtitle(r.downloadKey, label = r.releaseName, remember = true, reportFailure = i == tries.lastIndex)) break
+            }
         }
     }
 
@@ -408,19 +414,21 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch { loadOnlineSubtitle(r.downloadKey, label = r.releaseName, remember = true) }
     }
 
-    private suspend fun loadOnlineSubtitle(subId: String, label: String?, remember: Boolean) {
+    /** True when the subtitle was downloaded and is showing. */
+    private suspend fun loadOnlineSubtitle(subId: String, label: String?, remember: Boolean, reportFailure: Boolean = true): Boolean {
         _state.update { st -> st.subtitlePanel?.let { st.copy(subtitlePanel = it.copy(loadingFile = subId)) } ?: st }
         val osFileId = subId.removePrefix("os:").takeIf { subId.startsWith("os:") }?.toLongOrNull()
         val text = runCatching { container.api.downloadSubtitle(subId, osFileId).use { it.string() } }.getOrNull()
-        showCues(text, "Online · ${label ?: "subtitle"}", rememberId = if (remember) subId else null)
+        return showCues(text, "Online · ${label ?: "subtitle"}", rememberId = if (remember) subId else null, reportFailure = reportFailure)
     }
 
-    /** Draws a downloaded or file subtitle (app-rendered, so its timing can be shifted). */
-    private fun showCues(text: String?, activeLabel: String, rememberId: String?) {
+    /** Draws a downloaded or file subtitle (app-rendered, so its timing can be shifted); false when [text] has none. */
+    private fun showCues(text: String?, activeLabel: String, rememberId: String?, reportFailure: Boolean = true): Boolean {
         val parsed = text?.let { SubtitleCues.parse(it) }.orEmpty()
         if (parsed.isEmpty()) {
-            _state.update { st -> st.subtitlePanel?.let { st.copy(subtitlePanel = it.copy(loadingFile = null, message = "Couldn't load that subtitle. Try another.")) } ?: st }
-            return
+            _state.update { st -> st.subtitlePanel?.let { st.copy(subtitlePanel = it.copy(loadingFile = null,
+                message = if (reportFailure) "Couldn't load that subtitle. Try another." else it.message)) } ?: st }
+            return false
         }
         // Online subtitles replace any built-in track.
         player.trackSelectionParameters = player.trackSelectionParameters.buildUpon()
@@ -441,6 +449,7 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
                 delay(80)
             }
         }
+        return true
     }
 
     fun adjustSubtitleDelay(deltaMs: Long) {
@@ -870,6 +879,8 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
         const val SEEK_STEP_MS = 10_000L
         /** Away longer than this, the stream is asked for again on return. */
         const val STALE_AFTER_MS = 30_000L
+        /** "Best match" tries this many results when the first ones cannot be downloaded. */
+        const val BEST_MATCH_TRIES = 5
         private val EPISODE_RE = Regex("""(?i)\bS(\d{1,4})\s*E(\d{1,4})\b""")
         private val YEAR_RE = Regex("""\((\d{4})\)""")
 

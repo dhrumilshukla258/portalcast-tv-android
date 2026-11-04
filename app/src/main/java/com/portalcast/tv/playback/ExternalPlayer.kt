@@ -36,9 +36,19 @@ object ExternalPlayer {
         }.getOrDefault(emptyList())
     }
 
+    /**
+     * The type the other app is told. HLS (every IPTV movie, episode and channel) was sent as
+     * "application/x-mpegURL": VLC opens its video screen only for a type starting "video"
+     * (StartActivity.startPlaybackFromApp) and played anything else with no picture, and
+     * players registered for video/ only could not be opened at all, so the built-in player
+     * took over (owner 2026-11-04: the external player did not work). "video/x-mpegURL" is the
+     * HLS type under video/: every video player accepts it and still knows it is HLS.
+     */
+    fun mimeTypeFor(isHls: Boolean): String = if (isHls) "video/x-mpegURL" else "video/*"
+
     /** The intent that plays [stream] in [choice] (a package, or [ASK] for the chooser). */
     fun intent(stream: ResolvedStream, title: String, resumeMs: Long?, choice: String): Intent {
-        val type = if (stream.isHls) "application/x-mpegURL" else "video/*"
+        val type = mimeTypeFor(stream.isHls)
         val view = Intent(Intent.ACTION_VIEW).apply {
             setDataAndType(Uri.parse(stream.url), type)
             putExtra("title", title)

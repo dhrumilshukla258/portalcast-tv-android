@@ -14,7 +14,10 @@ object SubtitleCues {
     private val TIME = Regex("""(?:(\d{1,2}):)?(\d{1,2}):(\d{2})[.,](\d{1,3})""")
     private val ARROW = Regex("""-->""")
     private val WHITESPACE = Regex("""\s+""")
-    private val TAGS = Regex("""<[^>]+>|\{\[^}]*\}""")
+    // HTML-style tags (<i>) and SSA override tags ({\an8}, {\i1}). The SSA half once read
+    // `\{\[^}]*\}`: the JVM accepts it, Android's regex engine does not, and the app closed
+    // the moment a subtitle file arrived (owner 2026-11-04). SubtitleCuesTest strips both.
+    private val TAGS = Regex("""<[^>]+>|\{\\[^}]*\}""")
 
     fun parse(text: String): List<SubtitleCue> {
         val lines = text.replace("\r\n", "\n").replace('\r', '\n').split('\n')

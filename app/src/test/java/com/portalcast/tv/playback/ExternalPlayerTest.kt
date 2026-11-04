@@ -22,6 +22,14 @@ class ExternalPlayerTest {
         assertTrue(r.completed)
     }
 
+    @Test fun hlsIsSentAsAVideoType() {
+        // VLC shows video only for a type starting "video"; "application/x-mpegURL" played
+        // with no picture, and video-only players could not be opened (owner 2026-11-04).
+        assertTrue(ExternalPlayer.mimeTypeFor(isHls = true).startsWith("video/"))
+        assertEquals("video/x-mpegURL", ExternalPlayer.mimeTypeFor(isHls = true))
+        assertEquals("video/*", ExternalPlayer.mimeTypeFor(isHls = false))
+    }
+
     @Test fun nothingReportedSavesNothing() {
         val r = ExternalPlayer.result(mapOf("position" to -1, "title" to "x"))
         assertNull(r.positionMs)
