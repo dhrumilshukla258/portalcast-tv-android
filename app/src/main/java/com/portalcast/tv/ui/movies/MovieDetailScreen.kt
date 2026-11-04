@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
@@ -112,12 +113,16 @@ fun MovieDetailScreen(
             )
             Spacer(Modifier.width(40.dp))
             com.portalcast.tv.ui.components.MinimalScrolling {
-            Column(Modifier.weight(1f).verticalScroll(rememberScrollState())) {
+            androidx.compose.foundation.layout.BoxWithConstraints(Modifier.weight(1f)) {
+            val viewport = maxHeight
+            Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
                 // The title, facts and overview go with the buttons: back up to Play or My List
                 // from Cast & crew or More Like This, the page shows them all again instead of
                 // stopping at the buttons with the title off the top (owner, 2026-10-23). The block
-                // fits the screen: the overview is capped at 6 lines.
-                Column(Modifier.showWholeWhenFocused()) {
+                // is at most the screen's height and the overview takes what is left: with a
+                // logo, tagline, writers and three credit lines it was taller, and showing the
+                // whole block put the logo under the top of the screen (owner, 2026-11-03).
+                Column(Modifier.showWholeWhenFocused().heightIn(max = viewport)) {
                 MovieInfo(item, details)
                 Spacer(Modifier.height(28.dp))
                 if (state.progressLoaded) {
@@ -167,12 +172,13 @@ fun MovieDetailScreen(
                 MoreLikeThis(extras, onOpenMovie, onOpenSeries, Modifier.padding(top = 18.dp, bottom = 24.dp))
             }
             }
+            }
         }
     }
 }
 
 @Composable
-private fun MovieInfo(item: MediaItem, details: com.portalcast.tv.data.model.TitleDetails?) {
+private fun androidx.compose.foundation.layout.ColumnScope.MovieInfo(item: MediaItem, details: com.portalcast.tv.data.model.TitleDetails?) {
     com.portalcast.tv.ui.components.TitleHeading(item.displayTitle, details?.logo ?: item.logoPath)
     val meta = Formatting.metaLine(item)
     if (meta.isNotBlank()) {
@@ -198,7 +204,8 @@ private fun MovieInfo(item: MediaItem, details: com.portalcast.tv.data.model.Tit
     }
     androidx.tv.material3.Surface(
         onClick = { showAbout = true },
-        modifier = Modifier.padding(top = 12.dp).widthIn(max = 780.dp),
+        // Takes the height the block has left (the block is at most the screen's height).
+        modifier = Modifier.padding(top = 12.dp).widthIn(max = 780.dp).weight(1f, fill = false),
         shape = androidx.tv.material3.ClickableSurfaceDefaults.shape(shape = RoundedCornerShape(10.dp)),
         scale = androidx.tv.material3.ClickableSurfaceDefaults.scale(focusedScale = 1f),
         border = androidx.tv.material3.ClickableSurfaceDefaults.border(
@@ -213,7 +220,8 @@ private fun MovieInfo(item: MediaItem, details: com.portalcast.tv.data.model.Tit
     ) {
         Column(Modifier.padding(horizontal = 6.dp, vertical = 4.dp)) {
             overview?.let {
-                Text(it, style = MaterialTheme.typography.bodyLarge, color = AppColors.Text, maxLines = 3, overflow = TextOverflow.Ellipsis)
+                // Fewer lines when the block is short of room; OK shows it all.
+                Text(it, style = MaterialTheme.typography.bodyLarge, color = AppColors.Text, maxLines = 3, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
             }
             if (lines.isNotEmpty()) {
                 Spacer(Modifier.height(8.dp))
