@@ -16,6 +16,8 @@ data class DiscoverFacets(
     val languages: List<FacetValue> = emptyList(),
     /** TV channels shows air on ("Zee5", "Star Plus"), with logos. */
     val networks: List<FacetValue> = emptyList(),
+    /** IMDb rating: "8" = how many titles are rated 8+. Absent on older servers. */
+    val imdbRatings: List<FacetValue> = emptyList(),
 )
 
 /** `GET /api/v2/discover/browse` — page size fixed at 40. */
@@ -76,6 +78,8 @@ data class DiscoverQuery(
     val network: String? = null,
     /** Genres a title must not have ("not Horror"). Older servers ignore them. */
     val notGenres: List<String> = emptyList(),
+    /** Rated at least this on IMDb ("7" = 7+). Older servers ignore it. */
+    val minImdb: String? = null,
 ) {
     val genreParam: String? get() = genres.takeIf { it.isNotEmpty() }?.joinToString(",")
     val notGenreParam: String? get() = notGenres.takeIf { it.isNotEmpty() }?.joinToString(",")

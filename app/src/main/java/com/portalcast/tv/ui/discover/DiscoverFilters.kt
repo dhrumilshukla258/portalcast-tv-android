@@ -57,7 +57,7 @@ import java.util.Locale
  * something is picked; no Apply button, no modal. One choice per selector, except Genre: any
  * number, each required or left out ("not Horror"), as on the web.
  */
-enum class FilterDim(val label: String) { Genre("Genre"), Language("Language"), Country("Country"), Channel("Channel / Platform"), Mood("Mood") }
+enum class FilterDim(val label: String) { Genre("Genre"), Language("Language"), Country("Country"), Channel("Channel / Platform"), Mood("Mood"), Imdb("IMDb rating") }
 
 internal fun DiscoverQuery?.valueOf(dim: FilterDim): String? = when (dim) {
     FilterDim.Genre -> this?.let { q -> (q.genres + q.notGenres.map { "not $it" }).takeIf { it.isNotEmpty() }?.joinToString(", ") }
@@ -65,6 +65,7 @@ internal fun DiscoverQuery?.valueOf(dim: FilterDim): String? = when (dim) {
     FilterDim.Country -> this?.country
     FilterDim.Channel -> this?.network
     FilterDim.Mood -> this?.theme
+    FilterDim.Imdb -> this?.minImdb
 }
 
 internal fun DiscoverQuery.with(dim: FilterDim, value: String?): DiscoverQuery = when (dim) {
@@ -73,6 +74,7 @@ internal fun DiscoverQuery.with(dim: FilterDim, value: String?): DiscoverQuery =
     FilterDim.Country -> copy(country = value)
     FilterDim.Channel -> copy(network = value)
     FilterDim.Mood -> copy(theme = value)
+    FilterDim.Imdb -> copy(minImdb = value)
 }
 
 internal fun DiscoverFacets.optionsFor(dim: FilterDim): List<FacetValue> = when (dim) {
@@ -81,6 +83,7 @@ internal fun DiscoverFacets.optionsFor(dim: FilterDim): List<FacetValue> = when 
     FilterDim.Country -> countries.filter { it.value.isNotBlank() }
     FilterDim.Channel -> networks.filter { it.value.isNotBlank() }
     FilterDim.Mood -> themes.filter { it.value.isNotBlank() }
+    FilterDim.Imdb -> imdbRatings.filter { it.value.isNotBlank() }
 }
 
 /** How many filters are set; each genre counts (the Filters button's "· n"). */
@@ -96,7 +99,11 @@ internal fun languageName(code: String): String {
     return if (name.isBlank() || name.equals(code, ignoreCase = true)) code else name
 }
 
-private fun displayValue(dim: FilterDim, value: String): String = if (dim == FilterDim.Language) languageName(value) else value
+private fun displayValue(dim: FilterDim, value: String): String = when (dim) {
+    FilterDim.Language -> languageName(value)
+    FilterDim.Imdb -> "$value+"
+    else -> value
+}
 
 /** The selector buttons for the header. [focus] lets the screen put focus back after a pick. */
 @Composable
@@ -302,6 +309,17 @@ internal fun BoxScope.FilterMenu(
                 onClick = { onOpen(dim) },
                 style = if (value != null) TvButtonStyle.Primary else TvButtonStyle.Subtle,
                 modifier = Modifier.fillMaxWidth().focusRequester(focus.getValue(dim)).let { if (i == 0) it.focusRequester(first) else it },
+            )
+        }
+        // Where titles come from, under their own heading after the filters (owner 2026-11-04;
+        // the same as the web's Filters sheet).
+        if (onMyLibrary != null || (onBrowse != null && browseLabel != null)) {
+            Text(
+                "Sources",
+                style = MaterialTheme.typography.labelLarge,
+                color = AppColors.TextMuted,
+                fontWeight = FontWeight.SemiBold,
+                modifier = Modifier.padding(start = 10.dp, top = 10.dp, bottom = 2.dp),
             )
         }
         if (onMyLibrary != null) {

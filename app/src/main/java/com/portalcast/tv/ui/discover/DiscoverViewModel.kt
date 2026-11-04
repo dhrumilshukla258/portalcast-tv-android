@@ -369,7 +369,7 @@ class DiscoverViewModel(
     }
 
     private fun DiscoverQuery.isEmpty() = genres.isEmpty() && notGenres.isEmpty() && country.isNullOrBlank() &&
-        language.isNullOrBlank() && theme.isNullOrBlank() && network.isNullOrBlank()
+        language.isNullOrBlank() && theme.isNullOrBlank() && network.isNullOrBlank() && minImdb.isNullOrBlank()
 
     private fun showFilter(q: DiscoverQuery) {
         gridJob?.cancel()

@@ -40,7 +40,7 @@ class DefaultDiscoverRepository(
         facetsCache.get(type.orEmpty()) { apiCall(ApiPaths.DISCOVER_FACETS) { api.discoverFacets(type) } }
 
     override suspend fun browse(query: DiscoverQuery, page: Int): Result<DiscoverBrowseResponse> =
-        browseCache.get("${query.type}|${query.genreParam}|${query.notGenreParam}|${query.country}|${query.language}|${query.theme}|${query.network}|${page.coerceAtLeast(1)}") {
+        browseCache.get("${query.type}|${query.genreParam}|${query.notGenreParam}|${query.country}|${query.language}|${query.theme}|${query.network}|${query.minImdb}|${page.coerceAtLeast(1)}") {
             browseUncached(query, page)
         }
 
@@ -54,6 +54,7 @@ class DefaultDiscoverRepository(
                 language = query.language?.takeIf { it.isNotBlank() },
                 theme = query.theme?.takeIf { it.isNotBlank() },
                 network = query.network?.takeIf { it.isNotBlank() },
+                minImdb = query.minImdb?.takeIf { it.isNotBlank() },
                 page = page.coerceAtLeast(1),
             )
         }

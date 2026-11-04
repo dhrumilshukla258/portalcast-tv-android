@@ -240,6 +240,7 @@ interface ApiService {
         @Query("network") network: String? = null,
         @Query("page") page: Int = 1,
         @Query("notGenre") notGenre: String? = null,
+        @Query("minImdb") minImdb: String? = null,
     ): DiscoverBrowseResponse
 
     @GET("api/v2/discover/recommendations")
