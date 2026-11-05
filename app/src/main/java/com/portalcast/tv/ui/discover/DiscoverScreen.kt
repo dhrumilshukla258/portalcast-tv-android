@@ -165,6 +165,8 @@ fun DiscoverScreen(
     var openFilter by remember { mutableStateOf<FilterDim?>(null) }
     // The Filters panel; focus goes back to the Filters button when it closes.
     var filtersOpen by remember { mutableStateOf(false) }
+    // The menu came back from a selector's values: it shows in place (SidePanel slideIn).
+    var filtersMenuBack by remember { mutableStateOf(false) }
     val filtersButton = remember { FocusRequester() }
     var refocusFilters by remember { mutableStateOf(false) }
     LaunchedEffect(refocusFilters) {
@@ -260,6 +262,8 @@ fun DiscoverScreen(
         }
         if (filtersOpen && openFilter == null) {
             FilterMenu(
+                // Coming back from a selector's values: in place, no second slide.
+                slideIn = !filtersMenuBack,
                 facets = state.facets,
                 query = state.grid?.query,
                 focus = selectorFocus,
@@ -267,13 +271,15 @@ fun DiscoverScreen(
                 onOpen = { openFilter = it },
                 onClear = vm::clearFilter,
                 browseLabel = if (fixedType != null) "IPTV categories" else null,
-                onBrowse = onOpenCategories?.let { open -> { filtersOpen = false; open() } },
-                onMyLibrary = onOpenMyLibrary?.let { open -> { filtersOpen = false; open() } },
-                onDismiss = { filtersOpen = false; refocusFilters = true },
+                onBrowse = onOpenCategories?.let { open -> { filtersOpen = false; filtersMenuBack = false; open() } },
+                onMyLibrary = onOpenMyLibrary?.let { open -> { filtersOpen = false; filtersMenuBack = false; open() } },
+                onDismiss = { filtersOpen = false; filtersMenuBack = false; refocusFilters = true },
             )
         }
         openFilter?.let { dim ->
             FilterDropdown(
+                // Opened from the Filters menu: in its place, no second slide.
+                slideIn = !filtersOpen,
                 dim = dim,
                 facets = state.facets,
                 query = state.grid?.query,
@@ -290,9 +296,9 @@ fun DiscoverScreen(
                     // Picks apply at once and the Filters column stays open (owner, 2026-10-24);
                     // Back closes it, the filters staying set. A one-value list goes back to the
                     // column, as on the phone; Genre stays on its list ("Any" included).
-                    if (dim != FilterDim.Genre) { openFilter = null; returnFocusTo = dim }
+                    if (dim != FilterDim.Genre) { openFilter = null; returnFocusTo = dim; filtersMenuBack = filtersOpen }
                 },
-                onDismiss = { openFilter = null; returnFocusTo = dim },
+                onDismiss = { openFilter = null; returnFocusTo = dim; filtersMenuBack = filtersOpen },
             )
         }
         state.openError?.let { msg ->

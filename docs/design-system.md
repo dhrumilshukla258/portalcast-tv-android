@@ -41,6 +41,7 @@ logo and accent colour.
 - Spacing steps: 4, 8, 12, 16, 24, 32, 48. Screen side padding 48 (web: 48 on desktop, 16 on a phone).
 - Rows: 24 between rows, 12 between a row title and its cards, 16 between cards.
 - Radius: cards 8, buttons and chips 10 (pill for chips), panels 16, cast photos round.
+- Side panels (2026-11-04; Filters and a selector's values, the player's subtitles / audio / settings): full height along the right edge, 460 wide (subtitles 540, the web's player 420; a phone's is the whole screen). Inner corners 16, a fill from `#111A2D` at the top to `background` at the bottom, a faint light along the inner edge instead of a border, and a shade over what is behind that darkens towards the panel. A header (title, an optional muted line), a 6 % divider, small upper-case section headings ("SOURCES"). Rows: radius 10, 48 high, a check when chosen, the label (and a muted second line), a value on the right, a chevron when it opens more; focused, the accent fill. Back (Escape) closes it on the first press.
 
 ## Navigation (top tabs)
 
@@ -78,7 +79,7 @@ logo and accent colour.
 
 ## Motion
 
-- Focus scale 120 ms; hero and backdrop crossfade 300 ms; nothing else animates while scrolling (TV hardware drops frames).
+- Focus scale 120 ms; hero and backdrop crossfade 300 ms; a side panel slides in 48 and fades in 240 ms (its shade fades with it), and moving between its levels fades the content in place 140 ms; only transform and opacity animate (TV: graphicsLayer; web: CSS keyframes); nothing else animates while scrolling (TV hardware drops frames).
 
 ## Screens
 

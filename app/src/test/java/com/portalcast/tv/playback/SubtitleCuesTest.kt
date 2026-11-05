@@ -7,7 +7,7 @@ import com.portalcast.tv.ui.player.bestMatchOrder
 import com.portalcast.tv.ui.player.formatDelay
 import com.portalcast.tv.ui.player.otherSubtitleSources
 import com.portalcast.tv.ui.player.subtitleFailureMessage
-import com.portalcast.tv.ui.player.subtitleRowLabel
+import com.portalcast.tv.ui.player.subtitleRowDetail
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
@@ -61,18 +61,17 @@ class SubtitleCuesTest {
         assertEquals(listOf("SubDL"), otherSubtitleSources(list, setOf("gd:a")))
     }
 
-    @Test fun `a row shows what happened to it first, then the source`() {
-        val long = "Ted.Lasso.S01E03.Trent.Crimm.The.Independent.1080p.ATVP.WEB-DL.DDP5.1.H.264-NTb"
-        assertEquals("Didn't load  ·  OpenSubtitles  ·  $long  ·  EN  ·  1200↓",
-            subtitleRowLabel("opensubtitles", long, "en", 1200, false, loading = false, active = false, failed = true))
-        assertEquals("✓ Gestdown  ·  $long  ·  EN  ·  exact match",
-            subtitleRowLabel("gestdown", long, "en", 0, true, loading = false, active = true, failed = false))
-        assertEquals("Loading…  SubDL  ·  Subtitle",
-            subtitleRowLabel("subdl", null, null, 0, false, loading = true, active = false, failed = true))
-        assertEquals("Gestdown  ·  Kept on by 2 viewers  ·  Ted Lasso 1x04  ·  EN",
-            subtitleRowLabel("gestdown", "Ted Lasso 1x04", "en", 0, false, loading = false, active = false, failed = false, kept = 2))
-        assertEquals("✓ OpenSubtitles  ·  Kept on by 1 viewer  ·  Subtitle",
-            subtitleRowLabel(null, null, null, 0, false, loading = false, active = true, failed = false, kept = 1))
+    @Test fun `a row's second line says what happened to it first, then where it is from`() {
+        assertEquals("Didn't load  ·  OpenSubtitles  ·  EN  ·  1200↓",
+            subtitleRowDetail("opensubtitles", "en", 1200, false, loading = false, failed = true))
+        assertEquals("Gestdown  ·  EN  ·  exact match",
+            subtitleRowDetail("gestdown", "en", 0, true, loading = false, failed = false))
+        assertEquals("Loading…  ·  SubDL",
+            subtitleRowDetail("subdl", null, 0, false, loading = true, failed = true))
+        assertEquals("Gestdown  ·  Kept on by 2 viewers  ·  EN",
+            subtitleRowDetail("gestdown", "en", 0, false, loading = false, failed = false, kept = 2))
+        assertEquals("OpenSubtitles  ·  Kept on by 1 viewer",
+            subtitleRowDetail(null, null, 0, false, loading = false, failed = false, kept = 1))
     }
 
     @Test fun `a subtitle counts as kept after a quarter of the title, between 3 and 10 minutes`() {

@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.padding
@@ -44,6 +45,9 @@ import androidx.tv.material3.Text
 import com.portalcast.tv.data.model.DiscoverFacets
 import com.portalcast.tv.data.model.DiscoverQuery
 import com.portalcast.tv.data.model.FacetValue
+import com.portalcast.tv.ui.components.PanelRow
+import com.portalcast.tv.ui.components.PanelSection
+import com.portalcast.tv.ui.components.SidePanel
 import com.portalcast.tv.ui.components.TvButton
 import com.portalcast.tv.ui.components.TvButtonStyle
 import com.portalcast.tv.ui.theme.AppColors
@@ -136,8 +140,8 @@ internal fun FilterSelectors(
 }
 
 /**
- * The open list for one selector. Drawn over the hero, top-left, like a dropdown. Center
- * picks and closes; Back closes. "Any" clears this selector only.
+ * The values of one selector, in the side panel (SidePanel) that Filters uses. Center picks;
+ * Back closes. "Any" clears this selector only.
  */
 @Composable
 internal fun BoxScope.FilterDropdown(
@@ -152,6 +156,8 @@ internal fun BoxScope.FilterDropdown(
     onDismiss: () -> Unit,
     /** Genre: a press cycles the value (required, left out, off) and the list stays open. */
     onCycle: ((String) -> Unit)? = null,
+    /** False when it opens in place of the Filters menu (SidePanel slideIn). */
+    slideIn: Boolean = true,
 ) {
     val options = facets.optionsFor(dim)
     val current = query.valueOf(dim)
@@ -171,42 +177,24 @@ internal fun BoxScope.FilterDropdown(
         }
     }
 
-    // A full-height panel along the right edge, under the Filters button, from under the top bar
-    // to the bottom of the screen (owner: no small floating windows). Solid: it sits over the hero.
-    Column(
-        Modifier
-            .align(Alignment.TopEnd)
-            .padding(top = with(LocalDensity.current) { topPx.toDp() })
-            .fillMaxHeight()
-            .width(460.dp)
-            .background(AppColors.Background)
-            .border(1.dp, AppColors.GlassBorder)
-            .padding(start = 16.dp, end = 32.dp, top = 12.dp, bottom = 12.dp),
+    // The full-height side panel under the top bar (owner: no small floating windows).
+    SidePanel(
+        title = dim.label,
+        subtitle = if (onCycle != null) "OK once to include a genre, again to leave it out" else null,
+        onDismiss = onDismiss,
+        top = with(LocalDensity.current) { topPx.toDp() },
+        slideIn = slideIn,
     ) {
-        Text(
-            dim.label,
-            style = MaterialTheme.typography.titleMedium,
-            color = AppColors.TextMuted,
-            fontWeight = FontWeight.SemiBold,
-            modifier = Modifier.padding(start = 10.dp, top = 4.dp, bottom = if (onCycle != null) 2.dp else 8.dp),
-        )
-        if (onCycle != null) {
-            Text(
-                "OK once to include a genre, again to leave it out",
-                style = MaterialTheme.typography.bodySmall,
-                color = AppColors.TextMuted,
-                modifier = Modifier.padding(start = 10.dp, bottom = 8.dp),
-            )
-        }
-        LazyColumn(state = listState, modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        LazyColumn(state = listState, modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
             itemsIndexed(listOf<FacetValue?>(null) + options, key = { i, o -> o?.value ?: "any-$i" }) { i, o ->
                 val out = o != null && o.value in excluded
                 val selected = (o == null && current == null) || (o != null && (if (onCycle != null) o.value in included else o.value == current))
-                Option(
+                PanelRow(
                     label = o?.let { if (out) "Not " + displayValue(dim, it.value) else displayValue(dim, it.value) } ?: "Any",
-                    count = o?.count?.toInt()?.takeIf { it > 0 }?.let { numbers.format(it) },
+                    value = o?.count?.toInt()?.takeIf { it > 0 }?.let { numbers.format(it) },
                     selected = selected,
-                    excluded = out,
+                    // A block sign when left out (genres).
+                    leading = if (out) ({ BlockIcon(Modifier.size(20.dp)) }) else null,
                     onClick = { if (o != null && onCycle != null) onCycle(o.value) else onPick(o?.value) },
                     modifier = if (i == selectedIndex) Modifier.focusRequester(initial) else Modifier,
                 )
@@ -226,31 +214,6 @@ private fun BlockIcon(modifier: Modifier) {
         val d = r * 0.7071f
         drawLine(color, Offset(center.x - d, center.y + d), Offset(center.x + d, center.y - d), strokeWidth = stroke)
     }
-}
-
-@Composable
-private fun Option(label: String, count: String?, selected: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier, excluded: Boolean = false) {
-    Box(modifier.fillMaxWidth()) {
-        TvButton(
-            // A tick when chosen, a block sign when left out (genres), an empty slot otherwise,
-            // so the labels line up.
-            leading = {
-                when {
-                    selected -> Icon(Icons.Filled.Check, contentDescription = null, modifier = Modifier.size(20.dp))
-                    excluded -> BlockIcon(Modifier.size(20.dp))
-                    else -> Spacer(Modifier.size(20.dp))
-                }
-            },
-            text = buildString {
-                append(label)
-                if (count != null) append("   ·  ").append(count)
-            },
-            onClick = onClick,
-            style = if (selected) TvButtonStyle.Primary else if (excluded) TvButtonStyle.Secondary else TvButtonStyle.Subtle,
-            modifier = Modifier.fillMaxWidth(),
-        )
-    }
-    Spacer(Modifier.width(0.dp))
 }
 
 /**
@@ -274,6 +237,8 @@ internal fun BoxScope.FilterMenu(
     onDismiss: () -> Unit,
     /** Movies / Series: the NAS library's titles of that type. */
     onMyLibrary: (() -> Unit)? = null,
+    /** False when it comes back in place of a selector's values (SidePanel slideIn). */
+    slideIn: Boolean = true,
 ) {
     val dims = FilterDim.entries.filter { facets.optionsFor(it).isNotEmpty() }
     val first = remember { FocusRequester() }
@@ -284,52 +249,39 @@ internal fun BoxScope.FilterMenu(
             delay(40)
         }
     }
-    Column(
-        Modifier
-            .align(Alignment.TopEnd)
-            .padding(top = with(LocalDensity.current) { topPx.toDp() })
-            .fillMaxHeight()
-            .width(460.dp)
-            .background(AppColors.Background)
-            .border(1.dp, AppColors.GlassBorder)
-            .padding(start = 16.dp, end = 32.dp, top = 12.dp, bottom = 12.dp),
-        verticalArrangement = Arrangement.spacedBy(6.dp),
+    val anySet = FilterDim.entries.any { query.valueOf(it) != null }
+    SidePanel(
+        title = "Filters",
+        subtitle = if (anySet) "Picks apply at once" else null,
+        onDismiss = onDismiss,
+        top = with(LocalDensity.current) { topPx.toDp() },
+        slideIn = slideIn,
     ) {
-        Text(
-            "Filters",
-            style = MaterialTheme.typography.titleMedium,
-            color = AppColors.TextMuted,
-            fontWeight = FontWeight.SemiBold,
-            modifier = Modifier.padding(start = 10.dp, top = 4.dp, bottom = 6.dp),
-        )
-        dims.forEachIndexed { i, dim ->
-            val value = query.valueOf(dim)
-            TvButton(
-                text = dim.label + "   ·   " + (value?.let { displayValue(dim, it) } ?: "Any") + "   ›",
-                onClick = { onOpen(dim) },
-                style = if (value != null) TvButtonStyle.Primary else TvButtonStyle.Subtle,
-                modifier = Modifier.fillMaxWidth().focusRequester(focus.getValue(dim)).let { if (i == 0) it.focusRequester(first) else it },
-            )
-        }
-        // Where titles come from, under their own heading after the filters (owner 2026-11-04;
-        // the same as the web's Filters sheet).
-        if (onMyLibrary != null || (onBrowse != null && browseLabel != null)) {
-            Text(
-                "Sources",
-                style = MaterialTheme.typography.labelLarge,
-                color = AppColors.TextMuted,
-                fontWeight = FontWeight.SemiBold,
-                modifier = Modifier.padding(start = 10.dp, top = 10.dp, bottom = 2.dp),
-            )
-        }
-        if (onMyLibrary != null) {
-            TvButton(text = "My library (NAS files)   ›", onClick = onMyLibrary, style = TvButtonStyle.Subtle, modifier = Modifier.fillMaxWidth())
-        }
-        if (onBrowse != null && browseLabel != null) {
-            TvButton(text = "$browseLabel   ›", onClick = onBrowse, style = TvButtonStyle.Subtle, modifier = Modifier.fillMaxWidth())
-        }
-        if (FilterDim.entries.any { query.valueOf(it) != null }) {
-            TvButton(text = "Clear filters", onClick = onClear, style = TvButtonStyle.Subtle, modifier = Modifier.fillMaxWidth())
+        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            dims.forEachIndexed { i, dim ->
+                val value = query.valueOf(dim)
+                PanelRow(
+                    label = dim.label,
+                    value = value?.let { displayValue(dim, it) } ?: "Any",
+                    valueSet = value != null,
+                    chevron = true,
+                    onClick = { onOpen(dim) },
+                    modifier = Modifier.focusRequester(focus.getValue(dim)).let { if (i == 0) it.focusRequester(first) else it },
+                )
+            }
+            // Where titles come from, under their own heading after the filters (owner 2026-11-04;
+            // the same as the web's Filters sheet).
+            if (onMyLibrary != null || (onBrowse != null && browseLabel != null)) PanelSection("Sources")
+            if (onMyLibrary != null) {
+                PanelRow(label = "My library", detail = "Files on your NAS", chevron = true, onClick = onMyLibrary)
+            }
+            if (onBrowse != null && browseLabel != null) {
+                PanelRow(label = browseLabel, detail = "Your provider's own categories", chevron = true, onClick = onBrowse)
+            }
+            if (anySet) {
+                Spacer(Modifier.height(12.dp))
+                PanelRow(label = "Clear filters", onClick = onClear)
+            }
         }
     }
 }

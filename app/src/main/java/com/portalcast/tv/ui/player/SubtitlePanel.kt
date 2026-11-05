@@ -35,6 +35,9 @@ import androidx.tv.material3.Text
 import com.portalcast.tv.data.model.SubtitleResult
 import com.portalcast.tv.data.model.downloadKey
 import com.portalcast.tv.playback.SubtitlePrefs
+import com.portalcast.tv.ui.components.PanelRow
+import com.portalcast.tv.ui.components.PanelSection
+import com.portalcast.tv.ui.components.SidePanel
 import com.portalcast.tv.ui.components.TvButton
 import com.portalcast.tv.ui.components.TvButtonStyle
 import com.portalcast.tv.ui.theme.AppColors
@@ -105,26 +108,24 @@ internal fun otherSubtitleSources(results: List<SubtitleResult>?, failed: Set<St
     results.orEmpty().filter { !it.isOpenSubtitles() && it.downloadKey !in failed }.map { subtitleSourceName(it.source) }.distinct()
 
 /**
- * One result row. What happened to it comes first (a long release name is cut at the end), then
- * where it is from: on 2026-11-04 OpenSubtitles' files failed while Gestdown's loaded, and a
- * failure said only "· didn't load" after the name, out of sight.
+ * The second line of a result row: what happened to it first, then where it is from (owner
+ * 2026-11-04: OpenSubtitles' files failed while Gestdown's loaded). The release name is the
+ * row's first line; a check marks the one on.
  */
-internal fun subtitleRowLabel(
-    source: String?, releaseName: String?, language: String?, downloadCount: Int, exactMatch: Boolean,
-    loading: Boolean, active: Boolean, failed: Boolean, kept: Int = 0,
-): String = buildString {
+internal fun subtitleRowDetail(
+    source: String?, language: String?, downloadCount: Int, exactMatch: Boolean,
+    loading: Boolean, failed: Boolean, kept: Int = 0,
+): String = buildList {
     when {
-        loading -> append("Loading…  ")
-        active -> append("✓ ")
-        failed -> append("Didn't load  ·  ")
+        loading -> add("Loading…")
+        failed -> add("Didn't load")
     }
-    append(subtitleSourceName(source)).append("  ·  ")
-    if (kept > 0) append("Kept on by ").append(kept).append(if (kept == 1) " viewer" else " viewers").append("  ·  ")
-    append(releaseName ?: "Subtitle")
-    language?.takeIf { it.isNotBlank() }?.let { append("  ·  ").append(it.uppercase(Locale.US)) }
-    if (downloadCount > 0) append("  ·  ").append(downloadCount).append("↓")
-    if (exactMatch) append("  ·  exact match")
-}
+    add(subtitleSourceName(source))
+    if (kept > 0) add("Kept on by $kept " + if (kept == 1) "viewer" else "viewers")
+    language?.takeIf { it.isNotBlank() }?.let { add(it.uppercase(Locale.US)) }
+    if (exactMatch) add("exact match")
+    if (downloadCount > 0) add("$downloadCount↓")
+}.joinToString("  ·  ")
 
 /**
  * What a failed pick says (owner 2026-11-04: a subtitle was on, and "Couldn't load that subtitle"
@@ -150,9 +151,10 @@ fun formatDelay(ms: Long): String = when {
 }
 
 /**
- * The popup the CC button (subtitles) or the speaker button (audio) opens, Jellyfin-style:
- * a card just above the control row at the bottom right. Choosing a track closes it; online
- * results stay so the timing can be adjusted. Back closes it and focus returns to the button.
+ * The panel the CC button (subtitles) or the speaker button (audio) opens: the same full-height
+ * side panel as Filters (SidePanel; owner 2026-11-04: the small card looked out of place and Back
+ * closed it only on the second press). Choosing a track closes it; online results stay so the
+ * timing can be adjusted. Back closes it and focus returns to the button.
  */
 @Composable
 fun BoxScope.SubtitlePanel(
@@ -170,49 +172,44 @@ fun BoxScope.SubtitlePanel(
         }
     }
     val langName = SubtitlePrefs.LANGUAGES.firstOrNull { it.first == panel.language }?.second ?: panel.language
-    Column(
-        Modifier
-            .align(Alignment.BottomEnd)
-            .padding(end = 40.dp, bottom = POPUP_BOTTOM)
-            .width(440.dp)
-            .heightIn(max = 380.dp)
-            .clip(RoundedCornerShape(14.dp))
-            .background(Color(0xF00F172A))
-            .padding(horizontal = 20.dp, vertical = 18.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
+    SidePanel(
+        title = if (panel.audioOnly) "Audio" else "Subtitles",
+        subtitle = if (panel.audioOnly) null else "Now: ${panel.activeLabel}",
+        onDismiss = vm::closeSubtitlePanel,
+        width = 540.dp,
     ) {
-        Text(if (panel.audioOnly) "Audio" else "Subtitles", style = MaterialTheme.typography.titleLarge, color = AppColors.Text, fontWeight = FontWeight.SemiBold)
-        if (!panel.audioOnly) Text("Now: ${panel.activeLabel}", style = MaterialTheme.typography.bodySmall, color = AppColors.TextMuted, maxLines = 1, overflow = TextOverflow.Ellipsis)
-        // Above the list, so it shows wherever the list is scrolled to (it was a row above the
-        // results, out of view while the focus was down among them).
+        // Above the list, so it shows wherever the list is scrolled to.
         if (!panel.audioOnly) panel.message?.let { msg ->
-            Text(msg, style = MaterialTheme.typography.bodyMedium, color = AppColors.Rating, maxLines = 3, overflow = TextOverflow.Ellipsis)
+            Text(msg, style = MaterialTheme.typography.bodyMedium, color = AppColors.Rating, maxLines = 3,
+                overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(start = 12.dp, bottom = 8.dp))
         }
-
-        LazyColumn(Modifier.weight(1f, fill = false), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        LazyColumn(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
             if (panel.audioOnly) {
-                if (panel.audio.isEmpty()) item { Text("No audio tracks reported yet.", style = MaterialTheme.typography.bodyMedium, color = AppColors.TextMuted) }
+                if (panel.audio.isEmpty()) item {
+                    Text("No audio tracks reported yet.", style = MaterialTheme.typography.bodyMedium, color = AppColors.TextMuted,
+                        modifier = Modifier.padding(start = 12.dp, top = 8.dp))
+                }
                 // The first focus lands on the track playing now.
                 val focusIndex = panel.audio.indexOfFirst { it.selected }.coerceAtLeast(0)
                 itemsIndexed(panel.audio, key = { _, t -> "aud:" + t.id }) { i, t ->
-                    val mod = if (i == focusIndex) Modifier.fillMaxWidth().focusRequester(first) else Modifier.fillMaxWidth()
-                    TvButton(text = (if (t.selected) "✓ " else "") + t.label, onClick = { vm.selectAudioTrack(t.id) },
-                        style = TvButtonStyle.Secondary, modifier = mod)
+                    PanelRow(label = t.label, selected = t.selected, onClick = { vm.selectAudioTrack(t.id) },
+                        modifier = if (i == focusIndex) Modifier.focusRequester(first) else Modifier)
                 }
                 return@LazyColumn
             }
             item {
-                TvButton(text = (if (panel.activeLabel == "Off") "✓ " else "") + "Off", onClick = vm::subtitlesOff,
-                    style = TvButtonStyle.Secondary, modifier = Modifier.fillMaxWidth().focusRequester(first))
+                PanelRow(label = "Off", selected = panel.activeLabel == "Off", onClick = vm::subtitlesOff,
+                    modifier = Modifier.focusRequester(first))
             }
             items(panel.files, key = { "file:" + it.url }) { f ->
-                TvButton(text = (if (panel.activeLabel == "File · ${f.label}") "✓ " else "") + f.label + " (file)", onClick = { vm.pickFileSubtitle(f) },
-                    style = TvButtonStyle.Secondary, modifier = Modifier.fillMaxWidth())
+                PanelRow(label = f.label, detail = "File beside the video", selected = panel.activeLabel == "File · ${f.label}",
+                    onClick = { vm.pickFileSubtitle(f) })
             }
             items(panel.embedded, key = { "emb:" + it.id }) { t ->
-                TvButton(text = (if (t.selected) "✓ " else "") + t.label + " (built-in)", onClick = { vm.selectEmbeddedSubtitle(t.id) },
-                    style = TvButtonStyle.Secondary, modifier = Modifier.fillMaxWidth())
+                PanelRow(label = t.label, detail = "Built in", selected = t.selected, onClick = { vm.selectEmbeddedSubtitle(t.id) })
             }
+
+            item { PanelSection("Find online") }
             item {
                 // The search, editable: OK opens the keyboard; its Search key searches. "S01E02"
                 // and "(2010)" in the text set the episode and year.
@@ -225,35 +222,39 @@ fun BoxScope.SubtitlePanel(
                     keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(imeAction = androidx.compose.ui.text.input.ImeAction.Search),
                     keyboardActions = androidx.compose.foundation.text.KeyboardActions(onSearch = { vm.searchOnlineSubtitles() }),
                     modifier = Modifier.fillMaxWidth()
-                        .clip(RoundedCornerShape(8.dp))
+                        .clip(RoundedCornerShape(10.dp))
                         .background(AppColors.SurfaceVariant)
-                        .padding(horizontal = 12.dp, vertical = 10.dp),
+                        .padding(horizontal = 14.dp, vertical = 12.dp),
                 )
             }
             item {
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    // Enabled while busy too (the focus ring stays); the ViewModel ignores the press.
+                // Enabled while busy too (the focus ring stays); the ViewModel ignores the press.
+                Row(Modifier.padding(top = 8.dp, bottom = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     TvButton(text = if (panel.bestBusy) "Finding…" else "Best match", onClick = vm::addBestMatch,
                         style = TvButtonStyle.Primary)
                     TvButton(text = if (panel.searching) "Searching…" else "Search online", onClick = vm::searchOnlineSubtitles,
-                        style = TvButtonStyle.Primary)
-                    TvButton(text = "Language: $langName", onClick = vm::cycleSubtitleLanguage, style = TvButtonStyle.Secondary)
+                        style = TvButtonStyle.Secondary)
                 }
             }
+            item { PanelRow(label = "Language", value = langName, chevron = true, onClick = vm::cycleSubtitleLanguage) }
             items(panel.results.orEmpty(), key = { it.downloadKey }) { r ->
                 val key = r.downloadKey
-                val label = subtitleRowLabel(r.source, r.releaseName, r.language, r.downloadCount, r.exactMatch,
-                    loading = panel.loadingFile == key, active = panel.activeKey == key, failed = key in panel.failed, kept = r.kept)
-                // Stays enabled while a file loads: a disabled button drops its focus colours and
-                // ring, so the highlight vanished from the row just pressed. The ViewModel ignores
-                // presses until the load ends; "Loading…" shows on the row.
-                TvButton(text = label, onClick = { vm.pickOnlineSubtitle(r) }, style = TvButtonStyle.Secondary,
-                    modifier = Modifier.fillMaxWidth())
+                // Stays enabled while a file loads: a disabled button drops its focus colours, so
+                // the highlight vanished from the row just pressed. The ViewModel ignores presses
+                // until the load ends; "Loading…" shows on the row.
+                PanelRow(
+                    label = r.releaseName ?: "Subtitle",
+                    detail = subtitleRowDetail(r.source, r.language, r.downloadCount, r.exactMatch,
+                        loading = panel.loadingFile == key, failed = key in panel.failed, kept = r.kept),
+                    selected = panel.activeKey == key,
+                    onClick = { vm.pickOnlineSubtitle(r) },
+                )
             }
+
+            item { PanelSection("Timing") }
             item {
-                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Spacer(Modifier.height(2.dp))
-                    Text("Timing: ${formatDelay(delayMs)}", style = MaterialTheme.typography.titleSmall, color = AppColors.Text)
+                Column(Modifier.padding(start = 12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(formatDelay(delayMs), style = MaterialTheme.typography.titleSmall, color = AppColors.Text)
                     if (externalActive) {
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             TvButton(text = "− 0.25 s", onClick = { vm.adjustSubtitleDelay(-250) }, style = TvButtonStyle.Secondary)
@@ -264,14 +265,12 @@ fun BoxScope.SubtitlePanel(
                     } else {
                         Text("Timing works with online subtitles.", style = MaterialTheme.typography.bodySmall, color = AppColors.TextMuted)
                     }
+                    Spacer(Modifier.height(8.dp))
                 }
             }
         }
     }
 }
-
-/** The popup sits just above the player's control row. */
-private val POPUP_BOTTOM = 108.dp
 
 /** Downloaded subtitles, drawn by the app (so their timing can be shifted both ways). */
 @Composable
