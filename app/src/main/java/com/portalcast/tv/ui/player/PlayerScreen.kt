@@ -91,6 +91,8 @@ fun PlayerScreen(
     vm: PlayerViewModel = viewModel(),
 ) {
     val state by vm.state.collectAsStateWithLifecycle()
+    // Lets the subtitles popup skip the once-a-second position ticks (SubtitlePanelHost).
+    val subtitlePanelHost = remember(vm) { SubtitlePanelHost(vm) }
     val rootFocus = remember { FocusRequester() }
     val retryFocus = remember { FocusRequester() }
     val nextFocus = remember { FocusRequester() }
@@ -329,7 +331,7 @@ fun PlayerScreen(
         if (!hasError) StatusPills(state)
         if (!hasError) PlayPauseFlash(flash)
         state.subtitleText?.let { SubtitleLine(it) }
-        state.subtitlePanel?.let { SubtitlePanel(it, state.subtitleDelayMs, state.externalSubtitles, vm) }
+        state.subtitlePanel?.let { SubtitlePanel(it, state.subtitleDelayMs, state.externalSubtitles, subtitlePanelHost) }
 
     }
 }

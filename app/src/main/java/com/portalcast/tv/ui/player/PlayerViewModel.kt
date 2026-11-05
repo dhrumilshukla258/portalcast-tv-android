@@ -164,6 +164,11 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
     private var cues: List<SubtitleCue> = emptyList()
     private var subtitleJob: Job? = null
     private var subtitleKey: String? = null
+    // Kept while this title plays (the popup's own state goes when it closes): reopening it shows
+    // the last results, the ones that did not load marked and the one on ticked.
+    private var lastResults: List<com.portalcast.tv.data.model.SubtitleResult>? = null
+    private var failedSubs: Set<String> = emptySet()
+    private var activeOnlineKey: String? = null
 
     /** "movie:<id>" / "episode:<id>" for movies and episodes; null for live. */
     private fun titleKey(s: PlaybackSession?): String? = when (s) {
@@ -177,6 +182,9 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
         cues = emptyList()
         val key = titleKey(target)
         subtitleKey = key
+        lastResults = null
+        failedSubs = emptySet()
+        activeOnlineKey = null
         val delay = key?.let { subtitlePrefs.delayMs(it) } ?: 0L
         _state.update { it.copy(subtitleText = null, subtitleDelayMs = delay, externalSubtitles = false, subtitlePanel = null) }
         // Bring back the online subtitle chosen last time for this title.
@@ -191,8 +199,10 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
         _state.update {
             it.copy(
                 overlayVisible = true,
-                subtitlePanel = (it.subtitlePanel ?: SubtitlePanelState(language = subtitlePrefs.language, query = defaultSubtitleQuery()))
-                    .copy(audioOnly = audioOnly, embedded = embeddedTracks(), audio = audioTracks(), activeLabel = activeLabel()),
+                subtitlePanel = (it.subtitlePanel ?: SubtitlePanelState(language = subtitlePrefs.language, query = defaultSubtitleQuery(),
+                    results = lastResults, failed = failedSubs))
+                    .copy(audioOnly = audioOnly, embedded = embeddedTracks(), audio = audioTracks(), activeLabel = activeLabel(),
+                        activeKey = activeOnlineKey),
             )
         }
         if (!audioOnly) loadFileSubtitles()
@@ -303,6 +313,7 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
     private fun clearOnline() {
         subtitleJob?.cancel()
         cues = emptyList()
+        activeOnlineKey = null
         subtitleKey?.let { subtitlePrefs.setSubtitleId(it, null) }
         _state.update { it.copy(subtitleText = null, externalSubtitles = false) }
     }
@@ -311,6 +322,7 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
         val langs = SubtitlePrefs.LANGUAGES.map { it.first }
         val next = langs[(langs.indexOf(subtitlePrefs.language) + 1).mod(langs.size)]
         subtitlePrefs.language = next
+        lastResults = null
         _state.update { st -> st.subtitlePanel?.let { st.copy(subtitlePanel = it.copy(language = next, results = null, message = null)) } ?: st }
     }
 
@@ -358,23 +370,23 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
      */
     fun addBestMatch() {
         val panel = _state.value.subtitlePanel ?: return
-        if (panel.bestBusy) return
+        if (panel.bestBusy || panel.searching || panel.loadingFile != null) return
+        // "Finding…" until a file is on or all tries failed (it went back to "Best match" after the
+        // search, while the tries were still running).
         _state.update { st -> st.subtitlePanel?.let { st.copy(subtitlePanel = it.copy(bestBusy = true, message = null)) } ?: st }
         viewModelScope.launch {
             val results = runSearch()
-            _state.update { st -> st.subtitlePanel?.let { st.copy(subtitlePanel = it.copy(bestBusy = false, results = results,
+            if (results != null) lastResults = results
+            _state.update { st -> st.subtitlePanel?.let { st.copy(subtitlePanel = it.copy(results = results,
                 message = if (results != null && results.isEmpty()) "Nothing found for this search." else it.message)) } ?: st }
-            // Files that already failed this time are not tried again.
-            val failed = _state.value.subtitlePanel?.failed.orEmpty()
-            val tries = results.orEmpty().filterNot { it.downloadKey in failed }.take(BEST_MATCH_TRIES)
             var loaded = false
-            for (r in tries) {
+            for (r in bestMatchOrder(results.orEmpty(), failedSubs).take(BEST_MATCH_TRIES)) {
                 if (loadOnlineSubtitle(r.downloadKey, label = r.releaseName, remember = true, reportFailure = false)) { loaded = true; break }
             }
-            if (!loaded && !results.isNullOrEmpty()) {
-                _state.update { st -> st.subtitlePanel?.let { st.copy(subtitlePanel = it.copy(
-                    message = "None of the top matches loaded." + if (st.externalSubtitles) " Your current subtitles stay on." else " Try one from the list.")) } ?: st }
-            }
+            _state.update { st -> st.subtitlePanel?.let { st.copy(subtitlePanel = it.copy(bestBusy = false,
+                message = if (!loaded && !results.isNullOrEmpty())
+                    "None of the top matches loaded." + if (st.externalSubtitles) " Your current subtitles stay on." else " Try one from the list."
+                else it.message)) } ?: st }
         }
     }
 
@@ -387,9 +399,11 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
         if (s is PlaybackSession.Live) return
         val typed = _state.value.subtitlePanel?.query?.takeIf { it.isNotBlank() } ?: defaultSubtitleQuery()
         if (parseSubtitleQuery(typed).title.isBlank()) return
+        if (_state.value.subtitlePanel?.searching == true) return
         _state.update { st -> st.subtitlePanel?.let { st.copy(subtitlePanel = it.copy(searching = true, message = null)) } ?: st }
         viewModelScope.launch {
             val result = runCatching { searchNow() }
+            result.getOrNull()?.let { lastResults = it.results }
             _state.update { st ->
                 val p = st.subtitlePanel ?: return@update st
                 result.fold(
@@ -418,6 +432,10 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
         }.getOrNull()
 
     fun pickOnlineSubtitle(r: com.portalcast.tv.data.model.SubtitleResult) {
+        // One at a time: the rows stay enabled while a file loads (SubtitlePanel), so presses
+        // during a load or Best match's tries are ignored here.
+        val p = _state.value.subtitlePanel
+        if (p != null && (p.loadingFile != null || p.bestBusy)) return
         viewModelScope.launch { loadOnlineSubtitle(r.downloadKey, label = r.releaseName, remember = true) }
     }
 
@@ -426,14 +444,22 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
         _state.update { st -> st.subtitlePanel?.let { st.copy(subtitlePanel = it.copy(loadingFile = subId)) } ?: st }
         val osFileId = subId.removePrefix("os:").takeIf { subId.startsWith("os:") }?.toLongOrNull()
         val text = runCatching { container.api.downloadSubtitle(subId, osFileId).use { it.string() } }.getOrNull()
-        if (showCues(text, "Online · ${label ?: "subtitle"}", rememberId = if (remember) subId else null, reportFailure = false)) return true
-        _state.update { st -> st.subtitlePanel?.let { p -> st.copy(subtitlePanel = p.copy(failed = p.failed + subId,
-            message = if (reportFailure) subtitleFailureMessage(subId, showing = st.externalSubtitles) else p.message)) } ?: st }
+        if (showCues(text, "Online · ${label ?: "subtitle"}", rememberId = if (remember) subId else null, reportFailure = false, onlineKey = subId)) {
+            if (subId in failedSubs) {
+                failedSubs = failedSubs - subId
+                _state.update { st -> st.subtitlePanel?.let { st.copy(subtitlePanel = it.copy(failed = failedSubs)) } ?: st }
+            }
+            return true
+        }
+        failedSubs = failedSubs + subId
+        _state.update { st -> st.subtitlePanel?.let { p -> st.copy(subtitlePanel = p.copy(failed = failedSubs,
+            message = if (reportFailure) subtitleFailureMessage(subId, showing = st.externalSubtitles, otherSources = otherSubtitleSources(p.results, failedSubs))
+            else p.message)) } ?: st }
         return false
     }
 
     /** Draws a downloaded or file subtitle (app-rendered, so its timing can be shifted); false when [text] has none. */
-    private fun showCues(text: String?, activeLabel: String, rememberId: String?, reportFailure: Boolean = true): Boolean {
+    private fun showCues(text: String?, activeLabel: String, rememberId: String?, reportFailure: Boolean = true, onlineKey: String? = null): Boolean {
         val parsed = text?.let { SubtitleCues.parse(it) }.orEmpty()
         if (parsed.isEmpty()) {
             _state.update { st -> st.subtitlePanel?.let { st.copy(subtitlePanel = it.copy(loadingFile = null,
@@ -444,11 +470,12 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
         player.trackSelectionParameters = player.trackSelectionParameters.buildUpon()
             .setTrackTypeDisabled(C.TRACK_TYPE_TEXT, true).build()
         cues = parsed
+        activeOnlineKey = onlineKey
         if (rememberId != null) subtitleKey?.let { subtitlePrefs.setSubtitleId(it, rememberId) }
         // Loaded: an earlier failure's message goes.
         _state.update { st ->
             st.copy(externalSubtitles = true,
-                subtitlePanel = st.subtitlePanel?.copy(loadingFile = null, activeLabel = activeLabel, message = null))
+                subtitlePanel = st.subtitlePanel?.copy(loadingFile = null, activeLabel = activeLabel, message = null, activeKey = onlineKey))
         }
         subtitleJob?.cancel()
         subtitleJob = viewModelScope.launch {

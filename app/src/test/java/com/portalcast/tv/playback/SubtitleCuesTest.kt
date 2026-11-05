@@ -1,7 +1,12 @@
 package com.portalcast.tv.playback
 
+import com.portalcast.tv.data.model.SubtitleResult
+import com.portalcast.tv.data.model.downloadKey
+import com.portalcast.tv.ui.player.bestMatchOrder
 import com.portalcast.tv.ui.player.formatDelay
+import com.portalcast.tv.ui.player.otherSubtitleSources
 import com.portalcast.tv.ui.player.subtitleFailureMessage
+import com.portalcast.tv.ui.player.subtitleRowLabel
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
@@ -39,6 +44,30 @@ class SubtitleCuesTest {
     @Test fun `a failed pick names OpenSubtitles and says the current subtitles stay on`() {
         assertEquals("OpenSubtitles didn't send that file. Your current subtitles stay on.", subtitleFailureMessage("os:6591885", showing = true))
         assertEquals("That subtitle didn't load. Try another one.", subtitleFailureMessage("gd:abc", showing = false))
+        // Ted Lasso on 2026-11-04: OpenSubtitles' files failed while Gestdown's in the same list loaded.
+        assertEquals("OpenSubtitles didn't send that file. Try one from Gestdown or SubDL.",
+            subtitleFailureMessage("os:6591914", showing = false, otherSources = listOf("Gestdown", "SubDL")))
+    }
+
+    private fun result(key: String, source: String?) = SubtitleResult(downloadId = key, source = source, releaseName = key)
+
+    @Test fun `best match skips failed files and, once OpenSubtitles failed, tries other sources first`() {
+        val list = listOf(result("os:1", "opensubtitles"), result("os:2", "opensubtitles"), result("gd:a", "gestdown"), result("subdl:/b.zip", "subdl"))
+        assertEquals(listOf("os:1", "os:2", "gd:a", "subdl:/b.zip"), bestMatchOrder(list, emptySet()).map { it.downloadKey })
+        assertEquals(listOf("gd:a", "subdl:/b.zip", "os:2"), bestMatchOrder(list, setOf("os:1")).map { it.downloadKey })
+        assertEquals(listOf("os:1", "os:2", "subdl:/b.zip"), bestMatchOrder(list, setOf("gd:a")).map { it.downloadKey })
+        assertEquals(listOf("Gestdown", "SubDL"), otherSubtitleSources(list, setOf("os:1")))
+        assertEquals(listOf("SubDL"), otherSubtitleSources(list, setOf("gd:a")))
+    }
+
+    @Test fun `a row shows what happened to it first, then the source`() {
+        val long = "Ted.Lasso.S01E03.Trent.Crimm.The.Independent.1080p.ATVP.WEB-DL.DDP5.1.H.264-NTb"
+        assertEquals("Didn't load  ·  OpenSubtitles  ·  $long  ·  EN  ·  1200↓",
+            subtitleRowLabel("opensubtitles", long, "en", 1200, false, loading = false, active = false, failed = true))
+        assertEquals("✓ Gestdown  ·  $long  ·  EN  ·  exact match",
+            subtitleRowLabel("gestdown", long, "en", 0, true, loading = false, active = true, failed = false))
+        assertEquals("Loading…  SubDL  ·  Subtitle",
+            subtitleRowLabel("subdl", null, null, 0, false, loading = true, active = false, failed = true))
     }
 
     @Test fun `parses srt with comma millis and hours`() {
