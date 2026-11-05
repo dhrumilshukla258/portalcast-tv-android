@@ -3,6 +3,7 @@ package com.portalcast.tv.ui.components
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.focusGroup
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
@@ -24,11 +25,20 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameNanos
+import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithCache
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusProperties
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
@@ -53,6 +63,7 @@ import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Surface
 import androidx.tv.material3.Text
 import com.portalcast.tv.ui.theme.AppColors
+import kotlinx.coroutines.launch
 
 /**
  * Back closes this popup on the first press. Compose turns a Back no one used into "move focus
@@ -81,8 +92,9 @@ private const val FADE_IN_MS = 140
  *
  * @param slideIn false when it replaces another panel in place (the Filters menu and a selector's
  *   values): the shade stays and only the content fades in.
- * @param top room left for a bar above it (Discover's tabs).
+ * @param top room left for a bar above it (none by default: the full height of the screen).
  */
+@OptIn(ExperimentalComposeUiApi::class)
 @Composable
 fun BoxScope.SidePanel(
     title: String,
@@ -101,6 +113,12 @@ fun BoxScope.SidePanel(
     val density = LocalDensity.current
     val slidePx = with(density) { 48.dp.toPx() }
     val panelPx = with(density) { width.toPx() }
+    // The remote stays inside the panel (owner 2026-11-05): moves out of it are refused, and if
+    // focus is taken out all the same, it closes. Checked a frame later, so a panel leaving the
+    // screen (and its focus with it) never closes the one replacing it.
+    var focused by remember { mutableStateOf(false) }
+    var hadFocus by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
 
     // The shade: clear at the far side, darker up to the panel's edge (no hard line).
     Box(
@@ -131,6 +149,13 @@ fun BoxScope.SidePanel(
                 translationX = if (slideIn) (1f - appear.value) * slidePx else 0f
             }
             .closeOnBack(onDismiss)
+            .onFocusChanged { s ->
+                focused = s.hasFocus
+                if (s.hasFocus) hadFocus = true
+                else if (hadFocus) scope.launch { withFrameNanos { }; if (!focused) onDismiss() }
+            }
+            .focusProperties { exit = { FocusRequester.Cancel } }
+            .focusGroup()
             .clip(PanelShape)
             .drawWithCache {
                 // A faint light along the inner edge, fading out at both ends.
@@ -171,8 +196,9 @@ fun PanelSection(text: String, modifier: Modifier = Modifier) {
 
 /**
  * One choice in a [SidePanel]: a check when chosen, the label with an optional muted line under
- * it, a value on the right and a chevron when it opens more. Focused it fills with the accent,
- * the same as every button, so it reads from across the room.
+ * it, a value on the right and a chevron when it opens more. Focused it turns white with dark
+ * text, like Home's chips and the Play button (owner 2026-11-05: the accent fill washed out on
+ * the TV and the text was hard to read).
  */
 @Composable
 fun PanelRow(
@@ -194,16 +220,16 @@ fun PanelRow(
         shape = ClickableSurfaceDefaults.shape(shape = RoundedCornerShape(10.dp)),
         scale = ClickableSurfaceDefaults.scale(focusedScale = 1.02f),
         colors = ClickableSurfaceDefaults.colors(
-            containerColor = if (selected) Color.White.copy(alpha = 0.05f) else Color.Transparent,
+            containerColor = if (selected) Color.White.copy(alpha = 0.06f) else Color.Transparent,
             contentColor = AppColors.Text,
-            focusedContainerColor = AppColors.Primary,
-            focusedContentColor = AppColors.OnPrimary,
-            pressedContainerColor = AppColors.Primary,
-            pressedContentColor = AppColors.OnPrimary,
+            focusedContainerColor = AppColors.Text,
+            focusedContentColor = AppColors.Background,
+            pressedContainerColor = AppColors.Text,
+            pressedContentColor = AppColors.Background,
         ),
     ) {
         Row(
-            Modifier.heightIn(min = 48.dp).padding(horizontal = 12.dp, vertical = 8.dp),
+            Modifier.heightIn(min = 54.dp).padding(horizontal = 14.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
@@ -214,16 +240,16 @@ fun PanelRow(
                 }
             }
             Column(Modifier.weight(1f)) {
-                Text(label, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(label, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 if (detail != null) {
-                    Text(detail, style = MaterialTheme.typography.bodySmall, color = LocalContentColor.current.copy(alpha = 0.72f),
+                    Text(detail, style = MaterialTheme.typography.bodyMedium, color = LocalContentColor.current.copy(alpha = 0.72f),
                         maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
             }
             if (value != null) {
                 val base = LocalContentColor.current
                 CompositionLocalProvider(LocalContentColor provides if (valueSet) base else base.copy(alpha = 0.7f)) {
-                    Text(value, style = MaterialTheme.typography.bodyMedium, fontWeight = if (valueSet) FontWeight.SemiBold else FontWeight.Normal,
+                    Text(value, style = MaterialTheme.typography.bodyLarge, fontWeight = if (valueSet) FontWeight.SemiBold else FontWeight.Normal,
                         maxLines = 1, overflow = TextOverflow.Ellipsis, textAlign = TextAlign.End, modifier = Modifier.widthIn(max = 180.dp))
                 }
             }

@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
@@ -159,7 +160,15 @@ fun PeopleScreen(
 
     Column(modifier.fillMaxSize().padding(start = 48.dp, end = 32.dp, top = 14.dp)) {
         // One row: the sections chips, then the roles (People's filter), then how many.
-        LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp), contentPadding = PaddingValues(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+        // Room beside the chips (moved back by the same amount, so they stay in line): a row
+        // clips at its edges, and the focused first chip's grow and ring were cut off on the left
+        // (owner 2026-11-04, photo of Cast).
+        LazyRow(
+            modifier = Modifier.offset(x = (-CHIP_ROOM)),
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            contentPadding = PaddingValues(horizontal = CHIP_ROOM, vertical = 4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
             if (sectionChips != null) item(key = "sections") { Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) { sectionChips() } }
             item(key = "divider") { Box(Modifier.padding(horizontal = 6.dp).width(1.dp).height(28.dp).background(AppColors.GlassBorder)) }
             items(state.roles, key = { it.id }) { r -> RoleChip(r.label, r == state.role) { vm.selectRole(r) } }
@@ -263,3 +272,6 @@ private fun PersonPoster(person: PersonHit, onClick: () -> Unit, modifier: Modif
         }
     }
 }
+
+/** Room the focused chip grows into at the row's edges. */
+private val CHIP_ROOM = 8.dp

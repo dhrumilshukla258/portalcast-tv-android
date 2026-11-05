@@ -6,6 +6,8 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
@@ -177,12 +179,11 @@ internal fun BoxScope.FilterDropdown(
         }
     }
 
-    // The full-height side panel under the top bar (owner: no small floating windows).
+    // The full-height side panel (owner: no small floating windows), from the top of the screen.
     SidePanel(
         title = dim.label,
         subtitle = if (onCycle != null) "OK once to include a genre, again to leave it out" else null,
         onDismiss = onDismiss,
-        top = with(LocalDensity.current) { topPx.toDp() },
         slideIn = slideIn,
     ) {
         LazyColumn(state = listState, modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
@@ -254,10 +255,11 @@ internal fun BoxScope.FilterMenu(
         title = "Filters",
         subtitle = if (anySet) "Picks apply at once" else null,
         onDismiss = onDismiss,
-        top = with(LocalDensity.current) { topPx.toDp() },
         slideIn = slideIn,
     ) {
-        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        // Scrolls: on a TV screen the Sources at the bottom were below its edge, out of reach
+        // (owner 2026-11-04, photos: Series showed no Sources, Movies half of My library).
+        Column(Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(2.dp)) {
             dims.forEachIndexed { i, dim ->
                 val value = query.valueOf(dim)
                 PanelRow(
