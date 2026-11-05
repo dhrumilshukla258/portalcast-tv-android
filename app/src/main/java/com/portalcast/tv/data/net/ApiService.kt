@@ -73,6 +73,13 @@ interface ApiService {
     @GET("api/v2/subtitles/download")
     suspend fun downloadSubtitle(@Query("id") id: String, @Query("fileId") fileId: Long? = null): okhttp3.ResponseBody
 
+    /**
+     * An online subtitle kept on while watching [t] (the playing stream's token names the movie or
+     * episode). The server lists it first for everyone watching it. Older servers answer 404.
+     */
+    @POST("api/v2/subtitles/kept")
+    suspend fun reportSubtitleKept(@Query("t") t: String, @Body body: com.portalcast.tv.data.model.SubtitleKeptReport): okhttp3.ResponseBody
+
     // ---- the user's own subtitle accounts (Settings) ----
     @GET("api/user/opensubtitles")
     suspend fun subtitleAccounts(): com.portalcast.tv.data.model.SubtitleAccountStatus

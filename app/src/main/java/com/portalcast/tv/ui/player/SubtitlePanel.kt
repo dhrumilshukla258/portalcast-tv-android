@@ -111,7 +111,7 @@ internal fun otherSubtitleSources(results: List<SubtitleResult>?, failed: Set<St
  */
 internal fun subtitleRowLabel(
     source: String?, releaseName: String?, language: String?, downloadCount: Int, exactMatch: Boolean,
-    loading: Boolean, active: Boolean, failed: Boolean,
+    loading: Boolean, active: Boolean, failed: Boolean, kept: Int = 0,
 ): String = buildString {
     when {
         loading -> append("Loading…  ")
@@ -119,6 +119,7 @@ internal fun subtitleRowLabel(
         failed -> append("Didn't load  ·  ")
     }
     append(subtitleSourceName(source)).append("  ·  ")
+    if (kept > 0) append("Kept on by ").append(kept).append(if (kept == 1) " viewer" else " viewers").append("  ·  ")
     append(releaseName ?: "Subtitle")
     language?.takeIf { it.isNotBlank() }?.let { append("  ·  ").append(it.uppercase(Locale.US)) }
     if (downloadCount > 0) append("  ·  ").append(downloadCount).append("↓")
@@ -242,7 +243,7 @@ fun BoxScope.SubtitlePanel(
             items(panel.results.orEmpty(), key = { it.downloadKey }) { r ->
                 val key = r.downloadKey
                 val label = subtitleRowLabel(r.source, r.releaseName, r.language, r.downloadCount, r.exactMatch,
-                    loading = panel.loadingFile == key, active = panel.activeKey == key, failed = key in panel.failed)
+                    loading = panel.loadingFile == key, active = panel.activeKey == key, failed = key in panel.failed, kept = r.kept)
                 // Stays enabled while a file loads: a disabled button drops its focus colours and
                 // ring, so the highlight vanished from the row just pressed. The ViewModel ignores
                 // presses until the load ends; "Loading…" shows on the row.

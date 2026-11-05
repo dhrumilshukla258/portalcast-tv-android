@@ -2,6 +2,7 @@ package com.portalcast.tv.playback
 
 import com.portalcast.tv.data.model.SubtitleResult
 import com.portalcast.tv.data.model.downloadKey
+import com.portalcast.tv.ui.player.PlayerViewModel
 import com.portalcast.tv.ui.player.bestMatchOrder
 import com.portalcast.tv.ui.player.formatDelay
 import com.portalcast.tv.ui.player.otherSubtitleSources
@@ -68,6 +69,18 @@ class SubtitleCuesTest {
             subtitleRowLabel("gestdown", long, "en", 0, true, loading = false, active = true, failed = false))
         assertEquals("Loading…  SubDL  ·  Subtitle",
             subtitleRowLabel("subdl", null, null, 0, false, loading = true, active = false, failed = true))
+        assertEquals("Gestdown  ·  Kept on by 2 viewers  ·  Ted Lasso 1x04  ·  EN",
+            subtitleRowLabel("gestdown", "Ted Lasso 1x04", "en", 0, false, loading = false, active = false, failed = false, kept = 2))
+        assertEquals("✓ OpenSubtitles  ·  Kept on by 1 viewer  ·  Subtitle",
+            subtitleRowLabel(null, null, null, 0, false, loading = false, active = true, failed = false, kept = 1))
+    }
+
+    @Test fun `a subtitle counts as kept after a quarter of the title, between 3 and 10 minutes`() {
+        val min = 60_000L
+        assertEquals(5 * min + 30_000, PlayerViewModel.keptThresholdMs(22 * min)) // a Ted Lasso episode
+        assertEquals(10 * min, PlayerViewModel.keptThresholdMs(120 * min))
+        assertEquals(3 * min, PlayerViewModel.keptThresholdMs(8 * min))
+        assertEquals(10 * min, PlayerViewModel.keptThresholdMs(0))
     }
 
     @Test fun `parses srt with comma millis and hours`() {

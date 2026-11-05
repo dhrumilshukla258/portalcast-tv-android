@@ -179,7 +179,15 @@ data class SubtitleResult(
     val downloadCount: Int = 0,
     /** Made for exactly the file playing (servers from 2026-10-29). */
     val exactMatch: Boolean = false,
+    /** Viewers who kept it on for this very movie or episode (servers from 2026-11-04): listed first. */
+    val kept: Int = 0,
+    /** The timing they used, in ms (+ later): applied when this viewer has none of their own. */
+    val keptDelayMs: Long = 0,
 )
+
+/** Body of POST /api/v2/subtitles/kept: an online subtitle that stayed on a good while. */
+@Serializable
+data class SubtitleKeptReport(val id: String, val lang: String, val delayMs: Long, val label: String? = null)
 
 /** A subtitle file beside a library video: Jellyfin's external subtitles, a folder's .srt. */
 @Serializable

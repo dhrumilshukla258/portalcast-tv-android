@@ -169,6 +169,16 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
     private var lastResults: List<com.portalcast.tv.data.model.SubtitleResult>? = null
     private var failedSubs: Set<String> = emptySet()
     private var activeOnlineKey: String? = null
+    /** Release name and search language of the online subtitle on, for the "kept" report. */
+    private var activeOnlineLabel: String? = null
+    private var activeOnlineLang: String? = null
+
+    // The online subtitle kept on (owner 2026-11-04): once it has stayed on for a good part of the
+    // title, with its timing left alone for a while, the server is told it is the right file.
+    private var keptWatchKey: String? = null
+    private var keptWatchMs = 0L
+    private var keptDelaySettledMs = 0L
+    private var keptReported: Pair<String, Long>? = null
 
     /** "movie:<id>" / "episode:<id>" for movies and episodes; null for live. */
     private fun titleKey(s: PlaybackSession?): String? = when (s) {
@@ -185,6 +195,7 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
         lastResults = null
         failedSubs = emptySet()
         activeOnlineKey = null
+        keptReported = null
         val delay = key?.let { subtitlePrefs.delayMs(it) } ?: 0L
         _state.update { it.copy(subtitleText = null, subtitleDelayMs = delay, externalSubtitles = false, subtitlePanel = null) }
         // Bring back the online subtitle chosen last time for this title.
@@ -381,7 +392,7 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
                 message = if (results != null && results.isEmpty()) "Nothing found for this search." else it.message)) } ?: st }
             var loaded = false
             for (r in bestMatchOrder(results.orEmpty(), failedSubs).take(BEST_MATCH_TRIES)) {
-                if (loadOnlineSubtitle(r.downloadKey, label = r.releaseName, remember = true, reportFailure = false)) { loaded = true; break }
+                if (loadOnlineSubtitle(r.downloadKey, label = r.releaseName, remember = true, reportFailure = false, keptDelayMs = r.sharedDelay())) { loaded = true; break }
             }
             _state.update { st -> st.subtitlePanel?.let { st.copy(subtitlePanel = it.copy(bestBusy = false,
                 message = if (!loaded && !results.isNullOrEmpty())
@@ -436,15 +447,27 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
         // during a load or Best match's tries are ignored here.
         val p = _state.value.subtitlePanel
         if (p != null && (p.loadingFile != null || p.bestBusy)) return
-        viewModelScope.launch { loadOnlineSubtitle(r.downloadKey, label = r.releaseName, remember = true) }
+        viewModelScope.launch { loadOnlineSubtitle(r.downloadKey, label = r.releaseName, remember = true, keptDelayMs = r.sharedDelay()) }
     }
 
+    /** The timing viewers who kept this one on used; null when nobody did. */
+    private fun com.portalcast.tv.data.model.SubtitleResult.sharedDelay(): Long? = keptDelayMs.takeIf { kept > 0 }
+
     /** True when the subtitle was downloaded and is showing. */
-    private suspend fun loadOnlineSubtitle(subId: String, label: String?, remember: Boolean, reportFailure: Boolean = true): Boolean {
+    private suspend fun loadOnlineSubtitle(subId: String, label: String?, remember: Boolean, reportFailure: Boolean = true, keptDelayMs: Long? = null): Boolean {
+        val lang = subtitlePrefs.language
         _state.update { st -> st.subtitlePanel?.let { st.copy(subtitlePanel = it.copy(loadingFile = subId)) } ?: st }
         val osFileId = subId.removePrefix("os:").takeIf { subId.startsWith("os:") }?.toLongOrNull()
         val text = runCatching { container.api.downloadSubtitle(subId, osFileId).use { it.string() } }.getOrNull()
         if (showCues(text, "Online · ${label ?: "subtitle"}", rememberId = if (remember) subId else null, reportFailure = false, onlineKey = subId)) {
+            activeOnlineLabel = label
+            activeOnlineLang = lang
+            // The timing others settled on, unless this viewer already set one for this title.
+            if (keptDelayMs != null && keptDelayMs != 0L && _state.value.subtitleDelayMs == 0L) {
+                val d = keptDelayMs.coerceIn(-60_000L, 60_000L)
+                _state.update { it.copy(subtitleDelayMs = d) }
+                subtitleKey?.let { subtitlePrefs.setDelayMs(it, d) }
+            }
             if (subId in failedSubs) {
                 failedSubs = failedSubs - subId
                 _state.update { st -> st.subtitlePanel?.let { st.copy(subtitlePanel = it.copy(failed = failedSubs)) } ?: st }
@@ -494,6 +517,23 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
         val next = (_state.value.subtitleDelayMs + deltaMs).coerceIn(-60_000L, 60_000L)
         _state.update { it.copy(subtitleDelayMs = next) }
         subtitleKey?.let { subtitlePrefs.setDelayMs(it, next) }
+        keptDelaySettledMs = 0L
+    }
+
+    /** Called each tick: reports the online subtitle kept on (see [keptThresholdMs]). */
+    private fun trackKeptSubtitle(dur: Long) {
+        val key = activeOnlineKey
+        if (key != keptWatchKey) { keptWatchKey = key; keptWatchMs = 0L; keptDelaySettledMs = 0L }
+        if (key == null || !player.isPlaying) return
+        keptWatchMs += TICK_MS
+        keptDelaySettledMs += TICK_MS
+        val delay = _state.value.subtitleDelayMs
+        if (keptWatchMs < keptThresholdMs(dur) || keptDelaySettledMs < KEPT_DELAY_SETTLED_MS) return
+        if (keptReported == key to delay) return
+        val t = streamToken() ?: return
+        keptReported = key to delay
+        val report = com.portalcast.tv.data.model.SubtitleKeptReport(key, activeOnlineLang ?: subtitlePrefs.language, delay, activeOnlineLabel)
+        container.appScope.launch { runCatching { container.api.reportSubtitleKept(t, report).close() } }
     }
 
     fun resetSubtitleDelay() = adjustSubtitleDelay(-_state.value.subtitleDelayMs)
@@ -530,7 +570,7 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
         player.addListener(listener)
         viewModelScope.launch {
             while (isActive) {
-                delay(1_000)
+                delay(TICK_MS)
                 tick()
             }
         }
@@ -803,6 +843,7 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
         val nearEnd = s is PlaybackSession.Episode && s.nextEpisode != null && dur > 0 && dur - pos <= nextEpisodeWindowMs(dur)
         _state.update { it.copy(positionMs = pos, durationMs = dur, bufferedMs = buffered, showNextEpisode = nearEnd) }
         if (s.isLive) return
+        trackKeptSubtitle(dur)
         if (player.isPlaying) reporter.onProgress(s, pos, dur)
         if (dur > 0 && !completed && pos.toDouble() / dur >= DefaultProgressReporter.COMPLETION_FRACTION) {
             completed = true
@@ -919,6 +960,16 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
         const val STALE_AFTER_MS = 30_000L
         /** "Best match" tries this many results when the first ones cannot be downloaded. */
         const val BEST_MATCH_TRIES = 5
+        const val TICK_MS = 1_000L
+        /** A changed timing counts once it has been left alone this long while playing. */
+        const val KEPT_DELAY_SETTLED_MS = 60_000L
+
+        /**
+         * How long an online subtitle stays on, playing, before it counts as kept: a quarter of
+         * the title, between 3 and 10 minutes (10 when the length is unknown).
+         */
+        fun keptThresholdMs(durationMs: Long): Long =
+            if (durationMs > 0) (durationMs / 4).coerceIn(3 * 60_000L, 10 * 60_000L) else 10 * 60_000L
         private val EPISODE_RE = Regex("""(?i)\bS(\d{1,4})\s*E(\d{1,4})\b""")
         private val YEAR_RE = Regex("""\((\d{4})\)""")
 

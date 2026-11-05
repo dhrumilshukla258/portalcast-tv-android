@@ -253,9 +253,17 @@ returns `/api/local/stream?t=` (progressive, range requests). Treat these ids as
     backdrop_path?, backdrop_hd_path?, year, genres_str, country, category?, actors?, director? }`.
   - To open one: strip the prefix, call `/movies` or `/series` with
     `movieId=<raw>&category=<item.category ?: *>`; if empty, retry with `*`.
-- Subtitles (phase 3): `GET /api/v2/subtitles/search?title&year&season&episode&lang`
-  → `{ results: [{ id, fileId, language, releaseName, downloadCount }] }`;
-  `GET /api/v2/subtitles/download?fileId=` → `text/vtt`, **needs Bearer**.
+- Subtitles (phase 3): `GET /api/v2/subtitles/search?title&year&season&episode&lang&t`
+  → `{ results: [{ id, fileId, downloadId, source, language, releaseName, downloadCount, exactMatch?, kept?, keptDelayMs? }] }`;
+  `t` is the playing stream's token. `kept` (servers from 2026-11-04) = viewers who kept that
+  file on for this very movie/episode; those come first, and `keptDelayMs` is the timing they
+  used (median, + later). A kept file the provider no longer returns is still listed.
+  `GET /api/v2/subtitles/download?id=<downloadId>&fileId=` → `text/vtt`, **needs Bearer**.
+  `POST /api/v2/subtitles/kept?t=<stream token>` body `{ id: downloadId, lang, delayMs, label? }`
+  → `{ success }`: an online subtitle stayed on (TV: a quarter of the title, 3–10 min of playing,
+  timing untouched for a minute). The item comes from `t` (must be the caller's own stream);
+  the file must have been downloaded through the server (else 404). One choice per viewer,
+  title and language; the latest wins. Older servers: 404, ignore.
 
 ## 4. Images
 
