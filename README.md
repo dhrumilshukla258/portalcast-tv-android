@@ -31,7 +31,7 @@
 
 - **The same app as the web** — Home, Live TV, Sports, Search and My List along the top, Movies · Series · Cast under it, in the black-blue PortalCast look.
 - **Home made for each viewer** — the title to resume, Continue Watching, "Because you watched", top picks and trending, built from what this profile watched; one card per title across its language and quality versions. It opens at once on the Home it showed last.
-- **Filters** — genre, language, country, channel or platform and mood, plus the provider's **IPTV categories** and **My library** (your own files).
+- **Filters** — genre, language, country, channel or platform and mood, plus the provider's **IPTV categories** and **My library** (your Jellyfin's films and shows).
 - **Hold OK on a title** to add it to My List, mark it watched, say "Not interested" (it leaves every Home row) or remove it from Continue Watching. **My List** keeps My List, Watched, Not interested and favourite channels, so anything can be undone.
 - **Cast** — actors, actresses, directors, creators and writers with photos, ranked by what the profile watches, each with every title of theirs you have.
 - **Sports** — the next 30 days of the sports each viewer picks, with the channel showing each match from the TV guide; OK on a match tunes in.
