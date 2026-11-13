@@ -965,11 +965,12 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
         const val KEPT_DELAY_SETTLED_MS = 60_000L
 
         /**
-         * How long an online subtitle stays on, playing, before it counts as kept: a quarter of
-         * the title, between 3 and 10 minutes (10 when the length is unknown).
+         * How long an online subtitle stays on, playing, before it counts as kept: at least a
+         * quarter of the title (owner 2026-11-13; it was capped at 10 minutes), never under 3
+         * minutes; 10 minutes when the length is unknown, as a quarter cannot be measured then.
          */
         fun keptThresholdMs(durationMs: Long): Long =
-            if (durationMs > 0) (durationMs / 4).coerceIn(3 * 60_000L, 10 * 60_000L) else 10 * 60_000L
+            if (durationMs > 0) maxOf(durationMs / 4, 3 * 60_000L) else 10 * 60_000L
         private val EPISODE_RE = Regex("""(?i)\bS(\d{1,4})\s*E(\d{1,4})\b""")
         private val YEAR_RE = Regex("""\((\d{4})\)""")
 

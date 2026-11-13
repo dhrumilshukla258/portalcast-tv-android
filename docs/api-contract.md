@@ -260,7 +260,7 @@ returns `/api/local/stream?t=` (progressive, range requests). Treat these ids as
   used (median, + later). A kept file the provider no longer returns is still listed.
   `GET /api/v2/subtitles/download?id=<downloadId>&fileId=` → `text/vtt`, **needs Bearer**.
   `POST /api/v2/subtitles/kept?t=<stream token>` body `{ id: downloadId, lang, delayMs, label? }`
-  → `{ success }`: an online subtitle stayed on (TV: a quarter of the title, 3–10 min of playing,
+  → `{ success }`: an online subtitle stayed on (a quarter of the title playing, at least 3 min; 10 min when the length is unknown;
   timing untouched for a minute). The item comes from `t` (must be the caller's own stream);
   the file must have been downloaded through the server (else 404). One choice per viewer,
   title and language; the latest wins. Older servers: 404, ignore.

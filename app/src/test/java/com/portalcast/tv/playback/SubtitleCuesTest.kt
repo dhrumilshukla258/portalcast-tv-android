@@ -74,10 +74,11 @@ class SubtitleCuesTest {
             subtitleRowDetail(null, null, 0, false, loading = false, failed = false, kept = 1))
     }
 
-    @Test fun `a subtitle counts as kept after a quarter of the title, between 3 and 10 minutes`() {
+    @Test fun `a subtitle counts as kept after a quarter of the title, at least 3 minutes`() {
         val min = 60_000L
         assertEquals(5 * min + 30_000, PlayerViewModel.keptThresholdMs(22 * min)) // a Ted Lasso episode
-        assertEquals(10 * min, PlayerViewModel.keptThresholdMs(120 * min))
+        assertEquals(11 * min + 15_000, PlayerViewModel.keptThresholdMs(45 * min)) // a longer one
+        assertEquals(30 * min, PlayerViewModel.keptThresholdMs(120 * min)) // no 10-minute cap
         assertEquals(3 * min, PlayerViewModel.keptThresholdMs(8 * min))
         assertEquals(10 * min, PlayerViewModel.keptThresholdMs(0))
     }
