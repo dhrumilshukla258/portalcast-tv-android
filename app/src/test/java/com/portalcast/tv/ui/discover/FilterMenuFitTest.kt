@@ -44,10 +44,8 @@ class FilterMenuFitTest {
                     topPx = with(rule.density) { 120.dp.roundToPx() },
                     onOpen = {},
                     onClear = {},
-                    browseLabel = "IPTV categories",
-                    onBrowse = {},
                     onDismiss = {},
-                    onMyLibrary = {},
+                    sources = filterSources("series", onOpenMyLibrary = {}, onOpenCategories = {}) {},
                 )
             }
         }

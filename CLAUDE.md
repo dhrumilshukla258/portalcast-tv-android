@@ -79,10 +79,13 @@ Read before changing anything:
 ## Build
 
 ```bash
-JAVA_HOME=/path/to/jdk17 ./gradlew assembleRelease testReleaseUnitTest   # → app/build/outputs/apk/release/app-release.apk
+JAVA_HOME=/path/to/jdk17 ./gradlew assembleRelease testDebugUnitTest   # → app/build/outputs/apk/release/app-release.apk
 ```
 
-Test on release builds: debug Compose is several times slower on a TV. Releases are built by
+Test on release builds: debug Compose is several times slower on a TV. Unit tests run as
+`testDebugUnitTest` (as in CI): the screen tests need the Compose test manifest, which only
+the debug variant has (`debugImplementation ui-test-manifest`); under `testReleaseUnitTest`
+they fail with "Unable to resolve activity". Releases are built by
 `.github/workflows/release.yml` on a `v*` tag (it also runs `lintRelease`).
 
 Needs a JDK 17 and an Android SDK with `platforms;android-34`, `build-tools;34.0.0`

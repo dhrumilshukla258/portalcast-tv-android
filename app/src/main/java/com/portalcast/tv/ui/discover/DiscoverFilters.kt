@@ -217,11 +217,13 @@ private fun BlockIcon(modifier: Modifier) {
     }
 }
 
+/** A row under the Filters panel's "Sources": where titles come from (My library, IPTV categories). */
+internal data class FilterSource(val label: String, val detail: String, val onClick: () -> Unit)
+
 /**
  * The Filters panel (owner, 2026-10-22: one row under the tabs, the same as the phone): a
  * full-height panel along the right edge, under the Filters button, listing each selector with
- * its value, then "Browse
- * by category" (Movies / Series) and "Clear filters". A selector opens its values
+ * its value, then the [sources] and "Clear filters". A selector opens its values
  * ([FilterDropdown]); Back closes the panel. [focus] holds one requester per selector, so
  * focus comes back to the one whose values were just closed.
  */
@@ -233,11 +235,9 @@ internal fun BoxScope.FilterMenu(
     topPx: Int,
     onOpen: (FilterDim) -> Unit,
     onClear: () -> Unit,
-    browseLabel: String?,
-    onBrowse: (() -> Unit)?,
     onDismiss: () -> Unit,
-    /** Movies / Series: the NAS library's titles of that type. */
-    onMyLibrary: (() -> Unit)? = null,
+    /** Under "Sources": My library and IPTV categories, for the type shown (Home: both types). */
+    sources: List<FilterSource> = emptyList(),
     /** False when it comes back in place of a selector's values (SidePanel slideIn). */
     slideIn: Boolean = true,
 ) {
@@ -273,13 +273,8 @@ internal fun BoxScope.FilterMenu(
             }
             // Where titles come from, under their own heading after the filters (owner 2026-11-04;
             // the same as the web's Filters sheet).
-            if (onMyLibrary != null || (onBrowse != null && browseLabel != null)) PanelSection("Sources")
-            if (onMyLibrary != null) {
-                PanelRow(label = "My library", detail = "Files on your NAS", chevron = true, onClick = onMyLibrary)
-            }
-            if (onBrowse != null && browseLabel != null) {
-                PanelRow(label = browseLabel, detail = "Your provider's own categories", chevron = true, onClick = onBrowse)
-            }
+            if (sources.isNotEmpty()) PanelSection("Sources")
+            for (s in sources) PanelRow(label = s.label, detail = s.detail, chevron = true, onClick = s.onClick)
             if (anySet) {
                 Spacer(Modifier.height(12.dp))
                 PanelRow(label = "Clear filters", onClick = onClear)

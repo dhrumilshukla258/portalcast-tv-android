@@ -146,12 +146,12 @@ fun DiscoverScreen(
     restoreFocus: Boolean = false,
     /** "movie" / "series": the Movies or Series tab (one type, no type switch). Null: Home. */
     fixedType: String? = null,
-    /** Opens the per-category browse (Movies / Series tabs). */
-    onOpenCategories: (() -> Unit)? = null,
+    /** Opens the per-category browse of a type ("movie" / "series"), from the Filters panel. */
+    onOpenCategories: ((String) -> Unit)? = null,
     /** Home's Movies · Series · People chips (HomeScreen), first in the one row under the tabs. */
     sectionChips: (@Composable () -> Unit)? = null,
-    /** Movies / Series: the NAS library's titles (from the Filters panel). */
-    onOpenMyLibrary: (() -> Unit)? = null,
+    /** The NAS library's titles of a type ("movie" / "series"), from the Filters panel. */
+    onOpenMyLibrary: ((String) -> Unit)? = null,
 ) {
     val container = LocalContext.current.appContainer
     val vm: DiscoverViewModel = viewModel(
@@ -270,9 +270,7 @@ fun DiscoverScreen(
                 topPx = topBarHeightPx,
                 onOpen = { openFilter = it },
                 onClear = vm::clearFilter,
-                browseLabel = if (fixedType != null) "IPTV categories" else null,
-                onBrowse = onOpenCategories?.let { open -> { filtersOpen = false; filtersMenuBack = false; open() } },
-                onMyLibrary = onOpenMyLibrary?.let { open -> { filtersOpen = false; filtersMenuBack = false; open() } },
+                sources = filterSources(fixedType, onOpenMyLibrary, onOpenCategories) { filtersOpen = false; filtersMenuBack = false },
                 onDismiss = { filtersOpen = false; filtersMenuBack = false; refocusFilters = true },
             )
         }
@@ -690,4 +688,21 @@ private fun FilterGridContent(
             }
         }
     }
+}
+
+/**
+ * The Filters panel's Sources: My library, then IPTV categories, for the type shown; on Home
+ * (both types) one of each per type, named " · Movies" / " · Series" (owner 2026-11-13: "if both
+ * then we show all filters for both"; the web's Filters sheet lists the same).
+ */
+internal fun filterSources(
+    fixedType: String?,
+    onOpenMyLibrary: ((String) -> Unit)?,
+    onOpenCategories: ((String) -> Unit)?,
+    close: () -> Unit,
+): List<FilterSource> {
+    val types = fixedType?.let { listOf(it) } ?: listOf("movie", "series")
+    fun named(label: String, type: String) = if (fixedType != null) label else "$label · ${if (type == "series") "Series" else "Movies"}"
+    return types.mapNotNull { t -> onOpenMyLibrary?.let { open -> FilterSource(named("My library", t), "Files on your NAS") { close(); open(t) } } } +
+        types.mapNotNull { t -> onOpenCategories?.let { open -> FilterSource(named("IPTV categories", t), "Your provider's own categories") { close(); open(t) } } }
 }

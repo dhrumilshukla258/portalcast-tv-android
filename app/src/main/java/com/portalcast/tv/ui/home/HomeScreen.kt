@@ -103,6 +103,21 @@ private val TopTabs = listOf(HomeTab.DISCOVER, HomeTab.LIVE, HomeTab.SPORTS, Hom
 /** Home's sections: the chips row Movies · Series · People (Home itself when none is chosen). */
 private val SectionTabs = listOf(HomeTab.MOVIES, HomeTab.SERIES, HomeTab.PEOPLE)
 
+/**
+ * Where a chip leads from [current] (owner 2026-11-13). Movies and Series are two switches over
+ * Home, which shows both: from Home one of them narrows to it, the other one then brings both
+ * back (Home), and the only one on, chosen again, does too. Cast opens Cast; again, Home.
+ */
+internal fun nextSection(current: HomeTab, chip: HomeTab): HomeTab = when {
+    chip == HomeTab.PEOPLE -> if (current == HomeTab.PEOPLE) HomeTab.DISCOVER else HomeTab.PEOPLE
+    current == HomeTab.MOVIES || current == HomeTab.SERIES -> HomeTab.DISCOVER
+    else -> chip
+}
+
+/** Whether a chip shows as on: Movies and Series both on Home, else the section open. */
+internal fun sectionOn(current: HomeTab, chip: HomeTab): Boolean =
+    chip == current || (current == HomeTab.DISCOVER && chip != HomeTab.PEOPLE)
+
 /** The top tab a screen belongs to: Movies, Series and People are Home's. */
 private fun topTabOf(t: HomeTab): HomeTab = if (t in SectionTabs) HomeTab.DISCOVER else t
 
@@ -147,8 +162,10 @@ fun HomeScreen(
     var tabsFocused by remember { mutableStateOf(false) }
     /** The Movies or Series tab showing its per-category browse instead of its rows. */
     var categories by rememberSaveable { mutableStateOf<HomeTab?>(null) }
-    /** With [categories]: My library (the NAS files) instead of the IPTV categories. */
+    /** With [categories] / [homeCategories]: My library (the NAS files) instead of the IPTV categories. */
     var library by rememberSaveable { mutableStateOf(false) }
+    /** Home showing a type's per-category browse (Filters › Sources there lists both types). */
+    var homeCategories by rememberSaveable { mutableStateOf<HomeTab?>(null) }
     /** Sports' "Find channel": a Live TV search handed to the Search tab once. */
     var searchFor by remember { mutableStateOf<String?>(null) }
     var contentFocused by remember { mutableStateOf(false) }
@@ -333,12 +350,12 @@ fun HomeScreen(
                 for (t in SectionTabs) {
                     SectionChip(
                         label = t.title,
-                        selected = t == current,
-                        // Home shows movies and series: both lightly filled there (owner 2026-11-03).
-                        included = current == HomeTab.DISCOVER && t != HomeTab.PEOPLE,
+                        // Home shows movies and series: both on there (owner 2026-11-03), the
+                        // same light fill as a section chosen (owner 2026-11-13: no other colour).
+                        on = sectionOn(current, t),
                         onClick = {
                             pendingSwitch[0]?.cancel()
-                            val next = if (t == current) HomeTab.DISCOVER else t
+                            val next = nextSection(current, t)
                             // The next screen draws its own chips: focus goes back onto this one.
                             chipFocus = t
                             runCatching { parking.requestFocus() }
@@ -381,7 +398,22 @@ fun HomeScreen(
                         onFindChannel = { q -> searchFor = q; select(HomeTab.SEARCH) },
                         restoreFocus = restorePending,
                     )
-                    HomeTab.DISCOVER -> DiscoverScreen(onOpenMovie = openMovie, onOpenSeries = openSeries, onOpenSearch = { select(HomeTab.SEARCH) }, restoreFocus = restorePending, sectionChips = sectionChips)
+                    HomeTab.DISCOVER -> when (homeCategories) {
+                        HomeTab.MOVIES -> {
+                            BackHandler { homeCategories = null }
+                            MoviesScreen(onOpenMovie = openMovie, restoreFocus = restorePending, library = library)
+                        }
+                        HomeTab.SERIES -> {
+                            BackHandler { homeCategories = null }
+                            SeriesScreen(onOpenSeries = openSeries, restoreFocus = restorePending, library = library)
+                        }
+                        else -> DiscoverScreen(
+                            onOpenMovie = openMovie, onOpenSeries = openSeries, onOpenSearch = { select(HomeTab.SEARCH) }, restoreFocus = restorePending,
+                            onOpenCategories = { type -> library = false; homeCategories = tabOfType(type) },
+                            onOpenMyLibrary = { type -> library = true; homeCategories = tabOfType(type) },
+                            sectionChips = sectionChips,
+                        )
+                    }
                     HomeTab.LIVE -> LiveScreen(onPlay = onPlay, restoreFocus = restorePending)
                     HomeTab.PEOPLE -> com.portalcast.tv.ui.people.PeopleScreen(onOpenPerson = onOpenPerson, restoreFocus = restorePending, sectionChips = sectionChips)
                     HomeTab.MY_LIST -> com.portalcast.tv.ui.mylist.MyListScreen(onOpenMovie = openMovie, onOpenSeries = openSeries, restoreFocus = restorePending, onPlay = onPlay)
@@ -393,8 +425,8 @@ fun HomeScreen(
                     } else {
                         DiscoverScreen(
                             onOpenMovie = openMovie, onOpenSeries = openSeries, restoreFocus = restorePending, fixedType = "movie",
-                            onOpenCategories = { library = false; categories = HomeTab.MOVIES },
-                            onOpenMyLibrary = { library = true; categories = HomeTab.MOVIES },
+                            onOpenCategories = { _ -> library = false; categories = HomeTab.MOVIES },
+                            onOpenMyLibrary = { _ -> library = true; categories = HomeTab.MOVIES },
                             sectionChips = sectionChips,
                         )
                     }
@@ -404,8 +436,8 @@ fun HomeScreen(
                     } else {
                         DiscoverScreen(
                             onOpenMovie = openMovie, onOpenSeries = openSeries, restoreFocus = restorePending, fixedType = "series",
-                            onOpenCategories = { library = false; categories = HomeTab.SERIES },
-                            onOpenMyLibrary = { library = true; categories = HomeTab.SERIES },
+                            onOpenCategories = { _ -> library = false; categories = HomeTab.SERIES },
+                            onOpenMyLibrary = { _ -> library = true; categories = HomeTab.SERIES },
                             sectionChips = sectionChips,
                         )
                     }
@@ -466,12 +498,16 @@ private fun TopTab(
     }
 }
 
+/** The Movies or Series section for a type ("movie" / "series"). */
+private fun tabOfType(type: String): HomeTab = if (type == "series") HomeTab.SERIES else HomeTab.MOVIES
+
 /**
- * A chip of Home's sections row: filled white when chosen, lightly filled when Home includes it
- * ([included]: Movies and Series on Home, as on the web), outlined otherwise; the focus ring.
+ * A chip of Home's sections row: lightly filled when [on] (Movies and Series on Home, or the
+ * section open; owner 2026-11-13: that light grey, not a white or blue fill), outlined otherwise;
+ * the focus ring. The same on the web (SectionChips.tsx).
  */
 @Composable
-private fun SectionChip(label: String, selected: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier, included: Boolean = false) {
+private fun SectionChip(label: String, on: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier) {
     val shape = RoundedCornerShape(50)
     Surface(
         onClick = onClick,
@@ -479,14 +515,14 @@ private fun SectionChip(label: String, selected: Boolean, onClick: () -> Unit, m
         shape = ClickableSurfaceDefaults.shape(shape = shape),
         scale = ClickableSurfaceDefaults.scale(focusedScale = 1.05f),
         border = ClickableSurfaceDefaults.border(
-            border = Border(BorderStroke(1.dp, if (selected) Color.Transparent else Color.White.copy(alpha = if (included) 0.4f else 0.25f)), shape = shape),
+            border = Border(BorderStroke(1.dp, Color.White.copy(alpha = if (on) 0.4f else 0.25f)), shape = shape),
             focusedBorder = Border(BorderStroke(2.dp, AppColors.Focus), shape = shape),
         ),
         colors = ClickableSurfaceDefaults.colors(
-            containerColor = if (selected) Color.White else if (included) Color.White.copy(alpha = 0.15f) else Color.Transparent,
-            contentColor = if (selected) AppColors.Background else AppColors.Text,
-            focusedContainerColor = if (selected) Color.White else Color.White.copy(alpha = if (included) 0.24f else 0.12f),
-            focusedContentColor = if (selected) AppColors.Background else AppColors.Text,
+            containerColor = if (on) Color.White.copy(alpha = 0.15f) else Color.Transparent,
+            contentColor = AppColors.Text,
+            focusedContainerColor = Color.White.copy(alpha = if (on) 0.24f else 0.12f),
+            focusedContentColor = AppColors.Text,
         ),
     ) {
         Text(label, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(horizontal = 18.dp, vertical = 7.dp))
