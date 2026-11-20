@@ -70,7 +70,7 @@ import com.portalcast.tv.ui.theme.AppColors
  * screen before navigating here), playback state from [PlayerViewModel].
  *
  * D-pad: Center/Enter = play/pause; Left/Right = ±10 s (±30 s on a held key) for
- * VOD; Up/Down = previous/next channel in the live playlist (2 s debounce);
+ * VOD; Up/Down = previous/next channel in the live playlist (800 ms debounce);
  * Info/Menu toggles the overlay; Back flushes progress and pops.
  *
  * VOD, Jellyfin-style: Up or Down brings up the control row under the progress bar

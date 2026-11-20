@@ -50,7 +50,7 @@ data class PlayerUiState(
     val overlayVisible: Boolean = true,
     /** A 429 was seen by the load policy and ExoPlayer is backing off. */
     val rateLimited: Boolean = false,
-    /** Live: the channel picked with up/down that will load once the 2 s debounce elapses. */
+    /** Live: the channel picked with up/down that will load once the 800 ms debounce elapses. */
     val pendingChannel: Channel? = null,
     /** Episode: ≤ 5 min remain and there is a next episode. */
     val showNextEpisode: Boolean = false,
@@ -1010,7 +1010,12 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
             return (speed * sinceLastMs.coerceIn(0L, 250L)).toLong()
         }
         const val OVERLAY_HIDE_MS = 4_000L
-        const val CHANNEL_SWITCH_DEBOUNCE_MS = 2_000L
+        /**
+         * Up/down tunes this long after the last press (a held key skips the channels between).
+         * Each channel that settles opens a stream on the provider, so flipping at a normal pace
+         * must not open every one on the way. The web app waits as long (useAppNavigation.ts).
+         */
+        const val CHANNEL_SWITCH_DEBOUNCE_MS = 800L
         /**
          * How long before the end the "Next episode" button shows: the last 5% of the episode,
          * kept between 30 s and 90 s (22-min sitcom ~66 s, 45-min drama 90 s). Was a flat 5 min,

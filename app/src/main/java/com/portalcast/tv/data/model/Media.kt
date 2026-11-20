@@ -32,6 +32,8 @@ data class MediaItem(
     /** Season number on an episode (what movie-link's `series` param wants). */
     @SerialName("series_number") val seriesNumber: LenientInt? = null,
     @SerialName("episode_num") val episodeNum: LenientInt? = null,
+    /** A season's number: the provider's, or the server's when it merged a show listed in parts. */
+    @SerialName("season_number") val seasonNumber: LenientInt? = null,
     /** DO NOT PLAY. Untokenized, may contain upstream credentials. */
     val cmd: String? = null,
     val number: LenientInt? = null,

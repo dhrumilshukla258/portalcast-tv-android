@@ -54,6 +54,9 @@ class SeriesRepositoryTest {
         assertEquals(listOf("sea1", "sea2"), seasons.map { it.id })
         assertEquals(true, seasons[1].isSeason)
         assertEquals(2, seasons[1].number)
+        // season_number comes as a string from Stalker portals.
+        assertEquals(2, seasons[1].seasonNumber)
+        assertEquals(null, seasons[0].seasonNumber)
         val requests = stack.routes.requests("GET", "/api/v2/series")
         assertEquals(listOf("3", "*"), requests.map { it.query("category") })
         assertTrue(requests.all { it.query("movieId") == "77" && it.query("seasonId") == null && it.query("page") == null })

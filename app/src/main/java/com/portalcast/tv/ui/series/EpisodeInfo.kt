@@ -16,6 +16,9 @@ object EpisodeInfo {
     private val LEADING_EPISODE = Regex("""^\s*(?:episode|ep\.?|e)\s*(\d{1,4})\s*(?:[.:\-–—)]\s*)?""", RegexOption.IGNORE_CASE)
     private val LEADING_NUMBER = Regex("""^\s*(\d{1,4})\s*[.:\-–—)]\s+""")
     private val SEASON_IN_NAME = Regex("""\bseason\s*(\d{1,3})\b""", RegexOption.IGNORE_CASE)
+    private val SEASON_SHORT = Regex("""\bS(\d{1,2})(?:E\d{1,3})?\b""", RegexOption.IGNORE_CASE)
+    // What is left of "Episode 15. Two and a Half Men: Season 12" once the show's name is gone.
+    private val SEASON_ONLY = Regex("""^(?:season|s)\s*\d{1,3}$""", RegexOption.IGNORE_CASE)
     // Daily soaps carry the air date in the name: "2026-05-26 - Title", "25-07-2026 : Ep. 1294 - Title".
     private val ISO_DATE = Regex("""^\s*((?:19|20)\d{2})-(\d{1,2})-(\d{1,2})\s*(?:[.:\-–—|]\s*)?""")
     private val DMY_DATE = Regex("""^\s*(\d{1,2})[-./](\d{1,2})[-./]((?:19|20)\d{2})\s*(?:[.:\-–—|]\s*)?""")
@@ -92,23 +95,32 @@ object EpisodeInfo {
             .trim()
             .trimStart('-', '–', '—', ':', '.', '|', ' ')
         val isShowName = seriesTitle != null && stripped.equals(seriesTitle.trim(), ignoreCase = true)
-        return if (stripped.isEmpty() || isShowName) "Episode ${number(ep, fallbackIndex)}" else stripped
+        // A name that leaves only its season ("Season 12") has no title of its own either.
+        return if (stripped.isEmpty() || isShowName || SEASON_ONLY.matches(stripped)) "Episode ${number(ep, fallbackIndex)}" else stripped
     }
 
     /** Episodes in ascending episode order (stable for equal numbers). */
     fun sortEpisodes(episodes: List<MediaItem>): List<MediaItem> =
         episodes.withIndex().sortedWith(compareBy({ number(it.value, it.index) }, { it.index })).map { it.value }
 
-    /** Season number: `number`, else "Season N" in the name, else the first number in the name, else position. */
+    /**
+     * Season number, as the server means it: `season_number` (the provider's, or the one the
+     * server works out when it merges a show listed in parts: "Season 1. Mylanchi S07" is
+     * season 7), else `number`, else "Season 7" or "S07" in the name, else its place in the list.
+     * Never the first number in the name: "24", "9-1-1", "The 100" and "1883" are show names.
+     * The same order as the web app (src/utils/seasonNumber.ts).
+     */
     fun seasonNumber(season: MediaItem, index: Int): Int {
+        season.seasonNumber?.takeIf { it in 0..999 }?.let { return it }
         season.number?.takeIf { it > 0 }?.let { return it }
         SEASON_IN_NAME.find(season.displayTitle)?.groupValues?.get(1)?.toIntOrNull()?.let { return it }
-        Regex("""(\d+)""").find(season.displayTitle)?.value?.toIntOrNull()?.let { return it }
+        SEASON_SHORT.find(season.displayTitle)?.groupValues?.get(1)?.toIntOrNull()?.let { return it }
         return index + 1
     }
 
-    /** "Season 5" for tabs (portals send "Season 5. Kim's Convenience : Season 05"). */
-    fun seasonLabel(season: MediaItem, index: Int): String = "Season ${seasonNumber(season, index)}"
+    /** "Season 5" for tabs (portals send "Season 5. Kim's Convenience : Season 05"); season 0 is "Specials". */
+    fun seasonLabel(season: MediaItem, index: Int): String =
+        seasonNumber(season, index).let { if (it == 0) "Specials" else "Season $it" }
 
     /** Seasons in ascending order. */
     fun sortSeasons(seasons: List<MediaItem>): List<MediaItem> =

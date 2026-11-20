@@ -95,7 +95,7 @@ Session gate: `AppNavHost` observes `AuthRepository.session`; no session → `se
 
 ### What each tab shows (modelled on the webui)
 - **Discover**: Continue Watching row (progress rows), "Because you watched X", "What's new" (browse page 1 unfiltered), then the top 10 genre rows loaded lazily with at most 2 concurrent fetches. A filter bar (Movies/Series, genre, country, language) opens as an overlay. Items open MovieDetail/SeriesDetail after resolving via the contract's open-item rule.
-- **Live**: left column = groups (Recent, Favourites, All, then server groups); right = channel grid with logo, number, now-playing from EPG and a progress bar for the current programme. Enter plays. In the player, channel up/down switches with a 2 s debounce and shows a now/next overlay.
+- **Live**: left column = groups (Recent, Favourites, All, then server groups); right = channel grid with logo, number, now-playing from EPG and a progress bar for the current programme. Enter plays. In the player, channel up/down switches 800 ms after the last press (as the web app) and shows a now/next overlay.
 - **Movies**: category rail (All first) + poster grid paged 14 at a time, infinite scroll, sort toggle (Latest / A–Z), search via on-screen keyboard. Enter → MovieDetail.
 - **Series**: same as Movies; Enter → SeriesDetail with seasons as tabs and episodes as a vertical list.
 

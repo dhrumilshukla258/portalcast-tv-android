@@ -170,7 +170,7 @@ treat 403 on these four routes as "cold".)
   envelope, `data` = series list items (`id: string, series_id: number, name,
   screenshot_uri, cover (DO NOT USE), description, actors, genres_str, is_series: 1`).
 - Seasons: `GET /api/v2/series?movieId=<seriesId>&category=<category_id or *>`
-  → `data` = seasons `{ id, name: "Season N", number?, is_season: 1, screenshot_uri? }`.
+  → `data` = seasons `{ id, name: "Season N", number?, season_number?, is_season: 1, screenshot_uri? }`; `season_number` (string or number) is the provider's, or the server's when it merged a show listed in parts, and is the season shown.
   **`data[0]` is a season, not the series.** `category` is required; fall back to `*`.
 - Episodes: `GET /api/v2/series?movieId=<seriesId>&seasonId=<seasonId>&page=<n>&pageAtaTime=1&category=<category_id or *>`
   → `data` = episodes `{ id, name, series_number (season), episode_num, time (minutes),

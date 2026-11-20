@@ -38,6 +38,27 @@ class EpisodeInfoTest {
         assertEquals(listOf("s1", "s2", "s3", "s4", "s5"), sorted.map { it.id })
         assertEquals("Season 5", EpisodeInfo.seasonLabel(seasons[0], 0))
     }
+
+    @Test fun `season numbers follow the server, never a number in the show's name`() {
+        // The server's season_number wins over the name ("Mylanchi S07" filed as season 1).
+        assertEquals(7, EpisodeInfo.seasonNumber(MediaItem(id = "a", name = "Season 1. Mylanchi S07", seasonNumber = 7), 0))
+        assertEquals("Specials", EpisodeInfo.seasonLabel(MediaItem(id = "b", name = "Specials", seasonNumber = 0), 3))
+        // A number in the show's name is not its season: its place in the list.
+        assertEquals(3, EpisodeInfo.seasonNumber(MediaItem(id = "c", name = "24"), 2))
+        assertEquals(1, EpisodeInfo.seasonNumber(MediaItem(id = "d", name = "9-1-1"), 0))
+        assertEquals(2, EpisodeInfo.seasonNumber(MediaItem(id = "e", name = "The 100"), 1))
+        // "Season 2" or "S07" in the name when the server sends no number.
+        assertEquals(2, EpisodeInfo.seasonNumber(MediaItem(id = "f", name = "Lost: Season 2"), 0))
+        assertEquals(7, EpisodeInfo.seasonNumber(MediaItem(id = "g", name = "Mylanchi S07"), 4))
+        // Roadies: the provider lists seasons 21 down to 13, then 1; they keep their numbers.
+        val roadies = listOf(21, 20, 13, 1).map { MediaItem(id = "r$it", name = "Season $it. Roadies", seasonNumber = it) }
+        assertEquals(listOf(1, 13, 20, 21), EpisodeInfo.sortSeasons(roadies).mapIndexed { i, s -> EpisodeInfo.seasonNumber(s, i) })
+    }
+
+    @Test fun `an episode named only after its show and season has no title of its own`() {
+        assertEquals("Episode 15", EpisodeInfo.title(ep("Episode 15. Two and a Half Men: Season 12"), 14, "Two and a Half Men"))
+        assertEquals("Season Finale", EpisodeInfo.title(ep("Episode 4. Season Finale"), 3, "Lost"))
+    }
     @Test
     fun `air dates move out of the title`() {
         val kamali = MediaItem(id = "1", name = "2026-05-26 - Kamini Secretly Plots")
